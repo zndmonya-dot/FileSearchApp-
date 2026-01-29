@@ -76,12 +76,20 @@ dotnet run --project src\FullTextSearch.App
 ```
 FullTextSearch/
 ├── src/
-│   ├── FullTextSearch.App/           # WPFアプリケーション
-│   ├── FullTextSearch.Core/          # コアロジック（インターフェース、モデル）
-│   └── FullTextSearch.Infrastructure/ # インフラ実装（Lucene、プレビュー）
+│   ├── FileSearch.Blazor/            # Blazor Hybrid (MAUI) アプリ（推奨UI）
+│   ├── FullTextSearch.App/            # WPFアプリケーション
+│   ├── FullTextSearch.Core/           # コアロジック（インターフェース、モデル）
+│   └── FullTextSearch.Infrastructure/  # インフラ実装（Lucene、プレビュー）
 └── tests/
-    └── FullTextSearch.Tests/         # ユニットテスト
+    └── FullTextSearch.Tests/          # ユニットテスト
 ```
+
+### Blazor MAUI の実行・インストーラ
+
+- **実行**: `dotnet run --project src\FileSearch.Blazor`
+- **Release ビルド**: `dotnet build FullTextSearch.sln -c Release`  
+  → Windows の MSIX パッケージは `src\FileSearch.Blazor\bin\Release\...\*.msix` に出力されます。
+- **インストーラを Git で管理する場合**: ビルド後に `installers/` フォルダを作成し、そこに `.msix` をコピーしてコミットできます（ルートの `.gitignore` では `installers/` は無視していません）。
 
 ## 使用ライブラリ
 
