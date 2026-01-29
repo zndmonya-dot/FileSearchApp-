@@ -1,0 +1,79 @@
+<UserControl x:Class="FullTextSearch.App.Controls.PreviewHost"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             mc:Ignorable="d" 
+             d:DesignHeight="450" d:DesignWidth="800">
+    
+    <Grid>
+        <!-- プレビューホスト領域（Office/PDF用） -->
+        <Border x:Name="PreviewContainer"
+                Background="{DynamicResource MaterialDesignPaper}"
+                Visibility="Collapsed" />
+        
+        <!-- テキストプレビュー領域 -->
+        <Border x:Name="TextPreviewContainer"
+                Background="#1E1E1E"
+                Visibility="Collapsed">
+            <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Auto">
+                <TextBox x:Name="TextPreviewBox"
+                         IsReadOnly="True"
+                         Background="Transparent"
+                         Foreground="#D4D4D4"
+                         BorderThickness="0"
+                         FontFamily="Consolas, 'MS Gothic', monospace"
+                         FontSize="13"
+                         Padding="16"
+                         TextWrapping="NoWrap"
+                         AcceptsReturn="True"
+                         VerticalScrollBarVisibility="Disabled"
+                         HorizontalScrollBarVisibility="Disabled" />
+            </ScrollViewer>
+        </Border>
+        
+        <!-- プレビュー不可時のメッセージ -->
+        <StackPanel x:Name="NoPreviewPanel"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Center"
+                    Visibility="Collapsed">
+            <materialDesign:PackIcon Kind="FileQuestion"
+                                     Width="48" Height="48"
+                                     HorizontalAlignment="Center"
+                                     Foreground="#666" />
+            <TextBlock x:Name="NoPreviewMessage"
+                       Text="プレビューを表示できません"
+                       HorizontalAlignment="Center"
+                       Margin="0,12,0,0"
+                       Foreground="#666" />
+        </StackPanel>
+        
+        <!-- ファイル未選択時のメッセージ -->
+        <StackPanel x:Name="NoFilePanel"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Center"
+                    Visibility="Visible">
+            <materialDesign:PackIcon Kind="FileSearch"
+                                     Width="48" Height="48"
+                                     HorizontalAlignment="Center"
+                                     Foreground="#666" />
+            <TextBlock Text="ファイルを選択してプレビュー"
+                       HorizontalAlignment="Center"
+                       Margin="0,12,0,0"
+                       Foreground="#666"
+                       FontSize="13" />
+        </StackPanel>
+        
+        <!-- ローディング -->
+        <ProgressBar x:Name="LoadingIndicator"
+                     Style="{StaticResource MaterialDesignCircularProgressBar}"
+                     IsIndeterminate="True"
+                     Visibility="Collapsed"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Center"
+                     Width="32" Height="32" />
+    </Grid>
+</UserControl>
+

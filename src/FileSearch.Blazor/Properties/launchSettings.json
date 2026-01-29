@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "Windows Machine": {
+      "commandName": "MsixPackage",
+      "nativeDebugging": false
+    },
+    "既定": {
+      "commandName": "Project",
+      "nativeDebugging": false
+    }
+  }
+}

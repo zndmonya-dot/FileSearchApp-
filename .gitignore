@@ -1,0 +1,50 @@
+# Build
+bin/
+obj/
+[Bb]uild/
+[Oo]ut/
+
+# IDE
+.vs/
+*.user
+*.suo
+*.userprefs
+*.rsuser
+.idea/
+*.sln.docstates
+
+# NuGet
+*.nupkg
+*.snupkg
+**/packages/
+project.lock.json
+*.lock.json
+
+# Test / Coverage
+[Tt]est[Rr]esult*/
+[Cc]overage/
+*.trx
+*.coverage
+*.coveragexml
+
+# Crash / logs
+*.dmp
+*.wer
+*.log
+[Dd]ebug/
+[Rr]elease/
+
+# MAUI / Windows
+*.appx
+*.msix
+*.appxbundle
+*.msixbundle
+# インストーラ用フォルダはコミット可（必要ならここに配置）
+# installers/
+
+# Certificates (秘密鍵)
+*.pfx
+
+# OS
+.DS_Store
+Thumbs.db

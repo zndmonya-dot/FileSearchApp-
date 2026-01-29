@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>全文検索システム</title>
+    <base href="/" />
+    <script>
+        var link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'css/app.css?v=' + new Date().getTime();
+        document.head.appendChild(link);
+    </script>
+    <!-- Highlight.js for syntax highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <style>
+        #blazor-error-ui {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 16px;
+            background: #ff5252;
+            color: white;
+            text-align: center;
+        }
+        #blazor-error-ui.visible { display: block; }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#666;">
+            <div style="text-align:center;">
+                <div style="width:40px;height:40px;border:3px solid #e0e0e0;border-top-color:#2563eb;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto;"></div>
+                <p style="margin-top:16px;">読み込み中...</p>
+            </div>
+        </div>
+        <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+    </div>
+
+    <div id="blazor-error-ui">
+        エラーが発生しました。<a href="" style="color:white;margin-left:8px;">再読み込み</a>
+    </div>
+
+    <script src="_framework/blazor.webview.js"></script>
+    <script>
+        // シンタックスハイライト用のヘルパー関数
+        window.highlightCode = function(code, language) {
+            if (!language || language === 'text' || language === 'plaintext') {
+                return code;
+            }
+            try {
+                if (hljs.getLanguage(language)) {
+                    return hljs.highlight(code, { language: language }).value;
+                } else {
+                    return hljs.highlightAuto(code).value;
+                }
+            } catch (e) {
+                return code;
+            }
+        };
+        
+        window.applyHighlighting = function() {
+            document.querySelectorAll('pre code:not(.hljs)').forEach((block) => {
+                hljs.highlightElement(block);
+            });
+        };
+    </script>
+</body>
+</html>
