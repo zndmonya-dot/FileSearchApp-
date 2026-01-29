@@ -34,13 +34,12 @@ project.lock.json
 [Dd]ebug/
 [Rr]elease/
 
-# MAUI / Windows
+# MAUI / Windows（ビルド出力は無視、installers/ はコミット可）
 *.appx
 *.msix
 *.appxbundle
 *.msixbundle
-# インストーラ用フォルダはコミット可（必要ならここに配置）
-# installers/
+!installers/*.msix
 
 # Certificates (秘密鍵)
 *.pfx
