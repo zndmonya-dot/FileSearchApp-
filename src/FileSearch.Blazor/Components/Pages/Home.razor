@@ -4,6 +4,7 @@
 @using FullTextSearch.Core.Models
 @using FullTextSearch.Core.Extractors
 @using FullTextSearch.Infrastructure.Settings
+@using FileSearch.Blazor.Components.Shared
 @using Microsoft.Extensions.Logging
 @inject ISearchService SearchService
 @inject IIndexService IndexService
@@ -56,7 +57,7 @@
             <!-- ファイル検索 -->
             <div class="sidebar-search">
                 <svg viewBox="0 0 16 16" fill="currentColor"><path d="M10.68 11.74a6 6 0 0 1-7.922-8.982 6 6 0 0 1 8.982 7.922l3.04 3.04a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215ZM11.5 7a4.499 4.499 0 1 0-8.997 0A4.499 4.499 0 0 0 11.5 7Z"/></svg>
-                <input type="text" placeholder="キーワードで検索..." @bind="searchQuery" @bind:event="oninput" @onkeydown="HandleKeyDown" disabled="@isIndexing" />
+                <input type="text" placeholder="キーワードで検索..." @bind="searchQuery" @bind:event="oninput" @bind:after="OnSearchInputChanged" @onkeydown="HandleKeyDown" disabled="@isIndexing" />
             </div>
             @if (isIndexing)
             {
@@ -87,7 +88,11 @@
                 }
                 else
                 {
-                    @foreach (var node in treeNodes) { @RenderTreeNode(node, 0) }
+                    <SearchResultTree Nodes="treeNodes"
+                                     SelectedFilePath="selectedFile?.FilePath"
+                                     OnToggleNode="ToggleNode"
+                                     OnSelectFile="SelectFile"
+                                     GetFileIconClass="GetFileIconClass" />
                 }
             </div>
 
@@ -128,7 +133,7 @@
                                 <span class="footer-primary">@indexCount.ToString("N0") 件登録済み</span>
                                 <span class="footer-secondary">@GetLastUpdateText() に更新</span>
                             </div>
-                            <button class="footer-action" @onclick="RebuildIndex" title="インデックス再構築">
+                            <button class="footer-action" @onclick="UpdateIndex" title="インデックス更新（追加・変更・削除を反映）">
                                 <svg viewBox="0 0 16 16" fill="currentColor"><path d="M1.705 8.005a.75.75 0 0 1 .834.656 5.5 5.5 0 0 0 9.592 2.97l-1.204-1.204a.25.25 0 0 1 .177-.427h3.646a.25.25 0 0 1 .25.25v3.646a.25.25 0 0 1-.427.177l-1.38-1.38A7.002 7.002 0 0 1 1.05 8.84a.75.75 0 0 1 .656-.834ZM8 2.5a5.487 5.487 0 0 0-4.131 1.869l1.204 1.204A.25.25 0 0 1 4.896 6H1.25A.25.25 0 0 1 1 5.75V2.104a.25.25 0 0 1 .427-.177l1.38 1.38A7.002 7.002 0 0 1 14.95 7.16a.75.75 0 0 1-1.49.178A5.5 5.5 0 0 0 8 2.5Z"/></svg>
                             </button>
                         </div>
@@ -295,162 +300,19 @@
         </main>
     </div>
 
-    @if (showSettings)
-    {
-        <div class="modal-backdrop" @onclick="CloseSettings">
-        <div class="settings-dialog" @onclick:stopPropagation="true">
-            <div class="settings-header">
-                <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8.2 8.2 0 0 1 .701.031C9.444.095 9.99.645 10.16 1.29l.288 1.107c.018.066.079.158.212.224.231.114.454.243.668.386.123.082.233.09.299.071l1.103-.303c.644-.176 1.392.021 1.82.63.27.385.506.792.704 1.218.315.675.111 1.422-.364 1.891l-.814.806c-.049.048-.098.147-.088.294.016.257.016.515 0 .772-.01.147.039.246.088.294l.814.806c.475.469.679 1.216.364 1.891a7.977 7.977 0 0 1-.704 1.217c-.428.61-1.176.807-1.82.63l-1.102-.302c-.067-.019-.177-.011-.3.071a5.909 5.909 0 0 1-.668.386c-.133.066-.194.158-.211.224l-.29 1.106c-.168.646-.715 1.196-1.458 1.26a8.006 8.006 0 0 1-1.402 0c-.743-.064-1.289-.614-1.458-1.26l-.289-1.106c-.018-.066-.079-.158-.212-.224a5.738 5.738 0 0 1-.668-.386c-.123-.082-.233-.09-.299-.071l-1.103.303c-.644.176-1.392-.021-1.82-.63a8.12 8.12 0 0 1-.704-1.218c-.315-.675-.111-1.422.363-1.891l.815-.806c.049-.048.098-.147.088-.294a6.214 6.214 0 0 1 0-.772c.01-.147-.039-.246-.088-.294l-.815-.806C.635 6.045.431 5.298.746 4.623a7.92 7.92 0 0 1 .704-1.217c.428-.61 1.176-.807 1.82-.63l1.102.302c.067.019.177.011.3-.071.214-.143.437-.272.668-.386.133-.066.194-.158.211-.224l.29-1.106C6.009.645 6.556.095 7.299.03 7.53.01 7.764 0 8 0Zm-.571 1.525c-.036.003-.108.036-.137.146l-.289 1.105c-.147.561-.549.967-.998 1.189-.173.086-.34.183-.5.29-.417.278-.97.423-1.529.27l-1.103-.303c-.109-.03-.175.016-.195.045-.22.312-.412.644-.573.99-.014.031-.021.11.059.19l.815.806c.411.406.562.957.53 1.456a4.709 4.709 0 0 0 0 .582c.032.499-.119 1.05-.53 1.456l-.815.806c-.081.08-.073.159-.059.19.162.346.353.677.573.989.02.03.085.076.195.046l1.102-.303c.56-.153 1.113-.008 1.53.27.161.107.328.204.501.29.447.222.85.629.997 1.189l.289 1.105c.029.109.101.143.137.146a6.6 6.6 0 0 0 1.142 0c.036-.003.108-.036.137-.146l.289-1.105c.147-.561.549-.967.998-1.189.173-.086.34-.183.5-.29.417-.278.97-.423 1.529-.27l1.103.303c.109.029.175-.016.195-.045.22-.313.411-.644.573-.99.014-.031.021-.11-.059-.19l-.815-.806c-.411-.406-.562-.957-.53-1.456a4.709 4.709 0 0 0 0-.582c-.032-.499.119-1.05.53-1.456l-.815-.806c.081-.08.073-.159.059-.19a6.464 6.464 0 0 0-.573-.989c-.02-.03-.085-.076-.195-.046l-1.102.303c-.56.153-1.113.008-1.53-.27a4.44 4.44 0 0 0-.501-.29c-.447-.222-.85-.629-.997-1.189l-.289-1.105c-.029-.11-.101-.143-.137-.146a6.6 6.6 0 0 0-1.142 0ZM11 8a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM9.5 8a1.5 1.5 0 1 0-3.001.001A1.5 1.5 0 0 0 9.5 8Z"/></svg>
-                <h2>設定</h2>
-                <button class="settings-close" @onclick="CloseSettings">
-                    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l3.22 3.22a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-3.22 3.22a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/></svg>
-                </button>
-            </div>
-            
-            <div class="settings-body">
-                <div class="settings-section">
-                    <h3>検索対象フォルダ</h3>
-                    <p class="settings-desc">インデックス作成対象のフォルダを指定します</p>
-                    <div class="settings-folders">
-                        @foreach (var folder in editTargetFolders)
-                        {
-                            <div class="settings-folder-item">
-                                <svg viewBox="0 0 16 16" fill="currentColor"><path d="M1.75 1A1.75 1.75 0 0 0 0 2.75v10.5C0 14.216.784 15 1.75 15h12.5A1.75 1.75 0 0 0 16 13.25v-8.5A1.75 1.75 0 0 0 14.25 3H7.5a.25.25 0 0 1-.2-.1l-.9-1.2C6.07 1.26 5.55 1 5 1H1.75Z"/></svg>
-                                <span class="folder-path" title="@folder">@folder</span>
-                                <button class="folder-remove" @onclick="() => RemoveFolder(folder)">
-                                    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l3.22 3.22a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-3.22 3.22a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/></svg>
-                                </button>
-                            </div>
-                        }
-                    </div>
-                    <div class="settings-input-row">
-                        <input class="settings-input" @bind="newFolderPath" placeholder="C:\Users\..." />
-                        <button class="settings-btn-add" @onclick="AddFolder">追加</button>
-                    </div>
-                </div>
-
-                <div class="settings-section">
-                    <h3>対象拡張子</h3>
-                    <p class="settings-desc">インデックスする拡張子。空なら抽出器の対応拡張子を使用。同じものは追加できません。</p>
-                    <div class="settings-chips">
-                        @foreach (var ext in editTargetExtensions)
-                        {
-                            <span class="settings-chip">
-                                @ext
-                                <button type="button" class="settings-chip-remove" @onclick="() => RemoveTargetExtension(ext)" aria-label="削除">×</button>
-                            </span>
-                        }
-                    </div>
-                    <div class="settings-input-row">
-                        <input class="settings-input" @bind="newTargetExtension" @oninput="() => settingsExtensionMessage = null" placeholder="例: .txt" />
-                        <button class="settings-btn-add" type="button" @onclick="AddTargetExtension">追加</button>
-                    </div>
-                    @if (!string.IsNullOrEmpty(settingsExtensionMessage))
-                    {
-                        <p class="settings-msg settings-msg-warn">@settingsExtensionMessage</p>
-                    }
-                </div>
-
-                <div class="settings-section">
-                    <h3>インデックス保存先</h3>
-                    <p class="settings-desc">変更後はインデックスの再構築が必要です</p>
-                    <input class="settings-input full" @bind="editIndexPath" />
-                </div>
-
-                <div class="settings-section">
-                    <div class="settings-desc" style="margin-bottom: 8px;">検索で返す結果の上限です。一致した総数ではなく、表示する最大件数です。</div>
-                    <div class="settings-grid">
-                        <div class="settings-field">
-                            <label>検索結果の上限（件）</label>
-                            <select class="settings-select" @bind="editMaxResults">
-                                <option value="500">500</option>
-                                <option value="1000">1,000</option>
-                                <option value="5000">5,000</option>
-                                <option value="10000">10,000</option>
-                                <option value="50000">50,000</option>
-                                <option value="100000">100,000</option>
-                            </select>
-                        </div>
-                        <div class="settings-field">
-                            <label>インデックス済み</label>
-                            <div class="settings-stat">@indexCount ファイル</div>
-                        </div>
-                    </div>
-                    <div class="settings-grid" style="margin-top: 12px;">
-                        <div class="settings-field">
-                            <label>最終更新</label>
-                            <div class="settings-stat">@(SettingsService.Settings.LastIndexUpdate.HasValue ? SettingsService.Settings.LastIndexUpdate.Value.ToString("yyyy/MM/dd HH:mm:ss") : "未実行")</div>
-                        </div>
-                        <div class="settings-field">
-                            <label>定期再構築</label>
-                            <select class="settings-select" @bind="editAutoRebuildIntervalMinutes">
-                                <option value="0">無効</option>
-                                <option value="30">30分</option>
-                                <option value="60">1時間</option>
-                                <option value="120">2時間</option>
-                                <option value="360">6時間</option>
-                                <option value="1440">24時間</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="settings-footer">
-                <button class="settings-btn-cancel" @onclick="CloseSettings">キャンセル</button>
-                <button class="settings-btn-save" @onclick="SaveSettings">保存</button>
-            </div>
-        </div>
-        </div>
-    }
+    <SettingsModal Visible="showSettings"
+                   State="_settingsEdit"
+                   IndexCount="indexCount"
+                   LastIndexUpdate="SettingsService.Settings.LastIndexUpdate"
+                   OnCloseRequested="CloseSettings"
+                   OnSaveRequested="SaveSettings"
+                   OnAddFolder="HandleAddFolder"
+                   OnRemoveFolder="RemoveFolder"
+                   OnAddTargetExtension="HandleAddTargetExtension"
+                   OnRemoveTargetExtension="RemoveTargetExtension" />
 </div>
 
 @if (isResizing)
 {
     <div class="resize-overlay" @onmousemove="OnResize" @onmouseup="StopResize" @onmouseleave="StopResize"></div>
-}
-
-@code {
-    private RenderFragment RenderTreeNode(TreeNode node, int depth) => __builder =>
-    {
-        var indent = depth * 16;
-        if (node.IsFolder)
-        {
-            <div class="tree-node folder @(node.IsExpanded ? "expanded" : "")">
-                <div class="node-row" style="padding-left: @(8 + indent)px" @onclick="() => ToggleNode(node)">
-                    <span class="node-chevron">
-                        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06Z"/></svg>
-                    </span>
-                    <span class="node-icon folder">
-                        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M1.75 1A1.75 1.75 0 0 0 0 2.75v10.5C0 14.216.784 15 1.75 15h12.5A1.75 1.75 0 0 0 16 13.25v-8.5A1.75 1.75 0 0 0 14.25 3H7.5a.25.25 0 0 1-.2-.1l-.9-1.2C6.07 1.26 5.55 1 5 1H1.75Z"/></svg>
-                    </span>
-                    <span class="node-name">@node.Name</span>
-                    @if (node.FileCount > 0)
-                    {
-                        <span class="node-count">@node.FileCount</span>
-                    }
-                </div>
-                @if (node.IsExpanded && node.Children != null)
-                {
-                    <div class="node-children">
-                        @foreach (var child in node.Children) { @RenderTreeNode(child, depth + 1) }
-                    </div>
-                }
-            </div>
-        }
-        else
-        {
-            <div class="tree-node file @(selectedFile?.FilePath == node.FilePath ? "selected" : "")">
-                <div class="node-row" style="padding-left: @(8 + indent)px" @onclick="() => SelectFile(node)">
-                    <span class="node-chevron hidden">
-                        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06Z"/></svg>
-                    </span>
-                    <span class="node-icon file @GetFileIconClass(node.Name)">
-                        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688l-.011-.013-2.914-2.914-.013-.011Z"/></svg>
-                    </span>
-                    <span class="node-name">@node.Name</span>
-                </div>
-            </div>
-        }
-    };
 }

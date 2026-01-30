@@ -5,6 +5,7 @@ using Lucene.Net.Analysis;
 using Lucene.Net.Analysis.Ja;
 using Lucene.Net.Documents;
 using Lucene.Net.Index;
+using Lucene.Net.Search;
 using Lucene.Net.Store;
 using Lucene.Net.Util;
 
@@ -16,6 +17,7 @@ namespace FullTextSearch.Infrastructure.Lucene;
 public class LuceneIndexService : IIndexService, IDisposable
 {
     private const LuceneVersion AppLuceneVersion = LuceneVersion.LUCENE_48;
+    private const int ParallelExtractCount = 8;
 
     private readonly TextExtractorFactory _extractorFactory;
     private FSDirectory? _directory;
@@ -114,29 +116,38 @@ public class LuceneIndexService : IIndexService, IDisposable
         }
         var totalFiles = files.Count;
 
-        foreach (var filePath in files)
+        for (var i = 0; i < files.Count; i += ParallelExtractCount)
         {
             cancellationToken.ThrowIfCancellationRequested();
-
+            var chunk = files.Skip(i).Take(ParallelExtractCount).ToList();
+            var tasks = chunk.Select(p => TryGetIndexedDocumentAsync(p, cancellationToken)).ToArray();
+            IndexedDocument?[] docs;
             try
+            {
+                docs = await Task.WhenAll(tasks);
+            }
+            catch
+            {
+                errorCount += chunk.Count;
+                docs = new IndexedDocument?[chunk.Count];
+            }
+            errorCount += docs.Count(d => d == null);
+            foreach (var path in chunk)
             {
                 progress?.Report(new IndexProgress
                 {
                     ProcessedFiles = processedFiles,
                     TotalFiles = totalFiles,
-                    CurrentFile = filePath,
+                    CurrentFile = path,
                     ErrorCount = errorCount
                 });
-
-                await IndexFileAsync(filePath, cancellationToken);
+                processedFiles++;
             }
-            catch (Exception)
+            foreach (var doc in docs)
             {
-                errorCount++;
-                // エラーをログに記録（後で実装）
+                if (doc != null)
+                    AddDocumentToWriterWithoutCommit(doc);
             }
-
-            processedFiles++;
         }
 
         progress?.Report(new IndexProgress
@@ -181,6 +192,153 @@ public class LuceneIndexService : IIndexService, IDisposable
         }
     }
 
+    public async Task UpdateIndexAsync(IEnumerable<string> folders, IProgress<IndexProgress>? progress = null, IndexRebuildOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        EnsureInitialized();
+        var folderList = folders.ToList();
+        if (folderList.Count == 0) return;
+
+        _currentRebuildOptions = options;
+        try
+        {
+            lock (_lock)
+            {
+                _writer!.Commit();
+            }
+
+            var normalizedFolders = folderList.Select(f => Path.GetFullPath(f.TrimEnd('\\', '/'))).ToList();
+
+            if (!DirectoryReader.IndexExists(_directory!))
+            {
+                await RebuildIndexAsync(folders, progress, options, cancellationToken);
+                return;
+            }
+
+            var indexedMap = GetIndexedPathsAndLastModified(normalizedFolders);
+            var diskFiles = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
+            foreach (var folder in normalizedFolders)
+            {
+                if (!System.IO.Directory.Exists(folder)) continue;
+                foreach (var path in GetTargetFiles(folder))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    try
+                    {
+                        var info = new FileInfo(path);
+                        diskFiles[path] = info.LastWriteTimeUtc.Ticks;
+                    }
+                    catch { /* スキップ */ }
+                }
+            }
+
+            var toDelete = indexedMap.Keys
+                .Where(path => IsPathUnderAnyFolder(path, normalizedFolders) && !diskFiles.ContainsKey(path))
+                .ToList();
+            var toAddOrUpdate = diskFiles.Keys
+                .Where(path => !indexedMap.TryGetValue(path, out var ticks) || ticks != diskFiles[path])
+                .ToList();
+
+            var total = toDelete.Count + toAddOrUpdate.Count;
+            var processed = 0;
+
+            lock (_lock)
+            {
+                foreach (var path in toDelete)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    _writer!.DeleteDocuments(new Term(FieldFilePath, path));
+                    processed++;
+                    progress?.Report(new IndexProgress { ProcessedFiles = processed, TotalFiles = total, CurrentFile = path, ErrorCount = 0 });
+                }
+            }
+
+            // 追加・更新を並列チャンクで処理（IndexFolderAsync と同様）
+            for (var i = 0; i < toAddOrUpdate.Count; i += ParallelExtractCount)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var chunk = toAddOrUpdate.Skip(i).Take(ParallelExtractCount).ToList();
+                IndexedDocument?[] docs;
+                try
+                {
+                    var tasks = chunk.Select(p => TryGetIndexedDocumentAsync(p, cancellationToken)).ToArray();
+                    docs = await Task.WhenAll(tasks);
+                }
+                catch
+                {
+                    docs = new IndexedDocument?[chunk.Count];
+                }
+                foreach (var path in chunk)
+                {
+                    processed++;
+                    progress?.Report(new IndexProgress { ProcessedFiles = processed, TotalFiles = total, CurrentFile = path, ErrorCount = 0 });
+                }
+                lock (_lock)
+                {
+                    foreach (var doc in docs)
+                    {
+                        if (doc != null)
+                            AddDocumentToWriterWithoutCommit(doc);
+                    }
+                }
+            }
+
+            progress?.Report(new IndexProgress { ProcessedFiles = processed, TotalFiles = total, CurrentFile = null, ErrorCount = 0 });
+            lock (_lock)
+            {
+                _writer!.Commit();
+            }
+        }
+        finally
+        {
+            _currentRebuildOptions = null;
+        }
+    }
+
+    /// <summary>
+    /// インデックス内のパスと最終更新日時（Ticks）を取得。指定フォルダ配下のみ。
+    /// </summary>
+    private Dictionary<string, long> GetIndexedPathsAndLastModified(List<string> normalizedFolderPaths)
+    {
+        var result = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
+        if (_directory == null) return result;
+
+        DirectoryReader? reader = null;
+        try
+        {
+            reader = DirectoryReader.Open(_directory);
+            var searcher = new IndexSearcher(reader);
+            var topDocs = searcher.Search(new MatchAllDocsQuery(), reader.NumDocs);
+            foreach (var scoreDoc in topDocs.ScoreDocs)
+            {
+                var doc = reader.Document(scoreDoc.Doc);
+                var path = doc.Get(FieldFilePath);
+                var lastModStr = doc.Get(FieldLastModified);
+                if (string.IsNullOrEmpty(path)) continue;
+                if (!IsPathUnderAnyFolder(path, normalizedFolderPaths)) continue;
+                if (long.TryParse(lastModStr, out var ticks))
+                    result[path] = ticks;
+            }
+        }
+        finally
+        {
+            reader?.Dispose();
+        }
+        return result;
+    }
+
+    private static bool IsPathUnderAnyFolder(string filePath, List<string> normalizedFolderPaths)
+    {
+        var full = Path.GetFullPath(filePath);
+        foreach (var folder in normalizedFolderPaths)
+        {
+            if (full.StartsWith(folder + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+                || full.StartsWith(folder + "\\", StringComparison.OrdinalIgnoreCase)
+                || full.Equals(folder, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
+    }
+
     public IndexStats GetStats()
     {
         EnsureInitialized();
@@ -215,18 +373,24 @@ public class LuceneIndexService : IIndexService, IDisposable
 
     private async Task IndexFileAsync(string filePath, CancellationToken cancellationToken)
     {
+        var document = await TryGetIndexedDocumentAsync(filePath, cancellationToken);
+        if (document != null)
+            await IndexDocumentAsync(document, cancellationToken);
+    }
+
+    /// <summary>
+    /// ファイルからインデックス用ドキュメントを取得する。対象外・エラー時は null。
+    /// </summary>
+    private async Task<IndexedDocument?> TryGetIndexedDocumentAsync(string filePath, CancellationToken cancellationToken)
+    {
         var fileInfo = new FileInfo(filePath);
         var extension = fileInfo.Extension.ToLowerInvariant();
         var extractor = _extractorFactory.GetExtractor(extension);
-
         if (extractor == null)
-        {
-            return;
-        }
+            return null;
 
         var content = await extractor.ExtractTextAsync(filePath, cancellationToken);
-
-        var document = new IndexedDocument
+        return new IndexedDocument
         {
             FilePath = filePath,
             FileName = fileInfo.Name,
@@ -237,8 +401,18 @@ public class LuceneIndexService : IIndexService, IDisposable
             FileType = GetFileType(extension),
             IndexedAt = DateTime.UtcNow
         };
+    }
 
-        await IndexDocumentAsync(document, cancellationToken);
+    /// <summary>
+    /// ライターにドキュメントを追加するのみ。Commit は呼ばない（フォルダ一括用）。
+    /// </summary>
+    private void AddDocumentToWriterWithoutCommit(IndexedDocument document)
+    {
+        var doc = CreateLuceneDocument(document);
+        lock (_lock)
+        {
+            _writer!.UpdateDocument(new Term(FieldFilePath, document.FilePath), doc);
+        }
     }
 
     private IEnumerable<string> GetTargetFiles(string folderPath)

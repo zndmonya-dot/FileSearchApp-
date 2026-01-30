@@ -1,5 +1,6 @@
 /* GitHub-Inspired Full UI Design */
 
+/* GitHub-style full-text search UI. Theme variables in .app.dark / .app.light. */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 html, body {
@@ -83,6 +84,10 @@ html, body {
 
 /* ===== App Layout ===== */
 .app {
+    --size-radius: 6px;
+    --size-radius-sm: 4px;
+    --size-spacing: 8px;
+    --size-spacing-lg: 16px;
     display: flex;
     flex-direction: column;
     height: 100vh;

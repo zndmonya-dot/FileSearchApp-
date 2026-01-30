@@ -21,7 +21,7 @@ Windows向けの高速全文検索アプリケーションです。ファイル�
 
 ## 動作要件
 
-- Windows 10/11
+- **Windows 専用**（Windows 10/11）
 - .NET 8 SDK
 - Microsoft Office 365（プレビュー機能用）
 
@@ -42,7 +42,7 @@ dotnet build
 ### 3. 実行
 
 ```powershell
-dotnet run --project src\FullTextSearch.App
+dotnet run --project src\FileSearch.Blazor
 ```
 
 ## 使い方
@@ -76,8 +76,7 @@ dotnet run --project src\FullTextSearch.App
 ```
 FullTextSearch/
 ├── src/
-│   ├── FileSearch.Blazor/            # Blazor Hybrid (MAUI) アプリ（推奨UI）
-│   ├── FullTextSearch.App/            # WPFアプリケーション
+│   ├── FileSearch.Blazor/            # Blazor Hybrid (MAUI) アプリ（メインUI）
 │   ├── FullTextSearch.Core/           # コアロジック（インターフェース、モデル）
 │   └── FullTextSearch.Infrastructure/  # インフラ実装（Lucene、プレビュー）
 └── tests/

@@ -1,0 +1,137 @@
+@namespace FileSearch.Blazor.Components.Shared
+@if (Visible)
+{
+    <div class="modal-backdrop" @onclick="OnCloseRequested">
+        <div class="settings-dialog" @onclick:stopPropagation="true">
+            <div class="settings-header">
+                <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8.2 8.2 0 0 1 .701.031C9.444.095 9.99.645 10.16 1.29l.288 1.107c.018.066.079.158.212.224.231.114.454.243.668.386.123.082.233.09.299.071l1.103-.303c.644-.176 1.392.021 1.82.63.27.385.506.792.704 1.218.315.675.111 1.422-.364 1.891l-.814.806c-.049.048-.098.147-.088.294.016.257.016.515 0 .772-.01.147.039.246.088.294l.814.806c.475.469.679 1.216.364 1.891a7.977 7.977 0 0 1-.704 1.217c-.428.61-1.176.807-1.82.63l-1.102-.302c-.067-.019-.177-.011-.3.071a5.909 5.909 0 0 1-.668.386c-.133.066-.194.158-.211.224l-.29 1.106c-.168.646-.715 1.196-1.458 1.26a8.006 8.006 0 0 1-1.402 0c-.743-.064-1.289-.614-1.458-1.26l-.289-1.106c-.018-.066-.079-.158-.212-.224a5.738 5.738 0 0 1-.668-.386c-.123-.082-.233-.09-.299-.071l-1.103.303c-.644.176-1.392-.021-1.82-.63a8.12 8.12 0 0 1-.704-1.218c-.315-.675-.111-1.422.363-1.891l.815-.806c.049-.048.098-.147.088-.294a6.214 6.214 0 0 1 0-.772c.01-.147-.039-.246-.088-.294l-.815-.806C.635 6.045.431 5.298.746 4.623a7.92 7.92 0 0 1 .704-1.217c.428-.61 1.176-.807 1.82-.63l1.102.302c.067.019.177.011.3-.071.214-.143.437-.272.668-.386.133-.066.194-.158.211-.224l.29-1.106C6.009.645 6.556.095 7.299.03 7.53.01 7.764 0 8 0Zm-.571 1.525c-.036.003-.108.036-.137.146l-.289 1.105c-.147.561-.549.967-.998 1.189-.173.086-.34.183-.5.29-.417.278-.97.423-1.529.27l-1.103-.303c-.109-.03-.175.016-.195.045-.22.312-.412.644-.573.99-.014.031-.021.11.059.19l.815.806c.411.406.562.957.53 1.456a4.709 4.709 0 0 0 0 .582c.032.499-.119 1.05-.53 1.456l-.815.806c-.081.08-.073.159-.059.19.162.346.353.677.573.989.02.03.085.076.195.046l1.102-.303c.56-.153 1.113-.008 1.53.27.161.107.328.204.501.29.447.222.85.629.997 1.189l.289 1.105c.029.109.101.143.137.146a6.6 6.6 0 0 0 1.142 0c.036-.003.108-.036.137-.146l.289-1.105c.147-.561.549-.967.998-1.189.173-.086.34-.183.5-.29.417-.278.97-.423 1.529-.27l1.103.303c.109.029.175-.016.195-.045.22-.313.411-.644.573-.99.014-.031.021-.11-.059-.19l-.815-.806c-.411-.406-.562-.957-.53-1.456a4.709 4.709 0 0 0 0-.582c-.032-.499.119-1.05.53-1.456l-.815-.806c.081-.08.073-.159.059-.19a6.464 6.464 0 0 0-.573-.989c-.02-.03-.085-.076-.195-.046l-1.102.303c-.56.153-1.113.008-1.53-.27a4.44 4.44 0 0 0-.501-.29c-.447-.222-.85-.629-.997-1.189l-.289-1.105c-.029-.11-.101-.143-.137-.146a6.6 6.6 0 0 0-1.142 0ZM11 8a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM9.5 8a1.5 1.5 0 1 0-3.001.001A1.5 1.5 0 0 0 9.5 8Z"/></svg>
+                <h2>設定</h2>
+                <button class="settings-close" @onclick="OnCloseRequested" type="button">
+                    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l3.22 3.22a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-3.22 3.22a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/></svg>
+                </button>
+            </div>
+            <div class="settings-body">
+                <div class="settings-section">
+                    <h3>検索対象フォルダ</h3>
+                    <p class="settings-desc">インデックス作成対象のフォルダを指定します</p>
+                    <div class="settings-folders">
+                        @foreach (var folder in State.TargetFolders)
+                        {
+                            <div class="settings-folder-item">
+                                <svg viewBox="0 0 16 16" fill="currentColor"><path d="M1.75 1A1.75 1.75 0 0 0 0 2.75v10.5C0 14.216.784 15 1.75 15h12.5A1.75 1.75 0 0 0 16 13.25v-8.5A1.75 1.75 0 0 0 14.25 3H7.5a.25.25 0 0 1-.2-.1l-.9-1.2C6.07 1.26 5.55 1 5 1H1.75Z"/></svg>
+                                <span class="folder-path" title="@folder">@folder</span>
+                                <button class="folder-remove" type="button" @onclick="() => RemoveFolder(folder)">
+                                    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l3.22 3.22a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-3.22 3.22a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/></svg>
+                                </button>
+                            </div>
+                        }
+                    </div>
+                    <div class="settings-input-row">
+                        <input class="settings-input" @bind="State.NewFolderPath" placeholder="C:\Users\..." />
+                        <button class="settings-btn-add" type="button" @onclick="HandleAddFolder">追加</button>
+                    </div>
+                </div>
+                <div class="settings-section">
+                    <h3>対象拡張子</h3>
+                    <p class="settings-desc">インデックスする拡張子。空なら抽出器の対応拡張子を使用。同じものは追加できません。</p>
+                    <div class="settings-chips">
+                        @foreach (var ext in State.TargetExtensions)
+                        {
+                            <span class="settings-chip">
+                                @ext
+                                <button type="button" class="settings-chip-remove" @onclick="() => RemoveTargetExtension(ext)" aria-label="削除">×</button>
+                            </span>
+                        }
+                    </div>
+                    <div class="settings-input-row">
+                        <input class="settings-input" @bind="State.NewTargetExtension" @oninput="() => State.ExtensionMessage = null" placeholder="例: .txt" />
+                        <button class="settings-btn-add" type="button" @onclick="HandleAddTargetExtension">追加</button>
+                    </div>
+                    @if (!string.IsNullOrEmpty(State.ExtensionMessage))
+                    {
+                        <p class="settings-msg settings-msg-warn">@State.ExtensionMessage</p>
+                    }
+                </div>
+                <div class="settings-section">
+                    <h3>インデックス保存先</h3>
+                    <p class="settings-desc">変更後はインデックスの再構築が必要です</p>
+                    <input class="settings-input full" @bind="State.IndexPath" />
+                </div>
+                <div class="settings-section">
+                    <div class="settings-desc" style="margin-bottom: 8px;">検索で返す結果の上限です。一致した総数ではなく、表示する最大件数です。</div>
+                    <div class="settings-grid">
+                        <div class="settings-field">
+                            <label>検索結果の上限（件）</label>
+                            <select class="settings-select" @bind="State.MaxResults">
+                                <option value="500">500</option>
+                                <option value="1000">1,000</option>
+                                <option value="5000">5,000</option>
+                                <option value="10000">10,000</option>
+                                <option value="50000">50,000</option>
+                                <option value="100000">100,000</option>
+                            </select>
+                        </div>
+                        <div class="settings-field">
+                            <label>インデックス済み</label>
+                            <div class="settings-stat">@IndexCount ファイル</div>
+                        </div>
+                    </div>
+                    <div class="settings-grid" style="margin-top: 12px;">
+                        <div class="settings-field">
+                            <label>最終更新</label>
+                            <div class="settings-stat">@(LastIndexUpdate.HasValue ? LastIndexUpdate.Value.ToString("yyyy/MM/dd HH:mm:ss") : "未実行")</div>
+                        </div>
+                        <div class="settings-field">
+                            <label>定期再構築</label>
+                            <select class="settings-select" @bind="State.AutoRebuildIntervalMinutes">
+                                <option value="0">無効</option>
+                                <option value="30">30分</option>
+                                <option value="60">1時間</option>
+                                <option value="120">2時間</option>
+                                <option value="360">6時間</option>
+                                <option value="1440">24時間</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="settings-footer">
+                <button class="settings-btn-cancel" type="button" @onclick="OnCloseRequested">キャンセル</button>
+                <button class="settings-btn-save" type="button" @onclick="OnSaveRequested">保存</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public SettingsEditState State { get; set; } = new();
+    [Parameter] public int IndexCount { get; set; }
+    [Parameter] public DateTime? LastIndexUpdate { get; set; }
+    [Parameter] public EventCallback OnCloseRequested { get; set; }
+    [Parameter] public EventCallback OnSaveRequested { get; set; }
+    [Parameter] public EventCallback OnAddFolder { get; set; }
+    [Parameter] public EventCallback<string> OnRemoveFolder { get; set; }
+    [Parameter] public EventCallback OnAddTargetExtension { get; set; }
+    [Parameter] public EventCallback<string> OnRemoveTargetExtension { get; set; }
+
+    private async Task HandleAddFolder()
+    {
+        await OnAddFolder.InvokeAsync();
+    }
+
+    private async Task HandleAddTargetExtension()
+    {
+        await OnAddTargetExtension.InvokeAsync();
+    }
+
+    private async Task RemoveFolder(string folder)
+    {
+        await OnRemoveFolder.InvokeAsync(folder);
+    }
+
+    private async Task RemoveTargetExtension(string ext)
+    {
+        await OnRemoveTargetExtension.InvokeAsync(ext);
+    }
+}

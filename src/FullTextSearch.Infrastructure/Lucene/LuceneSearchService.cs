@@ -1,8 +1,10 @@
 using System.Diagnostics;
 using FullTextSearch.Core.Models;
 using FullTextSearch.Core.Search;
+using FullTextSearch.Infrastructure.Settings;
 using Lucene.Net.Analysis;
 using Lucene.Net.Analysis.Ja;
+using Lucene.Net.Analysis.TokenAttributes;
 using Lucene.Net.Index;
 using Lucene.Net.QueryParsers.Classic;
 using Lucene.Net.Search;
@@ -20,8 +22,12 @@ public class LuceneSearchService : ISearchService, IDisposable
     private const LuceneVersion AppLuceneVersion = LuceneVersion.LUCENE_48;
     private const int HighlightFragmentSize = 100;
     private const int MaxHighlights = 5;
+    private static readonly string DefaultIndexPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "FullTextSearch", "Index");
 
-    private readonly string _indexPath;
+    private readonly IAppSettingsService _settingsService;
+    private string? _currentIndexPath;
     private FSDirectory? _directory;
     private DirectoryReader? _reader;
     private IndexSearcher? _searcher;
@@ -29,11 +35,9 @@ public class LuceneSearchService : ISearchService, IDisposable
     private readonly object _lock = new();
     private bool _disposed;
 
-    public LuceneSearchService()
+    public LuceneSearchService(IAppSettingsService settingsService)
     {
-        _indexPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "FullTextSearch", "Index");
+        _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
     }
 
     public async Task<SearchResult> SearchAsync(string query, SearchOptions? options = null, CancellationToken cancellationToken = default)
@@ -52,101 +56,91 @@ public class LuceneSearchService : ISearchService, IDisposable
         options ??= new SearchOptions();
         var stopwatch = Stopwatch.StartNew();
 
-        await Task.Run(() => EnsureSearcherReady(), cancellationToken);
-
-        IndexSearcher? searcher;
-        Analyzer? analyzer;
-        lock (_lock)
+        // 検索全体をスレッドプールで実行し UI スレッドのブロックを防ぐ
+        var result = await Task.Run(() =>
         {
-            searcher = _searcher;
-            analyzer = _analyzer;
-        }
+            EnsureSearcherReady();
 
-        if (searcher == null || analyzer == null)
-        {
-            stopwatch.Stop();
-            return new SearchResult
+            IndexSearcher? searcher;
+            Analyzer? analyzer;
+            lock (_lock)
             {
-                Query = query,
-                Items = [],
-                TotalHits = 0,
-                ElapsedMilliseconds = stopwatch.ElapsedMilliseconds
-            };
-        }
+                searcher = _searcher;
+                analyzer = _analyzer;
+            }
 
-        var results = new List<SearchResultItem>();
-        int totalHits;
-
-        try
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            // 部分一致検索用にワイルドカードクエリを構築
-            var luceneQuery = BuildPartialMatchQuery(query);
-
-            // フィルター付きクエリの構築
-            var boolQuery = new BooleanQuery
+            if (searcher == null || analyzer == null)
             {
-                { luceneQuery, Occur.MUST }
-            };
-
-            if (options.FileTypeFilter != null && options.FileTypeFilter.Count > 0)
-            {
-                var typeQuery = new BooleanQuery();
-                foreach (var fileType in options.FileTypeFilter)
+                return new SearchResult
                 {
-                    typeQuery.Add(new TermQuery(new Term(LuceneIndexService.FieldFileType, fileType)), Occur.SHOULD);
-                }
-                boolQuery.Add(typeQuery, Occur.MUST);
+                    Query = query,
+                    Items = [],
+                    TotalHits = 0,
+                    ElapsedMilliseconds = stopwatch.ElapsedMilliseconds
+                };
             }
 
-            if (options.DateFrom.HasValue || options.DateTo.HasValue)
-            {
-                var from = options.DateFrom?.Ticks ?? long.MinValue;
-                var to = options.DateTo?.Ticks ?? long.MaxValue;
-                var rangeQuery = NumericRangeQuery.NewInt64Range(
-                    LuceneIndexService.FieldLastModified, from, to, true, true);
-                boolQuery.Add(rangeQuery, Occur.MUST);
-            }
-
-            if (!string.IsNullOrEmpty(options.FolderFilter))
-            {
-                var folderQuery = new PrefixQuery(new Term(LuceneIndexService.FieldFolderPath, options.FolderFilter));
-                boolQuery.Add(folderQuery, Occur.MUST);
-            }
-
-            cancellationToken.ThrowIfCancellationRequested();
-            var topDocs = searcher.Search(boolQuery, options.MaxResults);
-            totalHits = topDocs.TotalHits;
-
-            var formatter = new SimpleHTMLFormatter("[", "]");
-            var scorer = new QueryScorer(luceneQuery);
-            var highlighter = new Highlighter(formatter, scorer)
-            {
-                TextFragmenter = new SimpleFragmenter(HighlightFragmentSize)
-            };
-
-            foreach (var scoreDoc in topDocs.ScoreDocs)
+            try
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var doc = searcher.Doc(scoreDoc.Doc);
-                var filePath = doc.Get(LuceneIndexService.FieldFilePath);
-                var content = doc.Get(LuceneIndexService.FieldContent);
+                var luceneQuery = BuildPartialMatchQuery(query, analyzer);
+                var boolQuery = new BooleanQuery { { luceneQuery, Occur.MUST } };
 
-                var highlights = new List<MatchHighlight>();
-                if (!string.IsNullOrEmpty(content))
+                if (options.FileTypeFilter != null && options.FileTypeFilter.Count > 0)
                 {
-                    var tokenStream = analyzer.GetTokenStream(LuceneIndexService.FieldContent, new StringReader(content));
-                    var fragments = highlighter.GetBestFragments(tokenStream, content, MaxHighlights);
+                    var typeQuery = new BooleanQuery();
+                    foreach (var fileType in options.FileTypeFilter)
+                        typeQuery.Add(new TermQuery(new Term(LuceneIndexService.FieldFileType, fileType)), Occur.SHOULD);
+                    boolQuery.Add(typeQuery, Occur.MUST);
+                }
 
-                    foreach (var fragment in fragments)
+                if (options.DateFrom.HasValue || options.DateTo.HasValue)
+                {
+                    var from = options.DateFrom?.Ticks ?? long.MinValue;
+                    var to = options.DateTo?.Ticks ?? long.MaxValue;
+                    boolQuery.Add(NumericRangeQuery.NewInt64Range(LuceneIndexService.FieldLastModified, from, to, true, true), Occur.MUST);
+                }
+
+                if (!string.IsNullOrEmpty(options.FolderFilter))
+                    boolQuery.Add(new PrefixQuery(new Term(LuceneIndexService.FieldFolderPath, options.FolderFilter)), Occur.MUST);
+
+                cancellationToken.ThrowIfCancellationRequested();
+                var topDocs = searcher.Search(boolQuery, options.MaxResults);
+                var totalHits = topDocs.TotalHits;
+                var hitCount = topDocs.ScoreDocs.Length;
+
+                var skipHighlights = options.SkipHighlights;
+                var maxHighlightResults = options.MaxHighlightResults;
+                Highlighter? highlighter = null;
+                if (!skipHighlights)
+                {
+                    var formatter = new SimpleHTMLFormatter("[", "]");
+                    var scorer = new QueryScorer(luceneQuery);
+                    highlighter = new Highlighter(formatter, scorer) { TextFragmenter = new SimpleFragmenter(HighlightFragmentSize) };
+                }
+
+                var results = new List<SearchResultItem>(hitCount);
+                var index = 0;
+                foreach (var scoreDoc in topDocs.ScoreDocs)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    var doc = searcher.Doc(scoreDoc.Doc);
+                    var filePath = doc.Get(LuceneIndexService.FieldFilePath);
+                    var doHighlight = !skipHighlights && highlighter != null &&
+                        (!maxHighlightResults.HasValue || index < maxHighlightResults.Value);
+                    var content = doHighlight ? doc.Get(LuceneIndexService.FieldContent) : null;
+
+                    var highlights = new List<MatchHighlight>();
+                    if (doHighlight && !string.IsNullOrEmpty(content))
                     {
-                        if (!string.IsNullOrWhiteSpace(fragment))
+                        var tokenStream = analyzer.GetTokenStream(LuceneIndexService.FieldContent, new StringReader(content));
+                        foreach (var fragment in highlighter!.GetBestFragments(tokenStream, content, MaxHighlights))
                         {
+                            if (string.IsNullOrWhiteSpace(fragment)) continue;
                             var highlightStart = fragment.IndexOf('[');
                             var highlightEnd = fragment.IndexOf(']');
-
                             highlights.Add(new MatchHighlight
                             {
                                 Text = fragment.Replace("[", "").Replace("]", ""),
@@ -155,58 +149,77 @@ public class LuceneSearchService : ISearchService, IDisposable
                             });
                         }
                     }
+                    index++;
+
+                    results.Add(new SearchResultItem
+                    {
+                        FilePath = filePath,
+                        FileName = doc.Get(LuceneIndexService.FieldFileName),
+                        FolderPath = doc.Get(LuceneIndexService.FieldFolderPath),
+                        FileSize = long.TryParse(doc.Get(LuceneIndexService.FieldFileSize), out var size) ? size : 0,
+                        LastModified = long.TryParse(doc.Get(LuceneIndexService.FieldLastModified), out var ticks) ? new DateTime(ticks, DateTimeKind.Utc) : DateTime.MinValue,
+                        FileType = doc.Get(LuceneIndexService.FieldFileType),
+                        Score = scoreDoc.Score,
+                        Highlights = highlights
+                    });
                 }
 
-                results.Add(new SearchResultItem
+                stopwatch.Stop();
+                return new SearchResult
                 {
-                    FilePath = filePath,
-                    FileName = doc.Get(LuceneIndexService.FieldFileName),
-                    FolderPath = doc.Get(LuceneIndexService.FieldFolderPath),
-                    FileSize = long.TryParse(doc.Get(LuceneIndexService.FieldFileSize), out var size) ? size : 0,
-                    LastModified = long.TryParse(doc.Get(LuceneIndexService.FieldLastModified), out var ticks)
-                        ? new DateTime(ticks, DateTimeKind.Utc)
-                        : DateTime.MinValue,
-                    FileType = doc.Get(LuceneIndexService.FieldFileType),
-                    Score = scoreDoc.Score,
-                    Highlights = highlights
-                });
+                    Query = query,
+                    Items = results,
+                    TotalHits = totalHits,
+                    ElapsedMilliseconds = stopwatch.ElapsedMilliseconds
+                };
             }
-        }
-        catch (ParseException)
-        {
-            stopwatch.Stop();
-            return new SearchResult
+            catch (ParseException)
             {
-                Query = query,
-                Items = [],
-                TotalHits = 0,
-                ElapsedMilliseconds = stopwatch.ElapsedMilliseconds
-            };
-        }
+                stopwatch.Stop();
+                return new SearchResult
+                {
+                    Query = query,
+                    Items = [],
+                    TotalHits = 0,
+                    ElapsedMilliseconds = stopwatch.ElapsedMilliseconds
+                };
+            }
+        }, cancellationToken);
 
-        stopwatch.Stop();
+        return result;
+    }
 
-        return new SearchResult
-        {
-            Query = query,
-            Items = results,
-            TotalHits = totalHits,
-            ElapsedMilliseconds = stopwatch.ElapsedMilliseconds
-        };
+    private string GetIndexPath()
+    {
+        var path = _settingsService.Settings.IndexPath;
+        return string.IsNullOrWhiteSpace(path) ? DefaultIndexPath : path.Trim();
     }
 
     private void EnsureSearcherReady()
     {
         lock (_lock)
         {
-            if (!System.IO.Directory.Exists(_indexPath))
+            var indexPath = GetIndexPath();
+            if (_currentIndexPath != null && _currentIndexPath != indexPath)
+            {
+                _reader?.Dispose();
+                _reader = null;
+                _searcher = null;
+                _directory?.Dispose();
+                _directory = null;
+                _currentIndexPath = null;
+            }
+
+            if (!System.IO.Directory.Exists(indexPath))
             {
                 return;
             }
 
+            _currentIndexPath = indexPath;
+
             if (_directory == null)
             {
-                _directory = FSDirectory.Open(_indexPath);
+                _directory = FSDirectory.Open(indexPath);
             }
 
             if (_analyzer == null)
@@ -238,31 +251,105 @@ public class LuceneSearchService : ISearchService, IDisposable
     }
 
     /// <summary>
-    /// 部分一致検索用のクエリを構築
+    /// 部分一致検索用のクエリを構築。
+    /// 「消費税」はインデックス側で「消費」「税」に分割されているため、
+    /// 同じアナライザでトークン化して PhraseQuery で「隣り合った語」として検索する。
+    /// これで「消費税」と一語で入力してもヒットする。
     /// </summary>
-    private Query BuildPartialMatchQuery(string query)
+    private const int MaxQueryTerms = 64;
+    private const int MaxQueryClauses = 256;
+
+    /// <summary>
+    /// アナライザで文字列をトークン化してトークン文字列のリストを返す。
+    /// </summary>
+    private static List<string> GetTokensFromAnalyzer(Analyzer analyzer, string text)
     {
-        var terms = query.Split(new[] { ' ', '　' }, StringSplitOptions.RemoveEmptyEntries);
-        
-        if (terms.Length == 0)
+        if (string.IsNullOrWhiteSpace(text)) return [];
+        var list = new List<string>();
+        using var reader = new StringReader(text);
+        using var tokenStream = analyzer.GetTokenStream(LuceneIndexService.FieldContent, reader);
+        var termAttr = tokenStream.GetAttribute<ICharTermAttribute>();
+        if (termAttr == null) return list;
+        tokenStream.Reset();
+        while (tokenStream.IncrementToken())
         {
+            var term = termAttr.ToString();
+            if (!string.IsNullOrEmpty(term)) list.Add(term);
+        }
+        tokenStream.End();
+        return list;
+    }
+
+    /// <summary>
+    /// 検索クエリ文字列を正規化（前後空白・全角スペースの統一など）
+    /// </summary>
+    private static string NormalizeQueryString(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return "";
+        var s = input.Trim();
+        // 全角スペースを半角に統一してトークン分割の一貫性を保つ
+        if (s.Contains('\u3000'))
+            s = s.Replace('\u3000', ' ');
+        return s;
+    }
+
+    private Query BuildPartialMatchQuery(string query, Analyzer analyzer)
+    {
+        var normalized = NormalizeQueryString(query);
+        var userTerms = normalized.Split(new[] { ' ', '　' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(t => t.Trim())
+            .Where(t => t.Length > 0)
+            .Take(MaxQueryTerms)
+            .ToArray();
+
+        if (userTerms.Length == 0)
             return new MatchAllDocsQuery();
-        }
 
-        if (terms.Length == 1)
+        // 各ユーザー入力語について: トークン化して「一続きの語」として PhraseQuery で検索する
+        var queryList = new List<Query>();
+        foreach (var userTerm in userTerms)
         {
-            // 単一キーワードの場合、ワイルドカードクエリを使用
-            var term = terms[0].ToLowerInvariant();
-            return new WildcardQuery(new Term(LuceneIndexService.FieldContent, $"*{term}*"));
+            if (queryList.Count >= MaxQueryClauses) break;
+            if (string.IsNullOrWhiteSpace(userTerm)) continue;
+
+            var tokens = GetTokensFromAnalyzer(analyzer, userTerm);
+            if (tokens.Count == 0)
+            {
+                // トークンが得られない場合は元の文字列でワイルドカード検索（英数字など）
+                var term = userTerm.Trim().ToLowerInvariant();
+                if (!string.IsNullOrEmpty(term))
+                    queryList.Add(new WildcardQuery(new Term(LuceneIndexService.FieldContent, $"*{term}*")));
+            }
+            else if (tokens.Count == 1)
+            {
+                queryList.Add(new WildcardQuery(new Term(LuceneIndexService.FieldContent, $"*{tokens[0]}*")));
+            }
+            else
+            {
+                // 「消費税」→「消費」「税」を隣り合った語として厳密に検索（PhraseQuery, slop=0）
+                var phraseQuery = new PhraseQuery { Slop = 0 };
+                foreach (var token in tokens)
+                {
+                    if (string.IsNullOrEmpty(token)) continue;
+                    phraseQuery.Add(new Term(LuceneIndexService.FieldContent, token));
+                }
+                var phraseTerms = phraseQuery.GetTerms();
+                if (phraseTerms.Length == 0)
+                    continue;
+                if (phraseTerms.Length == 1)
+                    queryList.Add(new WildcardQuery(new Term(LuceneIndexService.FieldContent, $"*{phraseTerms[0].Text}*")));
+                else
+                    queryList.Add(phraseQuery);
+            }
         }
 
-        // 複数キーワードの場合、AND条件で結合
+        if (queryList.Count == 0)
+            return new MatchAllDocsQuery();
+        if (queryList.Count == 1)
+            return queryList[0];
         var boolQuery = new BooleanQuery();
-        foreach (var t in terms)
-        {
-            var term = t.ToLowerInvariant();
-            boolQuery.Add(new WildcardQuery(new Term(LuceneIndexService.FieldContent, $"*{term}*")), Occur.MUST);
-        }
+        foreach (var q in queryList)
+            boolQuery.Add(q, Occur.MUST);
         return boolQuery;
     }
 

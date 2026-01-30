@@ -28,9 +28,14 @@ public interface IIndexService
     Task IndexFolderAsync(string folderPath, IProgress<IndexProgress>? progress = null, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// インデックスを再構築
+    /// インデックスを再構築（全削除のうえ全件追加）
     /// </summary>
     Task RebuildIndexAsync(IEnumerable<string> folders, IProgress<IndexProgress>? progress = null, IndexRebuildOptions? options = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 差分のみ更新（追加・更新・削除されたファイルだけ反映）。大量のファイルで高速。
+    /// </summary>
+    Task UpdateIndexAsync(IEnumerable<string> folders, IProgress<IndexProgress>? progress = null, IndexRebuildOptions? options = null, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// インデックスの統計情報を取得

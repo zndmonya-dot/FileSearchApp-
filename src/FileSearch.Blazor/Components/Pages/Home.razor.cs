@@ -2,8 +2,10 @@ using System.Text.RegularExpressions;
 using FullTextSearch.Core.Extractors;
 using FullTextSearch.Core.Index;
 using FullTextSearch.Core.Models;
+using FullTextSearch.Core.Preview;
 using FullTextSearch.Core.Search;
 using FullTextSearch.Infrastructure.Settings;
+using FileSearch.Blazor.Components.Shared;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
@@ -25,19 +27,16 @@ public partial class Home : IDisposable
     private bool isIndexing = false;
     private bool showSettings = false;
     private bool isDarkMode = true;
-    private List<string> editTargetFolders = new();
-    private string newFolderPath = "";
-    private string editIndexPath = "";
-    private int editMaxResults = 10000;
-    private List<string> editTargetExtensions = new();
-    private string newTargetExtension = "";
-    private string? settingsExtensionMessage = null;
-    private int editAutoRebuildIntervalMinutes = 0;
+    private readonly SettingsEditState _settingsEdit = new();
     private int sidebarWidth = 300;
     private Timer? _autoRebuildTimer;
     private bool isResizing = false;
     private double resizeStartX = 0;
     private int resizeStartWidth = 0;
+    private CancellationTokenSource? _searchCts;
+    private CancellationTokenSource? _previewCts;
+    private Timer? _searchDebounceTimer;
+    private const int SearchDebounceMs = 400;
 
     private string sortColumn = "name";
     private bool sortAscending = true;
@@ -60,45 +59,18 @@ public partial class Home : IDisposable
         public bool IsSyntaxHighlighted { get; set; }
     }
 
-    internal class TreeNode
-    {
-        public string Name { get; set; } = "";
-        public string FullPath { get; set; } = "";
-        public string? FilePath { get; set; }
-        public bool IsFolder { get; set; }
-        public bool IsExpanded { get; set; } = true;
-        public List<TreeNode>? Children { get; set; }
-        public int FileCount { get; set; }
-        public SearchResultItem? FileData { get; set; }
-        public DateTime? LastModified { get; set; }
-        public long FileSize { get; set; }
-    }
-
-    private static readonly HashSet<string> OfficeExtensions = new(StringComparer.OrdinalIgnoreCase)
-        { ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".pdf" };
-
-    private static readonly HashSet<string> TextExtensions = new(StringComparer.OrdinalIgnoreCase)
-        { ".txt", ".csv", ".log", ".md", ".json", ".xml", ".yaml", ".yml", ".cs", ".js", ".ts", ".py", ".java", ".cpp", ".c", ".h", ".html", ".css", ".sql", ".sh", ".bat", ".ps1", ".ini", ".cfg", ".config" };
-
-    private static readonly Dictionary<string, string> LanguageMap = new()
-    {
-        { ".cs", "csharp" }, { ".js", "javascript" }, { ".ts", "typescript" }, { ".py", "python" },
-        { ".java", "java" }, { ".cpp", "cpp" }, { ".c", "c" }, { ".h", "cpp" }, { ".go", "go" },
-        { ".rs", "rust" }, { ".rb", "ruby" }, { ".php", "php" }, { ".swift", "swift" }, { ".kt", "kotlin" },
-        { ".scala", "scala" }, { ".vb", "vb" }, { ".fs", "fsharp" }, { ".html", "html" }, { ".htm", "html" },
-        { ".css", "css" }, { ".scss", "scss" }, { ".less", "less" }, { ".xml", "xml" }, { ".json", "json" },
-        { ".yaml", "yaml" }, { ".yml", "yaml" }, { ".sql", "sql" }, { ".sh", "bash" }, { ".bat", "batch" },
-        { ".ps1", "powershell" }, { ".md", "markdown" }, { ".jsx", "jsx" }, { ".tsx", "tsx" },
-        { ".vue", "xml" }, { ".r", "r" }, { ".m", "objectivec" }, { ".lua", "lua" }, { ".pl", "perl" }
-    };
-
-    private static readonly HashSet<string> CodeExtensions = new(LanguageMap.Keys);
+    private const int PreviewMaxChars = 50_000;
+    private const int PreviewMaxLinesForHighlight = 500;
 
     protected override async Task OnInitializedAsync()
     {
         await SettingsService.LoadAsync();
-        await IndexService.InitializeAsync(SettingsService.Settings.IndexPath);
-        indexCount = IndexService.GetStats().DocumentCount;
+        var indexPath = SettingsService.Settings.IndexPath;
+        if (!string.IsNullOrWhiteSpace(indexPath))
+        {
+            await IndexService.InitializeAsync(indexPath);
+            indexCount = IndexService.GetStats().DocumentCount;
+        }
         _autoRebuildTimer = new Timer(OnAutoRebuildTick, null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
     }
 
@@ -110,7 +82,7 @@ public partial class Home : IDisposable
             if (interval <= 0 || isIndexing) return;
             var last = SettingsService.Settings.LastIndexUpdate;
             if (!last.HasValue || (DateTime.Now - last.Value).TotalMinutes >= interval)
-                _ = InvokeAsync(RebuildIndex);
+                _ = InvokeAsync(UpdateIndex);
         }
         catch { /* timer thread: ignore */ }
     }
@@ -119,19 +91,48 @@ public partial class Home : IDisposable
     {
         _autoRebuildTimer?.Dispose();
         _autoRebuildTimer = null;
+        _searchDebounceTimer?.Dispose();
+        _searchDebounceTimer = null;
+        _searchCts?.Cancel();
+        _searchCts?.Dispose();
+        _searchCts = null;
+        _previewCts?.Cancel();
+        _previewCts?.Dispose();
+        _previewCts = null;
     }
 
     private void ToggleTheme() => isDarkMode = !isDarkMode;
 
     private async Task HandleKeyDown(KeyboardEventArgs e)
     {
-        if (e.Key == "Enter" && !isIndexing) await ExecuteSearch();
-        if (e.Key == "Escape") { searchQuery = string.Empty; searchErrorMessage = null; await InvokeAsync(StateHasChanged); }
+        if (e.Key == "Enter" && !isIndexing)
+        {
+            _searchDebounceTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+            await ExecuteSearch();
+        }
+        if (e.Key == "Escape") { searchQuery = string.Empty; searchErrorMessage = null; _searchDebounceTimer?.Change(Timeout.Infinite, Timeout.Infinite); await InvokeAsync(StateHasChanged); }
+    }
+
+    private void OnSearchInputChanged()
+    {
+        _searchDebounceTimer?.Dispose();
+        if (string.IsNullOrWhiteSpace(searchQuery)) return;
+        _searchDebounceTimer = new Timer(_ =>
+        {
+            _searchDebounceTimer?.Dispose();
+            _searchDebounceTimer = null;
+            InvokeAsync(ExecuteSearch);
+        }, null, SearchDebounceMs, Timeout.Infinite);
     }
 
     private async Task ExecuteSearch()
     {
-        if (isIndexing || string.IsNullOrWhiteSpace(searchQuery)) return;
+        var query = searchQuery?.Trim() ?? "";
+        if (isIndexing || string.IsNullOrWhiteSpace(query)) return;
+        _searchCts?.Cancel();
+        _searchCts?.Dispose();
+        _searchCts = new CancellationTokenSource();
+        var token = _searchCts.Token;
         searchErrorMessage = null;
         resultLimitReached = false;
         isSearching = true; treeNodes.Clear(); selectedFile = null; totalFileCount = 0;
@@ -139,10 +140,19 @@ public partial class Home : IDisposable
         try
         {
             var maxResults = SettingsService.Settings.MaxResults;
-            var result = await SearchService.SearchAsync(searchQuery, new SearchOptions { MaxResults = maxResults }, CancellationToken.None);
+            var result = await SearchService.SearchAsync(query, new SearchOptions
+            {
+                MaxResults = maxResults,
+                MaxHighlightResults = 150
+            }, token);
+            if (token.IsCancellationRequested) return;
             treeNodes = BuildTree(result.Items.ToList());
             totalFileCount = result.Items.Count();
             resultLimitReached = totalFileCount >= maxResults;
+        }
+        catch (OperationCanceledException)
+        {
+            // 新しい検索でキャンセルされた場合は無視
         }
         catch (Exception ex)
         {
@@ -293,6 +303,10 @@ public partial class Home : IDisposable
 
     private async Task LoadPreview(string path)
     {
+        _previewCts?.Cancel();
+        _previewCts?.Dispose();
+        _previewCts = new CancellationTokenSource();
+        var token = _previewCts.Token;
         isLoadingPreview = true;
         previewLines.Clear();
         previewLineCount = 0;
@@ -303,31 +317,50 @@ public partial class Home : IDisposable
         {
             var ext = Path.GetExtension(path).ToLowerInvariant();
             string content;
-            if (OfficeExtensions.Contains(ext))
+            if (PreviewHelper.IsOfficeFile(ext))
             {
                 var extractor = ExtractorFactory.GetExtractor(ext);
-                content = extractor != null ? await extractor.ExtractTextAsync(path) : "[未対応]";
+                content = extractor != null ? await extractor.ExtractTextAsync(path, token) : "[未対応]";
             }
-            else if (TextExtensions.Contains(ext) || IsTextFile(path))
-                content = await File.ReadAllTextAsync(path);
+            else if (PreviewHelper.IsTextFile(ext) || IsTextFile(path))
+                content = await File.ReadAllTextAsync(path, token);
             else
                 content = "[プレビュー不可]";
+            if (token.IsCancellationRequested) return;
 
-            if (content.Length > 100000) content = content.Substring(0, 100000) + "\n... (省略)";
+            if (content.Length > PreviewMaxChars) content = content.Substring(0, PreviewMaxChars) + "\n... (省略)";
 
-            isSourceCode = IsCodeFile(ext);
-            currentLanguage = GetLanguage(ext);
+            isSourceCode = PreviewHelper.IsCodeFile(ext);
+            currentLanguage = PreviewHelper.GetLanguage(ext);
             var searchTerms = string.IsNullOrWhiteSpace(searchQuery) ? Array.Empty<string>() : searchQuery.Split(' ', '　').Where(t => !string.IsNullOrWhiteSpace(t)).ToArray();
 
-            string highlightedContent = content;
+            var lines = content.Split('\n');
+            string[] highlightedLines;
             if (isSourceCode)
             {
-                try { highlightedContent = await JSRuntime.InvokeAsync<string>("highlightCode", new object[] { content, currentLanguage }); }
-                catch { highlightedContent = System.Net.WebUtility.HtmlEncode(content); isSourceCode = false; }
+                var toHighlight = lines.Length <= PreviewMaxLinesForHighlight
+                    ? content
+                    : string.Join("\n", lines.Take(PreviewMaxLinesForHighlight)) + "\n";
+                try
+                {
+                    var highlighted = await JSRuntime.InvokeAsync<string>("highlightCode", token, new object[] { toHighlight, currentLanguage });
+                    highlightedLines = highlighted.Split('\n');
+                    if (lines.Length > PreviewMaxLinesForHighlight)
+                    {
+                        var rest = lines.Skip(PreviewMaxLinesForHighlight).Select(l => System.Net.WebUtility.HtmlEncode(l.TrimEnd('\r')));
+                        highlightedLines = highlightedLines.Concat(rest).ToArray();
+                    }
+                }
+                catch
+                {
+                    highlightedLines = lines.Select(l => System.Net.WebUtility.HtmlEncode(l.TrimEnd('\r'))).ToArray();
+                    isSourceCode = false;
+                }
             }
-
-            var lines = content.Split('\n');
-            var highlightedLines = highlightedContent.Split('\n');
+            else
+            {
+                highlightedLines = lines.Select(l => System.Net.WebUtility.HtmlEncode(l.TrimEnd('\r'))).ToArray();
+            }
             previewLineCount = lines.Length;
 
             for (int i = 0; i < lines.Length; i++)
@@ -347,6 +380,10 @@ public partial class Home : IDisposable
                 }
                 previewLines.Add(new PreviewLine { Content = displayLine, HasMatch = hasMatch, IsSyntaxHighlighted = isSourceCode });
             }
+        }
+        catch (OperationCanceledException)
+        {
+            // 別のファイル選択でキャンセルされた場合は何もしない
         }
         catch (Exception ex)
         {
@@ -389,9 +426,59 @@ public partial class Home : IDisposable
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = "explorer.exe", Arguments = $"/select,\"{selectedFile.FilePath}\"", UseShellExecute = true });
     }
 
+    private async Task UpdateIndex()
+    {
+        if (isIndexing) return;
+        if (SettingsService.Settings.TargetFolders.Count == 0)
+        {
+            indexErrorMessage = "対象フォルダを設定してください。";
+            StateHasChanged();
+            return;
+        }
+        indexErrorMessage = null;
+        isIndexing = true;
+        indexProgressPercent = 0;
+        indexProgressText = "差分を検出中...";
+        StateHasChanged();
+
+        var progress = new Progress<IndexProgress>(p =>
+        {
+            indexProgressPercent = p.TotalFiles > 0 ? (int)((double)p.ProcessedFiles / p.TotalFiles * 100) : 0;
+            indexProgressText = $"{p.ProcessedFiles:N0} / {p.TotalFiles:N0} 件";
+            InvokeAsync(StateHasChanged);
+        });
+
+        try
+        {
+            var options = new IndexRebuildOptions { TargetExtensions = SettingsService.Settings.TargetExtensions.Count > 0 ? SettingsService.Settings.TargetExtensions : null };
+            await IndexService.UpdateIndexAsync(SettingsService.Settings.TargetFolders, progress, options, CancellationToken.None);
+            indexCount = IndexService.GetStats().DocumentCount;
+            SettingsService.Settings.LastIndexUpdate = DateTime.Now;
+            await SettingsService.SaveAsync();
+            indexErrorMessage = null;
+        }
+        catch (Exception ex)
+        {
+            indexErrorMessage = "差分更新に失敗しました。";
+            Logger.LogError(ex, "Index update failed");
+        }
+        finally
+        {
+            isIndexing = false;
+            indexProgressPercent = 0;
+            StateHasChanged();
+        }
+    }
+
     private async Task RebuildIndex()
     {
         if (isIndexing) return;
+        if (SettingsService.Settings.TargetFolders.Count == 0)
+        {
+            indexErrorMessage = "対象フォルダを設定してください。";
+            StateHasChanged();
+            return;
+        }
         indexErrorMessage = null;
         isIndexing = true;
         indexProgressPercent = 0;
@@ -441,45 +528,57 @@ public partial class Home : IDisposable
 
     private void OpenSettings()
     {
-        editTargetFolders = SettingsService.Settings.TargetFolders.ToList();
-        editIndexPath = SettingsService.Settings.IndexPath;
-        editMaxResults = SettingsService.Settings.MaxResults;
-        editTargetExtensions = SettingsService.Settings.TargetExtensions.ToList();
-        editAutoRebuildIntervalMinutes = SettingsService.Settings.AutoRebuildIntervalMinutes;
-        settingsExtensionMessage = null;
+        _settingsEdit.TargetFolders = SettingsService.Settings.TargetFolders.ToList();
+        _settingsEdit.IndexPath = SettingsService.Settings.IndexPath;
+        _settingsEdit.MaxResults = SettingsService.Settings.MaxResults;
+        _settingsEdit.TargetExtensions = SettingsService.Settings.TargetExtensions.ToList();
+        _settingsEdit.AutoRebuildIntervalMinutes = SettingsService.Settings.AutoRebuildIntervalMinutes;
+        _settingsEdit.NewFolderPath = "";
+        _settingsEdit.NewTargetExtension = "";
+        _settingsEdit.ExtensionMessage = null;
         showSettings = true;
     }
 
     private void CloseSettings() => showSettings = false;
 
-    private void AddFolder()
+    private void HandleAddFolder()
     {
-        if (!string.IsNullOrWhiteSpace(newFolderPath) && Directory.Exists(newFolderPath) && !editTargetFolders.Contains(newFolderPath))
-        { editTargetFolders.Add(newFolderPath); newFolderPath = ""; }
+        var path = (_settingsEdit.NewFolderPath ?? "").Trim();
+        if (!string.IsNullOrWhiteSpace(path) && Directory.Exists(path) && !_settingsEdit.TargetFolders.Contains(path))
+        {
+            _settingsEdit.TargetFolders.Add(path);
+            _settingsEdit.NewFolderPath = "";
+        }
     }
 
-    private void RemoveFolder(string f) => editTargetFolders.Remove(f);
-
-    private void AddTargetExtension()
+    private void RemoveFolder(string f)
     {
-        var ext = (newTargetExtension ?? "").Trim();
+        _settingsEdit.TargetFolders.Remove(f);
+    }
+
+    private void HandleAddTargetExtension()
+    {
+        var ext = (_settingsEdit.NewTargetExtension ?? "").Trim();
         if (!string.IsNullOrEmpty(ext) && !ext.StartsWith(".")) ext = "." + ext;
-        if (string.IsNullOrEmpty(ext)) { settingsExtensionMessage = null; return; }
-        if (editTargetExtensions.Contains(ext, StringComparer.OrdinalIgnoreCase)) { settingsExtensionMessage = "既に追加されています"; return; }
-        editTargetExtensions.Add(ext);
-        newTargetExtension = "";
-        settingsExtensionMessage = null;
+        if (string.IsNullOrEmpty(ext)) { _settingsEdit.ExtensionMessage = null; return; }
+        if (_settingsEdit.TargetExtensions.Contains(ext, StringComparer.OrdinalIgnoreCase)) { _settingsEdit.ExtensionMessage = "既に追加されています"; return; }
+        _settingsEdit.TargetExtensions.Add(ext);
+        _settingsEdit.NewTargetExtension = "";
+        _settingsEdit.ExtensionMessage = null;
     }
 
-    private void RemoveTargetExtension(string ext) => editTargetExtensions.Remove(ext);
+    private void RemoveTargetExtension(string ext)
+    {
+        _settingsEdit.TargetExtensions.Remove(ext);
+    }
 
     private async Task SaveSettings()
     {
-        SettingsService.Settings.TargetFolders = editTargetFolders.ToList();
-        if (!string.IsNullOrWhiteSpace(editIndexPath)) SettingsService.Settings.IndexPath = editIndexPath;
-        SettingsService.Settings.MaxResults = editMaxResults;
-        SettingsService.Settings.TargetExtensions = editTargetExtensions.ToList();
-        SettingsService.Settings.AutoRebuildIntervalMinutes = editAutoRebuildIntervalMinutes;
+        SettingsService.Settings.TargetFolders = _settingsEdit.TargetFolders.ToList();
+        if (!string.IsNullOrWhiteSpace(_settingsEdit.IndexPath)) SettingsService.Settings.IndexPath = _settingsEdit.IndexPath;
+        SettingsService.Settings.MaxResults = _settingsEdit.MaxResults;
+        SettingsService.Settings.TargetExtensions = _settingsEdit.TargetExtensions.ToList();
+        SettingsService.Settings.AutoRebuildIntervalMinutes = _settingsEdit.AutoRebuildIntervalMinutes;
         await SettingsService.SaveAsync();
         showSettings = false;
     }
@@ -517,8 +616,6 @@ public partial class Home : IDisposable
         _ => Path.GetExtension(name).TrimStart('.').ToUpperInvariant() + "ファイル"
     };
 
-    private string GetLanguage(string ext) => LanguageMap.TryGetValue(ext, out var lang) ? lang : "plaintext";
-    private bool IsCodeFile(string ext) => CodeExtensions.Contains(ext);
     private string FormatSize(long b) => b < 1024 ? $"{b} B" : b < 1048576 ? $"{b / 1024} KB" : $"{b / 1048576.0:F1} MB";
     private string FormatDate(DateTime d) => d.ToLocalTime().ToString("yyyy/MM/dd HH:mm");
 
