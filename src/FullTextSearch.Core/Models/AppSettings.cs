@@ -29,15 +29,6 @@ public class AppSettings
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "FullTextSearch", "Index");
 
-    /// <summary>
-    /// 検索履歴の最大保存件数
-    /// </summary>
-    public int MaxSearchHistory { get; set; } = 50;
-
-    /// <summary>
-    /// 検索履歴
-    /// </summary>
-    public List<string> SearchHistory { get; set; } = [];
 
     /// <summary>
     /// プレビュー切り替え遅延（ミリ秒）
@@ -54,10 +45,17 @@ public class AppSettings
     /// </summary>
     public int MaxResults { get; set; } = 10000;
 
+
     /// <summary>
     /// 定期インデックス再構築の間隔（分）。0 の場合は無効。
     /// </summary>
     public int AutoRebuildIntervalMinutes { get; set; } = 0;
+
+    /// <summary>
+    /// ファイル切り替え時の確認をスキップする（次回から確認しない）
+    /// </summary>
+    public bool SkipFileNavConfirm { get; set; } = false;
+
 }
 
 

@@ -1,3 +1,5 @@
+using System.Text;
+using UtfUnknown;
 using FullTextSearch.Core.Extractors;
 
 namespace FullTextSearch.Infrastructure.Extractors;
@@ -12,6 +14,7 @@ public class TextFileExtractor : ITextExtractor
         ".txt", ".csv", ".log", ".md",
         ".cs", ".js", ".ts", ".jsx", ".tsx",
         ".py", ".java", ".cpp", ".c", ".h", ".hpp",
+        ".pas", ".dpr", ".dpk",
         ".html", ".htm", ".css", ".scss", ".sass", ".less",
         ".xml", ".json", ".yaml", ".yml",
         ".sql", ".sh", ".bat", ".ps1",
@@ -40,9 +43,43 @@ public class TextFileExtractor : ITextExtractor
             throw new InvalidOperationException($"File is too large: {fileInfo.Length} bytes");
         }
 
-        // エンコーディングを自動検出して読み込み
-        using var reader = new StreamReader(filePath, detectEncodingFromByteOrderMarks: true);
-        return await reader.ReadToEndAsync(cancellationToken);
+        var bytes = await File.ReadAllBytesAsync(filePath, cancellationToken);
+        return ReadTextWithAutoEncoding(bytes);
+    }
+
+    /// <summary>
+    /// UTF.Unknown による動的エンコーディング検出でテキストを読み取る
+    /// </summary>
+    private static string ReadTextWithAutoEncoding(byte[] bytes)
+    {
+        if (bytes.Length == 0) return string.Empty;
+
+        var result = CharsetDetector.DetectFromBytes(bytes);
+        var detected = result.Detected;
+
+        Encoding? encoding = detected?.Encoding;
+        if (encoding == null && !string.IsNullOrEmpty(detected?.EncodingName))
+        {
+            try
+            {
+                encoding = Encoding.GetEncoding(detected.EncodingName);
+            }
+            catch
+            {
+                // 検出名で取得できない場合は無視
+            }
+        }
+
+        encoding ??= Encoding.UTF8;
+
+        try
+        {
+            return encoding.GetString(bytes);
+        }
+        catch
+        {
+            return Encoding.UTF8.GetString(bytes);
+        }
     }
 }
 

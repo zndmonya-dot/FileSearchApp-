@@ -13,4 +13,6 @@ public class SettingsEditState
     public string NewTargetExtension { get; set; } = "";
     public string? ExtensionMessage { get; set; }
     public int AutoRebuildIntervalMinutes { get; set; }
+    /// <summary>ファイル切り替え時に確認する（false=次回から確認しない）</summary>
+    public bool ConfirmFileNav { get; set; } = true;
 }

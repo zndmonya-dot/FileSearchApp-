@@ -3,7 +3,7 @@ using FullTextSearch.Core.Models;
 using FullTextSearch.Core.Search;
 using FullTextSearch.Infrastructure.Settings;
 using Lucene.Net.Analysis;
-using Lucene.Net.Analysis.Ja;
+using Lucene.Net.Analysis.Cjk;
 using Lucene.Net.Analysis.TokenAttributes;
 using Lucene.Net.Index;
 using Lucene.Net.QueryParsers.Classic;
@@ -111,7 +111,6 @@ public class LuceneSearchService : ISearchService, IDisposable
                 var hitCount = topDocs.ScoreDocs.Length;
 
                 var skipHighlights = options.SkipHighlights;
-                var maxHighlightResults = options.MaxHighlightResults;
                 Highlighter? highlighter = null;
                 if (!skipHighlights)
                 {
@@ -128,8 +127,7 @@ public class LuceneSearchService : ISearchService, IDisposable
 
                     var doc = searcher.Doc(scoreDoc.Doc);
                     var filePath = doc.Get(LuceneIndexService.FieldFilePath);
-                    var doHighlight = !skipHighlights && highlighter != null &&
-                        (!maxHighlightResults.HasValue || index < maxHighlightResults.Value);
+                    var doHighlight = !skipHighlights && highlighter != null;
                     var content = doHighlight ? doc.Get(LuceneIndexService.FieldContent) : null;
 
                     var highlights = new List<MatchHighlight>();
@@ -224,7 +222,8 @@ public class LuceneSearchService : ISearchService, IDisposable
 
             if (_analyzer == null)
             {
-                _analyzer = new JapaneseAnalyzer(AppLuceneVersion);
+                // CJKAnalyzer: 日本語・中国語・韓国語をバイグラムで検索、英語も対応
+                _analyzer = new CJKAnalyzer(AppLuceneVersion);
             }
 
             // リーダーの更新チェック
@@ -252,10 +251,10 @@ public class LuceneSearchService : ISearchService, IDisposable
 
     /// <summary>
     /// 部分一致検索用のクエリを構築。
-    /// 「消費税」はインデックス側で「消費」「税」に分割されているため、
-    /// 同じアナライザでトークン化して PhraseQuery で「隣り合った語」として検索する。
-    /// これで「消費税」と一語で入力してもヒットする。
+    /// コンテンツとファイル名の両方を検索し、ファイル名一致はスコアをブーストする。
+    /// CJKAnalyzer: 日本語をバイグラムで検索、英語も対応。
     /// </summary>
+    private const float FilenameBoost = 2.5f;
     private const int MaxQueryTerms = 64;
     private const int MaxQueryClauses = 256;
 
@@ -312,35 +311,57 @@ public class LuceneSearchService : ISearchService, IDisposable
             if (queryList.Count >= MaxQueryClauses) break;
             if (string.IsNullOrWhiteSpace(userTerm)) continue;
 
-            var tokens = GetTokensFromAnalyzer(analyzer, userTerm);
-            if (tokens.Count == 0)
+            var trimmed = userTerm.Trim();
+            var isAsciiWord = trimmed.Length > 0 && trimmed.All(c => char.IsLetterOrDigit(c) || c == '_');
+            var termForWildcard = isAsciiWord ? trimmed.ToLowerInvariant() : trimmed;
+
+            Query? contentQuery;
+            if (isAsciiWord)
             {
-                // トークンが得られない場合は元の文字列でワイルドカード検索（英数字など）
-                var term = userTerm.Trim().ToLowerInvariant();
-                if (!string.IsNullOrEmpty(term))
-                    queryList.Add(new WildcardQuery(new Term(LuceneIndexService.FieldContent, $"*{term}*")));
-            }
-            else if (tokens.Count == 1)
-            {
-                queryList.Add(new WildcardQuery(new Term(LuceneIndexService.FieldContent, $"*{tokens[0]}*")));
+                contentQuery = !string.IsNullOrEmpty(termForWildcard)
+                    ? new WildcardQuery(new Term(LuceneIndexService.FieldContent, $"*{termForWildcard}*"))
+                    : null;
             }
             else
             {
-                // 「消費税」→「消費」「税」を隣り合った語として厳密に検索（PhraseQuery, slop=0）
-                var phraseQuery = new PhraseQuery { Slop = 0 };
-                foreach (var token in tokens)
-                {
-                    if (string.IsNullOrEmpty(token)) continue;
-                    phraseQuery.Add(new Term(LuceneIndexService.FieldContent, token));
-                }
-                var phraseTerms = phraseQuery.GetTerms();
-                if (phraseTerms.Length == 0)
-                    continue;
-                if (phraseTerms.Length == 1)
-                    queryList.Add(new WildcardQuery(new Term(LuceneIndexService.FieldContent, $"*{phraseTerms[0].Text}*")));
+                var tokens = GetTokensFromAnalyzer(analyzer, userTerm);
+                if (tokens.Count == 0)
+                    contentQuery = !string.IsNullOrEmpty(termForWildcard) ? new WildcardQuery(new Term(LuceneIndexService.FieldContent, $"*{termForWildcard}*")) : null;
+                else if (tokens.Count == 1)
+                    contentQuery = new WildcardQuery(new Term(LuceneIndexService.FieldContent, $"*{tokens[0].ToLowerInvariant()}*"));
                 else
-                    queryList.Add(phraseQuery);
+                {
+                    var phraseQuery = new PhraseQuery { Slop = 1 };
+                    foreach (var token in tokens)
+                    {
+                        if (string.IsNullOrEmpty(token)) continue;
+                        phraseQuery.Add(new Term(LuceneIndexService.FieldContent, token));
+                    }
+                    var phraseTerms = phraseQuery.GetTerms();
+                    contentQuery = phraseTerms.Length == 0 ? null
+                        : phraseTerms.Length == 1 ? new WildcardQuery(new Term(LuceneIndexService.FieldContent, $"*{phraseTerms[0].Text.ToLowerInvariant()}*"))
+                        : phraseQuery;
+                }
             }
+
+            if (contentQuery == null) continue;
+
+            // ファイル名も検索し、一致時はスコアをブースト
+            Query? filenameQuery = null;
+            if (termForWildcard.Length > 0)
+            {
+                var fq = new WildcardQuery(new Term(LuceneIndexService.FieldFileName, $"*{termForWildcard}*"));
+                fq.Boost = FilenameBoost;
+                filenameQuery = fq;
+            }
+            var termQuery = filenameQuery != null
+                ? new BooleanQuery
+                {
+                    { contentQuery, Occur.SHOULD },
+                    { filenameQuery, Occur.SHOULD }
+                }
+                : contentQuery;
+            queryList.Add(termQuery);
         }
 
         if (queryList.Count == 0)

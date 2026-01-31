@@ -8,7 +8,7 @@ namespace FullTextSearch.Infrastructure.Settings;
 public interface IAppSettingsService
 {
     /// <summary>
-    /// 現在の設定を取得
+    /// 現在の設定
     /// </summary>
     AppSettings Settings { get; }
 
@@ -21,11 +21,4 @@ public interface IAppSettingsService
     /// 設定を保存
     /// </summary>
     Task SaveAsync(CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// 検索履歴を追加
-    /// </summary>
-    Task AddSearchHistoryAsync(string query, CancellationToken cancellationToken = default);
 }
-
-

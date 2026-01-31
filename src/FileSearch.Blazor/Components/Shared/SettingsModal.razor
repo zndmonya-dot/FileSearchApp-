@@ -55,7 +55,15 @@
                 <div class="settings-section">
                     <h3>インデックス保存先</h3>
                     <p class="settings-desc">変更後はインデックスの再構築が必要です</p>
-                    <input class="settings-input full" @bind="State.IndexPath" />
+                    <div class="settings-input-row">
+                        <input class="settings-input full" @bind="State.IndexPath" />
+                        <button class="settings-btn-add" type="button" @onclick="HandleOpenIndexFolder" title="インデックスフォルダをエクスプローラーで開く">フォルダを開く</button>
+                    </div>
+                    <div class="settings-subsection" style="margin-top: 12px;">
+                        <h4>インデックスの最適化</h4>
+                        <p class="settings-desc">断片化したインデックスを統合し、ディスク使用量を減らして検索を軽くします。大量削除後や検索が遅くなったときに実行してください。実行中は検索・更新ができません。</p>
+                        <button class="settings-btn-secondary" type="button" @onclick="HandleOptimizeIndex" title="インデックスの断片化解消">インデックスを最適化</button>
+                    </div>
                 </div>
                 <div class="settings-section">
                     <div class="settings-desc" style="margin-bottom: 8px;">検索で返す結果の上限です。一致した総数ではなく、表示する最大件数です。</div>
@@ -89,9 +97,18 @@
                                 <option value="60">1時間</option>
                                 <option value="120">2時間</option>
                                 <option value="360">6時間</option>
+                                <option value="720">12時間</option>
                                 <option value="1440">24時間</option>
+                                <option value="10080">1週間</option>
                             </select>
                         </div>
+                    </div>
+                    <div class="settings-subsection" style="margin-top: 12px;">
+                        <h4>表示</h4>
+                        <label class="settings-checkbox-label">
+                            <input type="checkbox" @bind="State.ConfirmFileNav" />
+                            ファイル切り替え時に確認する
+                        </label>
                     </div>
                 </div>
             </div>
@@ -114,6 +131,8 @@
     [Parameter] public EventCallback<string> OnRemoveFolder { get; set; }
     [Parameter] public EventCallback OnAddTargetExtension { get; set; }
     [Parameter] public EventCallback<string> OnRemoveTargetExtension { get; set; }
+    [Parameter] public EventCallback OnOpenIndexFolder { get; set; }
+    [Parameter] public EventCallback OnOptimizeIndex { get; set; }
 
     private async Task HandleAddFolder()
     {
@@ -133,5 +152,15 @@
     private async Task RemoveTargetExtension(string ext)
     {
         await OnRemoveTargetExtension.InvokeAsync(ext);
+    }
+
+    private async Task HandleOpenIndexFolder()
+    {
+        await OnOpenIndexFolder.InvokeAsync();
+    }
+
+    private async Task HandleOptimizeIndex()
+    {
+        await OnOptimizeIndex.InvokeAsync();
     }
 }

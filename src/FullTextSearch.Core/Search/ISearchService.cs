@@ -51,11 +51,6 @@ public record SearchOptions
     /// ハイライトをスキップする（一覧のみでプレビュー不要な場合の高速化）
     /// </summary>
     public bool SkipHighlights { get; init; }
-
-    /// <summary>
-    /// ハイライトを付与する最大件数（null = 全件）。件数が多い検索の高速化用。
-    /// </summary>
-    public int? MaxHighlightResults { get; init; }
 }
 
 /// <summary>

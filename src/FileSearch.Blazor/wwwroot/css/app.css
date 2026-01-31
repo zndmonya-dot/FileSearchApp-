@@ -358,6 +358,10 @@ html, body {
     height: 40px;
     opacity: 0.4;
 }
+.tree-status .spinner-ring {
+    width: 36px;
+    height: 36px;
+}
 
 /* Tree Node */
 .tree-node {
@@ -372,17 +376,11 @@ html, body {
     cursor: pointer;
     color: var(--color-fg-default);
     font-size: 14px;
-    border-left: 2px solid transparent;
     transition: background 0.1s;
 }
 
 .node-row:hover {
     background: var(--color-neutral-muted);
-}
-
-.tree-node.selected > .node-row {
-    background: var(--color-accent-muted);
-    border-left-color: var(--color-accent-fg);
 }
 
 .node-chevron {
@@ -492,6 +490,8 @@ html, body {
 .footer-icon.spin svg {
     color: #2f81f7;
     animation: spin 1s linear infinite;
+    transform-origin: center;
+    display: block;
 }
 
 @keyframes spin {
@@ -747,6 +747,7 @@ html, body {
 /* ===== File Box (GitHub Blob Style) ===== */
 .file-box {
     flex: 1;
+    min-height: 240px;
     display: flex;
     flex-direction: column;
     border: 1px solid var(--color-border-default);
@@ -933,6 +934,109 @@ html, body {
     color: #e6edf3;
 }
 
+/* ハイライトナビ: 現在行を強調 */
+.code-view tr.highlight-current {
+    background: var(--color-attention-subtle);
+    border-left: 3px solid var(--color-attention-fg);
+}
+.code-view tr.highlight-current .line-number {
+    color: var(--color-attention-fg);
+    font-weight: 700;
+}
+
+/* ハイライトナビ: 位置表示 */
+.highlight-nav-group {
+    align-items: center;
+    gap: 8px;
+}
+.highlight-nav-info {
+    font-size: 12px;
+    color: var(--color-fg-muted);
+    white-space: nowrap;
+    padding: 2px 8px;
+    background: var(--color-canvas-subtle);
+    border-radius: 4px;
+}
+
+/* ===== Image Preview ===== */
+.preview-image-wrap {
+    flex: 1;
+    overflow: auto;
+    background: var(--color-canvas-inset);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 16px;
+    min-height: 200px;
+}
+.preview-image {
+    max-width: 100%;
+    max-height: 80vh;
+    object-fit: contain;
+    border-radius: var(--size-radius, 6px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+/* ===== Excel / HTML Preview ===== */
+.preview-html-wrap {
+    flex: 1;
+    overflow: auto;
+    background: var(--color-canvas-default);
+    padding: 16px;
+}
+.preview-html-wrap .excel-sheet {
+    margin-bottom: 24px;
+}
+.preview-html-wrap .sheet-name {
+    font-weight: 600;
+    color: var(--color-fg-default);
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+.preview-html-wrap .table-wrapper {
+    overflow: auto;
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--size-radius, 6px);
+}
+.preview-html-wrap .excel-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+.preview-html-wrap .excel-table th,
+.preview-html-wrap .excel-table td {
+    border: 1px solid var(--color-border-muted);
+    padding: 6px 10px;
+    text-align: left;
+    color: var(--color-fg-default);
+}
+.preview-html-wrap .excel-table th {
+    background: var(--color-canvas-subtle);
+    font-weight: 600;
+}
+.preview-html-wrap .excel-table .row-header {
+    background: var(--color-canvas-subtle);
+    color: var(--color-fg-muted);
+    min-width: 36px;
+    text-align: right;
+}
+.preview-html-wrap .excel-table .highlight {
+    background: var(--color-attention-subtle);
+}
+.preview-html-wrap .excel-table mark {
+    background: #fff8c5;
+    color: #1f2328;
+    padding: 0 2px;
+    border-radius: 2px;
+}
+.app.dark .preview-html-wrap .excel-table mark {
+    background: rgba(210,153,34,0.4);
+    color: #e6edf3;
+}
+.preview-html-wrap .error {
+    color: var(--color-danger-fg);
+}
+
 /* Syntax Highlighting Colors (GitHub-inspired) */
 .line-content .hljs-keyword,
 .line-content .hljs-selector-tag,
@@ -1042,10 +1146,19 @@ html, body {
 /* Loading State */
 .loading-state {
     flex: 1;
+    min-height: 200px;
     display: flex;
     align-items: center;
     justify-content: center;
+    gap: 12px;
     background: var(--color-canvas-default);
+}
+.loading-state .spinner-ring {
+    flex-shrink: 0;
+}
+.loading-state-text {
+    color: var(--color-fg-muted);
+    font-size: 14px;
 }
 
 /* ===== Folder List (GitHub Style) ===== */
@@ -1271,6 +1384,41 @@ html, body {
 
 .item-name:hover {
     text-decoration: underline;
+}
+
+/* ===== File Nav Confirm Dialog ===== */
+.file-nav-confirm-dialog {
+    background: var(--color-canvas-default);
+    border: 1px solid var(--color-border-default);
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 8px 24px rgba(1, 4, 9, 0.5);
+}
+.file-nav-confirm-msg {
+    margin: 0 0 20px;
+    font-size: 15px;
+    color: var(--color-fg-default);
+}
+.file-nav-confirm-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+}
+.file-nav-confirm-actions .action-btn.primary {
+    background: var(--color-accent-emphasis);
+    color: #fff;
+    border-color: var(--color-accent-emphasis);
+}
+.file-nav-confirm-actions .action-btn.primary:hover {
+    opacity: 0.9;
+}
+.settings-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--color-fg-default);
 }
 
 /* ===== Settings Dialog (GitHub Primer Style) ===== */
@@ -1718,6 +1866,21 @@ html, body {
     background: #f3f4f6;
 }
 
+.settings-btn-secondary {
+    height: 32px;
+    padding: 0 16px;
+    background: transparent;
+    border: 1px solid var(--color-border-default);
+    border-radius: 6px;
+    color: var(--color-fg-default);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+}
+.settings-btn-secondary:hover {
+    background: var(--color-btn-hover-bg);
+}
+
 .settings-btn-save {
     height: 32px;
     padding: 0 16px;
@@ -1840,10 +2003,14 @@ html, body {
 .spinner-ring {
     width: 32px;
     height: 32px;
+    min-width: 32px;
+    min-height: 32px;
     border: 3px solid var(--color-border-default);
     border-top-color: var(--color-accent-fg);
     border-radius: 50%;
     animation: spin 1s linear infinite;
+    flex-shrink: 0;
+    display: block;
 }
 
 .spinner-ring.large {

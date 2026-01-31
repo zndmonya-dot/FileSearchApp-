@@ -67,6 +67,46 @@
                 hljs.highlightElement(block);
             });
         };
+
+        // ハイライト間ジャンプ用（戻り値: "行番号|現在番号|総数" または null）
+        var _highlightIndex = -1;
+        window.resetHighlightNav = function() {
+            _highlightIndex = -1;
+            document.querySelectorAll('.code-view tr.highlight-current').forEach(function(r) { r.classList.remove('highlight-current'); });
+        };
+        function _applyHighlightCurrent(mark) {
+            document.querySelectorAll('.code-view tr.highlight-current').forEach(function(r) { r.classList.remove('highlight-current'); });
+            var row = mark.closest('.code-line') || mark.closest('tr');
+            if (row) row.classList.add('highlight-current');
+        }
+        function _getLineNum(mark) {
+            var row = mark.closest('.code-line') || mark.closest('tr');
+            if (!row) return 0;
+            var td = row.querySelector('.line-number');
+            return td ? parseInt(td.textContent, 10) || 0 : 0;
+        }
+        window.scrollToNextHighlight = function(wrap) {
+            if (wrap === undefined) wrap = true;
+            var marks = Array.from(document.querySelectorAll('.file-box mark'));
+            if (marks.length === 0) return null;
+            if (!wrap && _highlightIndex >= marks.length - 1) return null;
+            _highlightIndex = wrap ? (_highlightIndex + 1) % marks.length : Math.min(_highlightIndex + 1, marks.length - 1);
+            var m = marks[_highlightIndex];
+            _applyHighlightCurrent(m);
+            m.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return _getLineNum(m) + '|' + (_highlightIndex + 1) + '|' + marks.length;
+        };
+        window.scrollToPrevHighlight = function(wrap) {
+            if (wrap === undefined) wrap = true;
+            var marks = Array.from(document.querySelectorAll('.file-box mark'));
+            if (marks.length === 0) return null;
+            if (!wrap && _highlightIndex <= 0) return null;
+            _highlightIndex = wrap ? (_highlightIndex <= 0 ? marks.length - 1 : _highlightIndex - 1) : Math.max(_highlightIndex - 1, 0);
+            var m = marks[_highlightIndex];
+            _applyHighlightCurrent(m);
+            m.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return _getLineNum(m) + '|' + (_highlightIndex + 1) + '|' + marks.length;
+        };
     </script>
 </body>
 </html>

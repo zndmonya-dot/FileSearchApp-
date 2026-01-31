@@ -2,7 +2,7 @@ using FullTextSearch.Core.Extractors;
 using FullTextSearch.Core.Index;
 using FullTextSearch.Core.Models;
 using Lucene.Net.Analysis;
-using Lucene.Net.Analysis.Ja;
+using Lucene.Net.Analysis.Cjk;
 using Lucene.Net.Documents;
 using Lucene.Net.Index;
 using Lucene.Net.Search;
@@ -17,7 +17,8 @@ namespace FullTextSearch.Infrastructure.Lucene;
 public class LuceneIndexService : IIndexService, IDisposable
 {
     private const LuceneVersion AppLuceneVersion = LuceneVersion.LUCENE_48;
-    private const int ParallelExtractCount = 8;
+    /// <summary>10万ファイル規模を想定した並列抽出数</summary>
+    private const int ParallelExtractCount = 24;
 
     private readonly TextExtractorFactory _extractorFactory;
     private FSDirectory? _directory;
@@ -59,12 +60,13 @@ public class LuceneIndexService : IIndexService, IDisposable
 
             _directory = FSDirectory.Open(indexPath);
 
-            // 日本語解析器（Kuromoji）を使用
-            _analyzer = new JapaneseAnalyzer(AppLuceneVersion);
+            // CJKAnalyzer: 日本語・中国語・韓国語をバイグラムで検索、英語も対応
+            _analyzer = new CJKAnalyzer(AppLuceneVersion);
 
             var config = new IndexWriterConfig(AppLuceneVersion, _analyzer)
             {
-                OpenMode = OpenMode.CREATE_OR_APPEND
+                OpenMode = OpenMode.CREATE_OR_APPEND,
+                RAMBufferSizeMB = 256  // 大量ファイル時のフラッシュ頻度を下げて高速化
             };
 
             _writer = new IndexWriter(_directory, config);
@@ -143,11 +145,9 @@ public class LuceneIndexService : IIndexService, IDisposable
                 });
                 processedFiles++;
             }
-            foreach (var doc in docs)
-            {
-                if (doc != null)
-                    AddDocumentToWriterWithoutCommit(doc);
-            }
+            var toAdd = docs.Where(d => d != null).Cast<IndexedDocument>().ToList();
+            if (toAdd.Count > 0)
+                AddDocumentsToWriterWithoutCommit(toAdd);
         }
 
         progress?.Report(new IndexProgress
@@ -272,14 +272,9 @@ public class LuceneIndexService : IIndexService, IDisposable
                     processed++;
                     progress?.Report(new IndexProgress { ProcessedFiles = processed, TotalFiles = total, CurrentFile = path, ErrorCount = 0 });
                 }
-                lock (_lock)
-                {
-                    foreach (var doc in docs)
-                    {
-                        if (doc != null)
-                            AddDocumentToWriterWithoutCommit(doc);
-                    }
-                }
+                var toAdd = docs.Where(d => d != null).Cast<IndexedDocument>().ToList();
+                if (toAdd.Count > 0)
+                    AddDocumentsToWriterWithoutCommit(toAdd);
             }
 
             progress?.Report(new IndexProgress { ProcessedFiles = processed, TotalFiles = total, CurrentFile = null, ErrorCount = 0 });
@@ -404,7 +399,7 @@ public class LuceneIndexService : IIndexService, IDisposable
     }
 
     /// <summary>
-    /// ライターにドキュメントを追加するのみ。Commit は呼ばない（フォルダ一括用）。
+    /// ライターにドキュメントを追加するのみ。Commit は呼ばない（単体用）。
     /// </summary>
     private void AddDocumentToWriterWithoutCommit(IndexedDocument document)
     {
@@ -412,6 +407,21 @@ public class LuceneIndexService : IIndexService, IDisposable
         lock (_lock)
         {
             _writer!.UpdateDocument(new Term(FieldFilePath, document.FilePath), doc);
+        }
+    }
+
+    /// <summary>
+    /// ライターに複数ドキュメントを一括追加。Commit は呼ばない。1ロックで追加して10万件時の競合を軽減。
+    /// </summary>
+    private void AddDocumentsToWriterWithoutCommit(IEnumerable<IndexedDocument> documents)
+    {
+        lock (_lock)
+        {
+            foreach (var document in documents)
+            {
+                var doc = CreateLuceneDocument(document);
+                _writer!.UpdateDocument(new Term(FieldFilePath, document.FilePath), doc);
+            }
         }
     }
 
@@ -545,6 +555,7 @@ public class LuceneIndexService : IIndexService, IDisposable
             ".xml" => "XMLファイル",
             ".json" => "JSONファイル",
             ".yaml" or ".yml" => "YAMLファイル",
+            ".pas" or ".dpr" or ".dpk" => "Pascal/Delphi",
             _ => "ファイル"
         };
     }

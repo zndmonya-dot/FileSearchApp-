@@ -57,7 +57,7 @@
             <!-- ファイル検索 -->
             <div class="sidebar-search">
                 <svg viewBox="0 0 16 16" fill="currentColor"><path d="M10.68 11.74a6 6 0 0 1-7.922-8.982 6 6 0 0 1 8.982 7.922l3.04 3.04a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215ZM11.5 7a4.499 4.499 0 1 0-8.997 0A4.499 4.499 0 0 0 11.5 7Z"/></svg>
-                <input type="text" placeholder="キーワードで検索..." @bind="searchQuery" @bind:event="oninput" @bind:after="OnSearchInputChanged" @onkeydown="HandleKeyDown" disabled="@isIndexing" />
+                <input id="search-input" type="text" placeholder="キーワードで検索..." @bind="searchQuery" @bind:event="oninput" @bind:after="OnSearchInputChanged" @onkeydown="HandleKeyDown" disabled="@isIndexing" tabindex="0" autofocus />
             </div>
             @if (isIndexing)
             {
@@ -89,7 +89,6 @@
                 else
                 {
                     <SearchResultTree Nodes="treeNodes"
-                                     SelectedFilePath="selectedFile?.FilePath"
                                      OnToggleNode="ToggleNode"
                                      OnSelectFile="SelectFile"
                                      GetFileIconClass="GetFileIconClass" />
@@ -246,10 +245,27 @@
                             <span class="file-path-breadcrumb" title="@selectedFile.FolderPath">@selectedFile.FolderPath</span>
                         </div>
                         <div class="file-meta">
-                            <span class="file-meta-item">@previewLineCount 行</span>
+                            <span class="file-meta-item">@(previewMode == "image" ? "画像" : previewMode == "html" ? "表形式" : $"{previewLineCount} 行")</span>
                             <span class="file-meta-item">@FormatSize(selectedFile.FileSize)</span>
                         </div>
                         <div class="file-actions">
+                            @if (ShowNavButtons)
+                            {
+                                <div class="btn-group highlight-nav-group">
+                                    <button class="action-btn" @onclick="GoPrev" title="前へ（一致→ファイル）">
+                                        <svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16"><path d="M4.22 10.5L8 6.72l3.78 3.78a.75.75 0 1 1-1.06 1.06L8 8.845 5.28 11.56a.75.75 0 1 1-1.06-1.06z"/></svg>
+                                        <span>前へ</span>
+                                    </button>
+                                    <button class="action-btn" @onclick="GoNext" title="次へ（一致→ファイル）">
+                                        <svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16"><path d="M4.22 5.5L8 9.28l3.78-3.78a.75.75 0 0 1 1.06 1.06L8 10.845 5.28 8.44a.75.75 0 0 1 1.06-1.06z"/></svg>
+                                        <span>次へ</span>
+                                    </button>
+                                    @if (!string.IsNullOrEmpty(NavInfo))
+                                    {
+                                        <span class="highlight-nav-info" title="現在位置">@NavInfo</span>
+                                    }
+                                </div>
+                            }
                             <div class="btn-group">
                                 <button class="action-btn" @onclick="OpenFile" title="ファイルを開く">
                                     <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Zm4.879-2.773 4.264 2.559a.25.25 0 0 1 0 .428l-4.264 2.559A.25.25 0 0 1 6 10.559V5.442a.25.25 0 0 1 .379-.215Z"/></svg>
@@ -267,7 +283,18 @@
                     {
                         <div class="loading-state">
                             <div class="spinner-ring large"></div>
+                            <span class="loading-state-text">読み込み中...</span>
                         </div>
+                    }
+                    else if (previewMode == "image" && !string.IsNullOrEmpty(previewImageDataUrl))
+                    {
+                        <div class="preview-image-wrap">
+                            <img src="@previewImageDataUrl" alt="プレビュー" class="preview-image" />
+                        </div>
+                    }
+                    else if (previewMode == "html" && !string.IsNullOrEmpty(previewHtml))
+                    {
+                        <div class="preview-html-wrap">@((MarkupString)previewHtml)</div>
                     }
                     else
                     {
@@ -300,6 +327,19 @@
         </main>
     </div>
 
+    @if (_showFileNavConfirm)
+    {
+        <div class="modal-backdrop" @onclick="CancelFileNavConfirm">
+            <div class="file-nav-confirm-dialog" @onclick:stopPropagation="true">
+                <p class="file-nav-confirm-msg">@(_pendingFileNavNext ? "次のファイルに移動しますか？" : "前のファイルに移動しますか？")</p>
+                <div class="file-nav-confirm-actions">
+                    <button class="action-btn primary" @onclick="ConfirmFileNavAsync">移動する</button>
+                    <button class="action-btn" @onclick="CancelFileNavConfirm">キャンセル</button>
+                </div>
+            </div>
+        </div>
+    }
+
     <SettingsModal Visible="showSettings"
                    State="_settingsEdit"
                    IndexCount="indexCount"
@@ -309,7 +349,9 @@
                    OnAddFolder="HandleAddFolder"
                    OnRemoveFolder="RemoveFolder"
                    OnAddTargetExtension="HandleAddTargetExtension"
-                   OnRemoveTargetExtension="RemoveTargetExtension" />
+                   OnRemoveTargetExtension="RemoveTargetExtension"
+                   OnOpenIndexFolder="OpenIndexFolder"
+                   OnOptimizeIndex="OptimizeIndex" />
 </div>
 
 @if (isResizing)

@@ -76,29 +76,5 @@ public class AppSettingsService : IAppSettingsService
         }
     }
 
-    public async Task AddSearchHistoryAsync(string query, CancellationToken cancellationToken = default)
-    {
-        if (string.IsNullOrWhiteSpace(query))
-        {
-            return;
-        }
-
-        lock (_lock)
-        {
-            // 既存のエントリを削除（重複を避ける）
-            Settings.SearchHistory.Remove(query);
-
-            // 先頭に追加
-            Settings.SearchHistory.Insert(0, query);
-
-            // 最大件数を超えた場合は古いものを削除
-            while (Settings.SearchHistory.Count > Settings.MaxSearchHistory)
-            {
-                Settings.SearchHistory.RemoveAt(Settings.SearchHistory.Count - 1);
-            }
-        }
-
-        await SaveAsync(cancellationToken);
-    }
 }
 
