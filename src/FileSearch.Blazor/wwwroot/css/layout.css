@@ -1,0 +1,170 @@
+/* ===== App Layout ===== */
+.app {
+    --size-radius: 6px;
+    --size-radius-sm: 4px;
+    --size-spacing: 8px;
+    --size-spacing-lg: 16px;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background: var(--color-canvas-default);
+    color: var(--color-fg-default);
+    overflow: hidden;
+}
+
+/* ===== GitHub Header Bar ===== */
+.app-header {
+    height: 56px;
+    background: var(--color-header-bg);
+    border-bottom: 1px solid var(--color-header-border);
+    box-shadow: 0 1px 0 var(--color-header-border);
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.header-menu-btn {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    color: var(--color-header-text);
+    cursor: pointer;
+}
+
+.header-menu-btn:hover {
+    background: rgba(255,255,255,0.1);
+}
+
+.header-menu-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+.header-logo {
+    display: flex;
+    align-items: center;
+    color: var(--color-header-text);
+    text-decoration: none;
+}
+
+.header-logo svg {
+    width: 32px;
+    height: 32px;
+}
+
+.header-repo-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--color-header-text);
+    margin-left: 8px;
+    white-space: nowrap;
+    letter-spacing: -0.01em;
+}
+
+.header-spacer {
+    flex: 1;
+}
+
+/* Header Search - GitHub Style */
+.header-search-wrapper {
+    width: 320px;
+}
+
+.header-search-box {
+    display: flex;
+    align-items: center;
+    background: var(--color-header-search-bg);
+    border: 1px solid var(--color-header-search-border);
+    border-radius: 6px;
+    height: 30px;
+    padding: 0 12px;
+    cursor: text;
+    transition: border-color 0.15s, box-shadow 0.15s, width 0.15s;
+}
+
+.header-search-box:focus-within {
+    border-color: var(--color-accent-fg);
+    box-shadow: 0 0 0 3px var(--color-accent-muted);
+    background: var(--color-canvas-default);
+}
+
+.header-search-box svg {
+    width: 16px;
+    height: 16px;
+    color: var(--color-fg-muted);
+    margin-right: 8px;
+    flex-shrink: 0;
+}
+
+.header-search-box input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: var(--color-header-text);
+    font-size: 14px;
+    outline: none;
+    font-family: inherit;
+    min-width: 0;
+}
+
+.header-search-box input::placeholder {
+    color: var(--color-fg-muted);
+}
+
+.search-shortcut {
+    background: rgba(110,118,129,0.4);
+    border: 1px solid rgba(110,118,129,0.4);
+    border-radius: 5px;
+    padding: 0 6px;
+    font-size: 12px;
+    color: var(--color-fg-muted);
+    line-height: 18px;
+}
+
+.header-search-box:focus-within .search-shortcut {
+    display: none;
+}
+
+/* Header Actions */
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.header-btn {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    color: var(--color-header-text);
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.header-btn:hover {
+    background: rgba(255,255,255,0.1);
+}
+
+.header-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* ===== Main Container ===== */
+.app-container {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+}

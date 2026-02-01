@@ -1,7 +1,9 @@
 using Microsoft.Extensions.Logging;
 using FullTextSearch.Core.Index;
+using FullTextSearch.Core.Preview;
 using FullTextSearch.Core.Search;
 using FullTextSearch.Core.Extractors;
+using FileSearch.Blazor.Services;
 using FullTextSearch.Infrastructure.Lucene;
 using FullTextSearch.Infrastructure.Extractors;
 using FullTextSearch.Infrastructure.Settings;
@@ -37,6 +39,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<IIndexService, LuceneIndexService>();
         builder.Services.AddSingleton<ISearchService, LuceneSearchService>();
         builder.Services.AddSingleton<IAppSettingsService, AppSettingsService>();
+        builder.Services.AddScoped<IPreviewService, PreviewService>();
 
         return builder.Build();
     }

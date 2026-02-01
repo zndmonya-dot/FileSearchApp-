@@ -4,7 +4,7 @@ Windows向けの高速全文検索アプリケーションです。ファイル�
 
 ## 機能
 
-- **高速全文検索**: Lucene.NET + 日本語形態素解析（Kuromoji）による高速検索
+- **高速全文検索**: Lucene.NET + 日本語形態素解析（Sudachi・モード C）による高速検索
 - **様式保持プレビュー**: Windowsプレビューハンドラを使用し、Office 365と同等の品質でプレビュー
 - **キーボード操作**: 上下キーで検索結果を移動、即座にプレビュー切り替え
 - **マッチ箇所表示**: 検索キーワードがヒットした箇所をハイライト付きで抜粋表示
@@ -23,6 +23,8 @@ Windows向けの高速全文検索アプリケーションです。ファイル�
 
 - **Windows 専用**（Windows 10/11）
 - .NET 8 SDK
+- **Python 3**（形態素解析用）
+- **SudachiPy** および辞書（`pip install sudachipy sudachidict_core`）
 - Microsoft Office 365（プレビュー機能用）
 
 ## セットアップ
@@ -39,11 +41,19 @@ dotnet restore
 dotnet build
 ```
 
-### 3. 実行
+### 3. SudachiPy のインストール（形態素解析用）
+
+```powershell
+pip install sudachipy sudachidict_core
+```
+
+### 4. 実行
 
 ```powershell
 dotnet run --project src\FileSearch.Blazor
 ```
+
+**注意**: アナライザを変更した場合は、既存のインデックスは互換性がありません。設定画面で「インデックスを再構築」を実行してください。
 
 ## 使い方
 
@@ -93,7 +103,7 @@ FullTextSearch/
 ## 使用ライブラリ
 
 - Lucene.NET 4.8 - 全文検索エンジン
-- Lucene.Net.Analysis.Kuromoji - 日本語形態素解析
+- Sudachi（SudachiPy） - 日本語形態素解析（モード C）
 - DocumentFormat.OpenXml - Office文書テキスト抽出
 - PdfPig - PDFテキスト抽出
 - MaterialDesignThemes - Material Design UI

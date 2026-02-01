@@ -15,6 +15,16 @@ public interface ISearchService
     /// <param name="cancellationToken">キャンセルトークン</param>
     /// <returns>検索結果</returns>
     Task<SearchResult> SearchAsync(string query, SearchOptions? options = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// インデックスキャッシュを破棄し、次回検索で最新のインデックスを読み直す（パス変更時などに使用）。
+    /// </summary>
+    void RefreshIndex();
+
+    /// <summary>
+    /// 検索用の Reader / Analyzer を事前に用意し、初回検索の遅延を軽減する。
+    /// </summary>
+    void Warmup();
 }
 
 /// <summary>

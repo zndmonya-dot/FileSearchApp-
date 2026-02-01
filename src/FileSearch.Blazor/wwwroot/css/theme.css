@@ -1,0 +1,83 @@
+/* GitHub-Inspired Full UI Design */
+
+/* GitHub-style full-text search UI. Theme variables in .app.dark / .app.light. */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+    height: 100%;
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.5;
+}
+
+/* ===== Theme Variables ===== */
+.app.dark {
+    --color-header-bg: #161b22;
+    --color-header-border: #30363d;
+    --color-header-text: #f0f6fc;
+    --color-header-search-bg: #0d1117;
+    --color-header-search-border: #30363d;
+    
+    --color-canvas-default: #0d1117;
+    --color-canvas-subtle: #161b22;
+    --color-canvas-inset: #010409;
+    
+    --color-border-default: #30363d;
+    --color-border-muted: #21262d;
+    
+    --color-fg-default: #e6edf3;
+    --color-fg-muted: #8b949e;
+    --color-fg-subtle: #6e7681;
+    
+    --color-accent-fg: #58a6ff;
+    --color-accent-emphasis: #1f6feb;
+    --color-accent-muted: rgba(56,139,253,0.15);
+    --color-accent-subtle: rgba(56,139,253,0.15);
+    
+    --color-success-fg: #3fb950;
+    --color-attention-fg: #d29922;
+    --color-attention-subtle: rgba(187,128,9,0.15);
+    --color-danger-fg: #f85149;
+    
+    --color-neutral-muted: rgba(110,118,129,0.4);
+    --color-btn-bg: #21262d;
+    --color-btn-border: #30363d;
+    --color-btn-hover-bg: #30363d;
+    --color-btn-hover-border: #8b949e;
+}
+
+.app.light {
+    --color-header-bg: #24292f;
+    --color-header-border: #30363d;
+    --color-header-text: #ffffff;
+    --color-header-search-bg: #0d1117;
+    --color-header-search-border: #30363d;
+    
+    --color-canvas-default: #ffffff;
+    --color-canvas-subtle: #f6f8fa;
+    --color-canvas-inset: #eff2f5;
+    
+    --color-border-default: #d0d7de;
+    --color-border-muted: #d8dee4;
+    
+    --color-fg-default: #1f2328;
+    --color-fg-muted: #656d76;
+    --color-fg-subtle: #6e7781;
+    
+    --color-accent-fg: #0969da;
+    --color-accent-emphasis: #0969da;
+    --color-accent-muted: rgba(84,174,255,0.2);
+    --color-accent-subtle: rgba(84,174,255,0.12);
+    
+    --color-success-fg: #1a7f37;
+    --color-attention-fg: #9a6700;
+    --color-attention-subtle: rgba(212,167,44,0.15);
+    --color-danger-fg: #cf222e;
+    
+    --color-neutral-muted: rgba(175,184,193,0.2);
+    --color-btn-bg: #f6f8fa;
+    --color-btn-border: rgba(31,35,40,0.15);
+    --color-btn-hover-bg: #f3f4f6;
+    --color-btn-hover-border: rgba(31,35,40,0.2);
+}

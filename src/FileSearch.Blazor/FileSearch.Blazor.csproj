@@ -49,4 +49,9 @@
         <ProjectReference Include="..\FullTextSearch.Infrastructure\FullTextSearch.Infrastructure.csproj" />
     </ItemGroup>
 
+    <!-- Sudachi 形態素解析用 Python スクリプト（実行時に exe 同階層に必要） -->
+    <ItemGroup>
+        <Content Include="..\..\tools\sudachi_tokenize.py" Link="sudachi_tokenize.py" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+
 </Project>

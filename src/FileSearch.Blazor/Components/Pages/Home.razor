@@ -9,312 +9,71 @@
 @inject ISearchService SearchService
 @inject IIndexService IndexService
 @inject IAppSettingsService SettingsService
-@inject TextExtractorFactory ExtractorFactory
+@inject FullTextSearch.Core.Preview.IPreviewService PreviewService
 @inject IJSRuntime JSRuntime
 @inject ILogger<Home> Logger
 
 <div class="app @(isDarkMode ? "dark" : "light")">
-    <!-- GitHub-style Header Bar -->
-    <header class="app-header">
-        <a class="header-logo" href="#">
-            <svg viewBox="0 0 16 16" fill="currentColor">
-                <path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/>
-            </svg>
-        </a>
-        <span class="header-repo-name">全文検索システム</span>
+    <AppHeader IsDarkMode="isDarkMode" OnToggleTheme="ToggleTheme" OnOpenSettings="OpenSettings" />
 
-        <div class="header-spacer"></div>
-
-        <div class="header-actions">
-            <button class="header-btn" @onclick="ToggleTheme" title="テーマ切り替え">
-                @if (isDarkMode) 
-                { 
-                    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 12a4 4 0 1 1 0-8 4 4 0 0 1 0 8Zm0-1.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Zm5.657-8.157a.75.75 0 0 1 0 1.061l-1.061 1.06a.749.749 0 0 1-1.275-.326.749.749 0 0 1 .215-.734l1.06-1.06a.75.75 0 0 1 1.06 0Zm-9.193 9.193a.75.75 0 0 1 0 1.06l-1.06 1.061a.75.75 0 1 1-1.061-1.06l1.06-1.061a.75.75 0 0 1 1.061 0ZM8 0a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0V.75A.75.75 0 0 1 8 0ZM3 8a.75.75 0 0 1-.75.75H.75a.75.75 0 0 1 0-1.5h1.5A.75.75 0 0 1 3 8Zm13 0a.75.75 0 0 1-.75.75h-1.5a.75.75 0 0 1 0-1.5h1.5A.75.75 0 0 1 16 8Zm-8 5a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 8 13Zm3.536-1.464a.75.75 0 0 1 1.06 0l1.061 1.06a.75.75 0 0 1-1.06 1.061l-1.061-1.06a.75.75 0 0 1 0-1.061Zm-9.193-9.193a.75.75 0 0 1 1.06 0l1.061 1.06a.75.75 0 0 1-1.06 1.061l-1.061-1.06a.75.75 0 0 1 0-1.061Z"/></svg>
-                }
-                else 
-                { 
-                    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M9.598 1.591a.749.749 0 0 1 .785-.175 7.001 7.001 0 1 1-8.967 8.967.75.75 0 0 1 .961-.96 5.5 5.5 0 0 0 7.046-7.046.75.75 0 0 1 .175-.786Zm1.616 1.945a7 7 0 0 1-7.678 7.678 5.499 5.499 0 1 0 7.678-7.678Z"/></svg>
-                }
-            </button>
-            <button class="header-btn" @onclick="OpenSettings" title="設定">
-                <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8.2 8.2 0 0 1 .701.031C9.444.095 9.99.645 10.16 1.29l.288 1.107c.018.066.079.158.212.224.231.114.454.243.668.386.123.082.233.09.299.071l1.103-.303c.644-.176 1.392.021 1.82.63.27.385.506.792.704 1.218.315.675.111 1.422-.364 1.891l-.814.806c-.049.048-.098.147-.088.294.016.257.016.515 0 .772-.01.147.039.246.088.294l.814.806c.475.469.679 1.216.364 1.891a7.977 7.977 0 0 1-.704 1.217c-.428.61-1.176.807-1.82.63l-1.102-.302c-.067-.019-.177-.011-.3.071a5.909 5.909 0 0 1-.668.386c-.133.066-.194.158-.211.224l-.29 1.106c-.168.646-.715 1.196-1.458 1.26a8.006 8.006 0 0 1-1.402 0c-.743-.064-1.289-.614-1.458-1.26l-.289-1.106c-.018-.066-.079-.158-.212-.224a5.738 5.738 0 0 1-.668-.386c-.123-.082-.233-.09-.299-.071l-1.103.303c-.644.176-1.392-.021-1.82-.63a8.12 8.12 0 0 1-.704-1.218c-.315-.675-.111-1.422.363-1.891l.815-.806c.049-.048.098-.147.088-.294a6.214 6.214 0 0 1 0-.772c.01-.147-.039-.246-.088-.294l-.815-.806C.635 6.045.431 5.298.746 4.623a7.92 7.92 0 0 1 .704-1.217c.428-.61 1.176-.807 1.82-.63l1.102.302c.067.019.177.011.3-.071.214-.143.437-.272.668-.386.133-.066.194-.158.211-.224l.29-1.106C6.009.645 6.556.095 7.299.03 7.53.01 7.764 0 8 0Zm-.571 1.525c-.036.003-.108.036-.137.146l-.289 1.105c-.147.561-.549.967-.998 1.189-.173.086-.34.183-.5.29-.417.278-.97.423-1.529.27l-1.103-.303c-.109-.03-.175.016-.195.045-.22.312-.412.644-.573.99-.014.031-.021.11.059.19l.815.806c.411.406.562.957.53 1.456a4.709 4.709 0 0 0 0 .582c.032.499-.119 1.05-.53 1.456l-.815.806c-.081.08-.073.159-.059.19.162.346.353.677.573.989.02.03.085.076.195.046l1.102-.303c.56-.153 1.113-.008 1.53.27.161.107.328.204.501.29.447.222.85.629.997 1.189l.289 1.105c.029.109.101.143.137.146a6.6 6.6 0 0 0 1.142 0c.036-.003.108-.036.137-.146l.289-1.105c.147-.561.549-.967.998-1.189.173-.086.34-.183.5-.29.417-.278.97-.423 1.529-.27l1.103.303c.109.029.175-.016.195-.045.22-.313.411-.644.573-.99.014-.031.021-.11-.059-.19l-.815-.806c-.411-.406-.562-.957-.53-1.456a4.709 4.709 0 0 0 0-.582c-.032-.499.119-1.05.53-1.456l.815-.806c.081-.08.073-.159.059-.19a6.464 6.464 0 0 0-.573-.989c-.02-.03-.085-.076-.195-.046l-1.102.303c-.56.153-1.113.008-1.53-.27a4.44 4.44 0 0 0-.501-.29c-.447-.222-.85-.629-.997-1.189l-.289-1.105c-.029-.11-.101-.143-.137-.146a6.6 6.6 0 0 0-1.142 0ZM11 8a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM9.5 8a1.5 1.5 0 1 0-3.001.001A1.5 1.5 0 0 0 9.5 8Z"/></svg>
-            </button>
-        </div>
-    </header>
-
-    <!-- Main Container -->
     <div class="app-container">
-        <!-- Sidebar (File Tree) -->
-        <aside class="sidebar" style="width: @(sidebarWidth)px">
-            <div class="sidebar-header">
-                <span class="sidebar-title">
-                    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M.513 1.513A1.75 1.75 0 0 1 1.75 1h3.5c.55 0 1.07.26 1.4.7l.9 1.2a.25.25 0 0 0 .2.1H13a1 1 0 0 1 1 1v.5H2.75a.75.75 0 0 0 0 1.5h11.978a1 1 0 0 1 .994 1.117L15 13.25A1.75 1.75 0 0 1 13.25 15H1.75A1.75 1.75 0 0 1 0 13.25V2.75c0-.464.184-.91.513-1.237Z"/></svg>
-                    検索結果
-                </span>
-                <span class="sidebar-badge">@totalFileCount</span>
-            </div>
-            
-            <!-- ファイル検索 -->
-            <div class="sidebar-search">
-                <svg viewBox="0 0 16 16" fill="currentColor"><path d="M10.68 11.74a6 6 0 0 1-7.922-8.982 6 6 0 0 1 8.982 7.922l3.04 3.04a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215ZM11.5 7a4.499 4.499 0 1 0-8.997 0A4.499 4.499 0 0 0 11.5 7Z"/></svg>
-                <input id="search-input" type="text" placeholder="キーワードで検索..." @bind="searchQuery" @bind:event="oninput" @bind:after="OnSearchInputChanged" @onkeydown="HandleKeyDown" disabled="@isIndexing" tabindex="0" autofocus />
-            </div>
-            @if (isIndexing)
-            {
-                <div class="sidebar-notice">
-                    <span>再構築中は検索できません。</span>
-                </div>
-            }
-            @if (!string.IsNullOrEmpty(searchErrorMessage))
-            {
-                <div class="error-banner search-error">
-                    <span>@searchErrorMessage</span>
-                </div>
-            }
-            <div class="sidebar-content">
-                @if (isSearching)
-                {
-                    <div class="tree-status">
-                        <div class="spinner-ring"></div>
-                        <span>検索中...</span>
-                    </div>
-                }
-                else if (treeNodes.Count == 0)
-                {
-                    <div class="tree-status">
-                        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688l-.011-.013-2.914-2.914-.013-.011Z"/></svg>
-                        <span>@(string.IsNullOrEmpty(searchQuery) ? "検索キーワードを入力" : "結果なし")</span>
-                    </div>
-                }
-                else
-                {
-                    <SearchResultTree Nodes="treeNodes"
-                                     OnToggleNode="ToggleNode"
-                                     OnSelectFile="SelectFile"
-                                     GetFileIconClass="GetFileIconClass" />
-                }
-            </div>
+        <SearchSidebar SidebarWidth="sidebarWidth"
+                      SearchQuery="@searchQuery"
+                      SearchQueryChanged="OnSearchQueryChangedAsync"
+                      TotalFileCount="totalFileCount"
+                      TreeNodes="treeNodes"
+                      IsSearching="isSearching"
+                      SearchErrorMessage="@SearchErrorMessage"
+                      IsIndexing="isIndexing"
+                      IndexProgressPercent="indexProgressPercent"
+                      IndexProgressText="@indexProgressText"
+                      IndexCount="indexCount"
+                      IndexErrorMessage="@IndexErrorMessage"
+                      OnSearchKeyDown="HandleKeyDown"
+                      OnSearchInputChanged="OnSearchInputChanged"
+                      OnToggleNode="ToggleNode"
+                      OnSelectFile="SelectFile"
+                      GetFileIconClass="GetFileIconClass"
+                      OnRequestRebuildIndex="RequestRebuildIndex"
+                      OnStartResize="StartResize"
+                      GetLastUpdateText="GetLastUpdateText" />
 
-            <div class="sidebar-footer">
-                @if (isIndexing)
-                {
-                    <div class="footer-status building">
-                        <div class="footer-row">
-                            <div class="footer-icon spin">
-                                <svg viewBox="0 0 16 16" fill="currentColor"><path d="M1.705 8.005a.75.75 0 0 1 .834.656 5.5 5.5 0 0 0 9.592 2.97l-1.204-1.204a.25.25 0 0 1 .177-.427h3.646a.25.25 0 0 1 .25.25v3.646a.25.25 0 0 1-.427.177l-1.38-1.38A7.002 7.002 0 0 1 1.05 8.84a.75.75 0 0 1 .656-.834ZM8 2.5a5.487 5.487 0 0 0-4.131 1.869l1.204 1.204A.25.25 0 0 1 4.896 6H1.25A.25.25 0 0 1 1 5.75V2.104a.25.25 0 0 1 .427-.177l1.38 1.38A7.002 7.002 0 0 1 14.95 7.16a.75.75 0 0 1-1.49.178A5.5 5.5 0 0 0 8 2.5Z"/></svg>
-                            </div>
-                            <div class="footer-text">
-                                <span class="footer-primary">構築中 @indexProgressPercent%</span>
-                                <span class="footer-secondary">@indexProgressText</span>
-                            </div>
-                        </div>
-                        <div class="footer-progress">
-                            <div class="footer-progress-bar" style="width: @(indexProgressPercent)%"></div>
-                        </div>
-                    </div>
-                }
-                else if (!string.IsNullOrEmpty(indexErrorMessage))
-                {
-                    <div class="footer-status error">
-                        <div class="footer-row">
-                            <span class="footer-error-text">@indexErrorMessage</span>
-                        </div>
-                    </div>
-                }
-                else
-                {
-                    <div class="footer-status">
-                        <div class="footer-row">
-                            <div class="footer-icon">
-                                <svg viewBox="0 0 16 16" fill="currentColor"><path d="M0 1.75A.75.75 0 0 1 .75 1h4.253c1.227 0 2.317.59 3 1.501A3.743 3.743 0 0 1 11.006 1h4.245a.75.75 0 0 1 .75.75v10.5a.75.75 0 0 1-.75.75h-4.507a2.25 2.25 0 0 0-1.591.659l-.622.621a.75.75 0 0 1-1.06 0l-.622-.621A2.25 2.25 0 0 0 5.258 13H.75a.75.75 0 0 1-.75-.75Zm7.251 10.324.004-5.073-.002-2.253A2.25 2.25 0 0 0 5.003 2.5H1.5v9h3.757a3.75 3.75 0 0 1 1.994.574ZM8.755 4.75l-.004 7.322a3.752 3.752 0 0 1 1.992-.572H14.5v-9h-3.495a2.25 2.25 0 0 0-2.25 2.25Z"/></svg>
-                            </div>
-                            <div class="footer-text">
-                                <span class="footer-primary">@indexCount.ToString("N0") 件登録済み</span>
-                                <span class="footer-secondary">@GetLastUpdateText() に更新</span>
-                            </div>
-                            <button class="footer-action" @onclick="UpdateIndex" title="インデックス更新（追加・変更・削除を反映）">
-                                <svg viewBox="0 0 16 16" fill="currentColor"><path d="M1.705 8.005a.75.75 0 0 1 .834.656 5.5 5.5 0 0 0 9.592 2.97l-1.204-1.204a.25.25 0 0 1 .177-.427h3.646a.25.25 0 0 1 .25.25v3.646a.25.25 0 0 1-.427.177l-1.38-1.38A7.002 7.002 0 0 1 1.05 8.84a.75.75 0 0 1 .656-.834ZM8 2.5a5.487 5.487 0 0 0-4.131 1.869l1.204 1.204A.25.25 0 0 1 4.896 6H1.25A.25.25 0 0 1 1 5.75V2.104a.25.25 0 0 1 .427-.177l1.38 1.38A7.002 7.002 0 0 1 14.95 7.16a.75.75 0 0 1-1.49.178A5.5 5.5 0 0 0 8 2.5Z"/></svg>
-                            </button>
-                        </div>
-                    </div>
-                }
-            </div>
-            <div class="resize-handle" @onmousedown="StartResize"></div>
-        </aside>
-
-        <!-- Main Content -->
         <main class="main-content">
             @if (selectedFolder != null)
             {
-                <!-- GitHub-style Folder View -->
-                <div class="file-box">
-                    @if (resultLimitReached)
-                    {
-                        <div class="result-limit-notice">
-                            @SettingsService.Settings.MaxResults.ToString("N0") 件まで表示しています（一致はこれ以上ある可能性があります）。
-                        </div>
-                    }
-                    <div class="file-header">
-                        <span class="file-icon folder">
-                            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M.513 1.513A1.75 1.75 0 0 1 1.75 1h3.5c.55 0 1.07.26 1.4.7l.9 1.2a.25.25 0 0 0 .2.1H13a1 1 0 0 1 1 1v.5H2.75a.75.75 0 0 0 0 1.5h11.978a1 1 0 0 1 .994 1.117L15 13.25A1.75 1.75 0 0 1 13.25 15H1.75A1.75 1.75 0 0 1 0 13.25V2.75c0-.464.184-.91.513-1.237Z"/></svg>
-                        </span>
-                        <div class="file-info">
-                            <span class="file-name">@selectedFolder.Name</span>
-                        </div>
-                        <div class="file-meta">
-                            <span class="file-meta-item">@(selectedFolder.Children?.Count ?? 0) 件</span>
-                        </div>
-                    </div>
-                    <div class="folder-list" tabindex="0" @onkeydown="OnFolderListKeyDown">
-                        <table class="folder-table">
-                            <thead>
-                                <tr>
-                                    <th class="sortable @(sortColumn == "name" ? "sorted" : "")" @onclick='() => SetSort("name")'>
-                                        名前 @GetSortIcon("name")
-                                    </th>
-                                    <th class="col-date sortable @(sortColumn == "date" ? "sorted" : "")" @onclick='() => SetSort("date")'>
-                                        更新日時 @GetSortIcon("date")
-                                    </th>
-                                    <th class="col-type sortable @(sortColumn == "type" ? "sorted" : "")">
-                                        <span @onclick='() => SetSort("type")'>拡張子 @GetSortIcon("type")</span>
-                                        <div class="filter-dropdown">
-                                            <button class="filter-btn @(string.IsNullOrEmpty(filterType) ? "" : "active")" @onclick="ToggleFilterMenu" @onclick:stopPropagation="true" title="フィルター">
-                                                <svg viewBox="0 0 16 16" fill="currentColor"><path d="M.75 3h14.5a.75.75 0 0 1 0 1.5H.75a.75.75 0 0 1 0-1.5ZM3 7.75A.75.75 0 0 1 3.75 7h8.5a.75.75 0 0 1 0 1.5h-8.5A.75.75 0 0 1 3 7.75Zm3 4a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1-.75-.75Z"/></svg>
-                                            </button>
-                                            @if (showFilterMenu && selectedFolder?.Children != null)
-                                            {
-                                                <div class="filter-menu" @onclick:stopPropagation="true">
-                                                    <div class="filter-option @(filterType == "" ? "selected" : "")" @onclick='() => SetFilter("")'>すべて</div>
-                                                    @if (selectedFolder.Children.Any(c => c.IsFolder))
-                                                    {
-                                                        <div class="filter-option @(filterType == "folder" ? "selected" : "")" @onclick='() => SetFilter("folder")'>フォルダ</div>
-                                                    }
-                                                    @foreach (var ext in GetUniqueExtensions(selectedFolder.Children))
-                                                    {
-                                                        <div class="filter-option @(filterType == ext ? "selected" : "")" @onclick="() => SetFilter(ext)">@ext.ToUpperInvariant()</div>
-                                                    }
-                                                </div>
-                                            }
-                                        </div>
-                                    </th>
-                                    <th class="col-size sortable @(sortColumn == "size" ? "sorted" : "")" @onclick='() => SetSort("size")'>
-                                        サイズ @GetSortIcon("size")
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @if (selectedFolder!.Children != null)
-                                {
-                                    var folderListItems = GetSortedAndFilteredItems(selectedFolder.Children).ToList();
-                                    @for (var i = 0; i < folderListItems.Count; i++)
-                                    {
-                                        var item = folderListItems[i];
-                                        <tr class="folder-row @(i == selectedFolderRowIndex ? "selected" : "")" @onclick="async () => { selectedFolderRowIndex = i; await OnFolderItemClick(item); }">
-                                            <td class="col-name">
-                                                @if (item.IsFolder)
-                                                {
-                                                    <svg class="item-icon folder" viewBox="0 0 16 16" fill="currentColor"><path d="M.513 1.513A1.75 1.75 0 0 1 1.75 1h3.5c.55 0 1.07.26 1.4.7l.9 1.2a.25.25 0 0 0 .2.1H13a1 1 0 0 1 1 1v.5H2.75a.75.75 0 0 0 0 1.5h11.978a1 1 0 0 1 .994 1.117L15 13.25A1.75 1.75 0 0 1 13.25 15H1.75A1.75 1.75 0 0 1 0 13.25V2.75c0-.464.184-.91.513-1.237Z"/></svg>
-                                                }
-                                                else
-                                                {
-                                                    <svg class="item-icon file" viewBox="0 0 16 16" fill="currentColor"><path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688l-.011-.013-2.914-2.914-.013-.011Z"/></svg>
-                                                }
-                                                <span class="item-name">@item.Name</span>
-                                            </td>
-                                            <td class="col-date">@(item.LastModified.HasValue ? FormatDate(item.LastModified.Value) : "-")</td>
-                                            <td class="col-type">@(item.IsFolder ? "フォルダ" : Path.GetExtension(item.Name).ToUpperInvariant())</td>
-                                            <td class="col-size">@(item.IsFolder ? "-" : FormatSize(item.FileSize))</td>
-                                        </tr>
-                                    }
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                <FolderListView SelectedFolder="selectedFolder"
+                               ResultLimitReached="resultLimitReached"
+                               MaxResults="SettingsService.Settings.MaxResults"
+                               SortedAndFilteredItems="GetSortedAndFilteredItems(selectedFolder.Children ?? new List<TreeNode>())"
+                               SortColumn="sortColumn"
+                               SortAscending="sortAscending"
+                               FilterType="filterType"
+                               ShowFilterMenu="showFilterMenu"
+                               SelectedRowIndex="selectedFolderRowIndex"
+                               OnSort="SetSort"
+                               OnToggleFilterMenu="ToggleFilterMenu"
+                               OnFilter="SetFilter"
+                               OnRowClick="OnFolderRowClick"
+                               OnFolderListKeyDown="OnFolderListKeyDown"
+                               GetSortIcon="GetSortIcon"
+                               GetUniqueExtensions="GetUniqueExtensions" />
             }
             else if (selectedFile != null)
             {
-                <!-- File Preview -->
-                <div class="file-box">
-                    <div class="file-header">
-                        <span class="file-icon @GetFileIconClass(selectedFile.FileName)">
-                            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688l-.011-.013-2.914-2.914-.013-.011Z"/></svg>
-                        </span>
-                        <div class="file-info">
-                            <span class="file-name">@selectedFile.FileName</span>
-                            <span class="file-path-breadcrumb" title="@selectedFile.FolderPath">@selectedFile.FolderPath</span>
-                        </div>
-                        <div class="file-meta">
-                            <span class="file-meta-item">@(previewMode == "image" ? "画像" : previewMode == "html" ? "表形式" : $"{previewLineCount} 行")</span>
-                            <span class="file-meta-item">@FormatSize(selectedFile.FileSize)</span>
-                        </div>
-                        <div class="file-actions">
-                            @if (ShowNavButtons)
-                            {
-                                <div class="btn-group highlight-nav-group">
-                                    <button class="action-btn" @onclick="GoPrev" title="前へ（一致→ファイル）">
-                                        <svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16"><path d="M4.22 10.5L8 6.72l3.78 3.78a.75.75 0 1 1-1.06 1.06L8 8.845 5.28 11.56a.75.75 0 1 1-1.06-1.06z"/></svg>
-                                        <span>前へ</span>
-                                    </button>
-                                    <button class="action-btn" @onclick="GoNext" title="次へ（一致→ファイル）">
-                                        <svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16"><path d="M4.22 5.5L8 9.28l3.78-3.78a.75.75 0 0 1 1.06 1.06L8 10.845 5.28 8.44a.75.75 0 0 1 1.06-1.06z"/></svg>
-                                        <span>次へ</span>
-                                    </button>
-                                    @if (!string.IsNullOrEmpty(NavInfo))
-                                    {
-                                        <span class="highlight-nav-info" title="現在位置">@NavInfo</span>
-                                    }
-                                </div>
-                            }
-                            <div class="btn-group">
-                                <button class="action-btn" @onclick="OpenFile" title="ファイルを開く">
-                                    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Zm4.879-2.773 4.264 2.559a.25.25 0 0 1 0 .428l-4.264 2.559A.25.25 0 0 1 6 10.559V5.442a.25.25 0 0 1 .379-.215Z"/></svg>
-                                    <span>開く</span>
-                                </button>
-                                <button class="action-btn" @onclick="OpenFolder" title="フォルダを開く">
-                                    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M.513 1.513A1.75 1.75 0 0 1 1.75 1h3.5c.55 0 1.07.26 1.4.7l.9 1.2a.25.25 0 0 0 .2.1H13a1 1 0 0 1 1 1v.5H2.75a.75.75 0 0 0 0 1.5h11.978a1 1 0 0 1 .994 1.117L15 13.25A1.75 1.75 0 0 1 13.25 15H1.75A1.75 1.75 0 0 1 0 13.25V2.75c0-.464.184-.91.513-1.237Z"/></svg>
-                                    <span>フォルダ</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    @if (isLoadingPreview)
-                    {
-                        <div class="loading-state">
-                            <div class="spinner-ring large"></div>
-                            <span class="loading-state-text">読み込み中...</span>
-                        </div>
-                    }
-                    else if (previewMode == "image" && !string.IsNullOrEmpty(previewImageDataUrl))
-                    {
-                        <div class="preview-image-wrap">
-                            <img src="@previewImageDataUrl" alt="プレビュー" class="preview-image" />
-                        </div>
-                    }
-                    else if (previewMode == "html" && !string.IsNullOrEmpty(previewHtml))
-                    {
-                        <div class="preview-html-wrap">@((MarkupString)previewHtml)</div>
-                    }
-                    else
-                    {
-                        <div class="code-view">
-                            <table class="code-table">
-                                <tbody>
-                                    @for (int i = 0; i < previewLines.Count; i++)
-                                    {
-                                        var lineNum = i + 1;
-                                        var line = previewLines[i];
-                                        <tr class="code-line">
-                                            <td class="line-number">@lineNum</td>
-                                            <td class="line-content @(line.HasMatch ? "highlight" : "")">@((MarkupString)line.Content)</td>
-                                        </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
-                    }
-                </div>
+                <FilePreviewView SelectedFile="selectedFile"
+                                 IsLoadingPreview="isLoadingPreview"
+                                 PreviewMode="previewMode"
+                                 PreviewImageDataUrl="previewImageDataUrl"
+                                 PreviewHtml="previewHtml"
+                                 PreviewLines="previewLinesDisplay"
+                                 PreviewLineCount="previewLineCount"
+                                 ShowNavButtons="ShowNavButtons"
+                                 NavInfo="NavInfo"
+                                 OnGoPrev="GoPrev"
+                                 OnGoNext="GoNext"
+                                 OnOpenFile="OpenFile"
+                                 OnOpenFolder="OpenFolder"
+                                 GetFileIconClass="GetFileIconClass" />
             }
             else
             {
@@ -327,18 +86,16 @@
         </main>
     </div>
 
-    @if (_showFileNavConfirm)
-    {
-        <div class="modal-backdrop" @onclick="CancelFileNavConfirm">
-            <div class="file-nav-confirm-dialog" @onclick:stopPropagation="true">
-                <p class="file-nav-confirm-msg">@(_pendingFileNavNext ? "次のファイルに移動しますか？" : "前のファイルに移動しますか？")</p>
-                <div class="file-nav-confirm-actions">
-                    <button class="action-btn primary" @onclick="ConfirmFileNavAsync">移動する</button>
-                    <button class="action-btn" @onclick="CancelFileNavConfirm">キャンセル</button>
-                </div>
-            </div>
-        </div>
-    }
+    <FileNavConfirmDialog Visible="_showFileNavConfirm"
+                          IsNext="_pendingFileNavNext"
+                          OnConfirm="ConfirmFileNavAsync"
+                          OnCancel="CancelFileNavConfirm" />
+
+    <IndexUpdateDialog Visible="_showRebuildConfirm"
+                       FullRebuildSelected="_indexUpdateFullRebuild"
+                       FullRebuildSelectedChanged="OnIndexUpdateModeChanged"
+                       OnConfirm="ConfirmIndexUpdateAsync"
+                       OnCancel="CancelRebuildConfirm" />
 
     <SettingsModal Visible="showSettings"
                    State="_settingsEdit"
@@ -350,8 +107,7 @@
                    OnRemoveFolder="RemoveFolder"
                    OnAddTargetExtension="HandleAddTargetExtension"
                    OnRemoveTargetExtension="RemoveTargetExtension"
-                   OnOpenIndexFolder="OpenIndexFolder"
-                   OnOptimizeIndex="OptimizeIndex" />
+                   OnOpenIndexFolder="OpenIndexFolder" />
 </div>
 
 @if (isResizing)

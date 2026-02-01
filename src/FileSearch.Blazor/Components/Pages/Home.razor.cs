@@ -1,11 +1,7 @@
-using System.Text;
-using System.Text.RegularExpressions;
-using FullTextSearch.Core.Extractors;
 using FullTextSearch.Core.Index;
 using FullTextSearch.Core.Models;
 using FullTextSearch.Core.Preview;
 using FullTextSearch.Core.Search;
-using FullTextSearch.Infrastructure.Extractors;
 using FullTextSearch.Infrastructure.Settings;
 using FileSearch.Blazor.Components.Shared;
 using Microsoft.AspNetCore.Components;
@@ -22,7 +18,7 @@ public partial class Home : IDisposable
     private SearchResultItem? selectedFile;
     private TreeNode? selectedFolder;
     private int totalFileCount = 0;
-    private List<PreviewLine> previewLines = new();
+    private IReadOnlyList<PreviewLineResult> _previewLines = Array.Empty<PreviewLineResult>();
     private int previewLineCount = 0;
     private int indexCount = 0;
     private bool isSearching = false;
@@ -38,8 +34,6 @@ public partial class Home : IDisposable
     private int resizeStartWidth = 0;
     private CancellationTokenSource? _searchCts;
     private CancellationTokenSource? _previewCts;
-    private Timer? _searchDebounceTimer;
-    private const int SearchDebounceMs = 400;
     /// <summary>10万件時もUIが重くならないよう進捗報告をスロットル（件数間隔）</summary>
     private const int ProgressReportInterval = 500;
     /// <summary>進捗UI更新の最小間隔（ミリ秒）</summary>
@@ -60,9 +54,11 @@ public partial class Home : IDisposable
     private string indexProgressText = "";
     private string? searchErrorMessage = null;
     private string? indexErrorMessage = null;
+    /// <summary>SearchSidebar に渡すためプロパティで公開（未使用警告回避）</summary>
+    private string? SearchErrorMessage => searchErrorMessage;
+    /// <summary>SearchSidebar に渡すためプロパティで公開（未使用警告回避）</summary>
+    private string? IndexErrorMessage => indexErrorMessage;
     private bool resultLimitReached = false;
-    private bool isSourceCode = false;
-    private string currentLanguage = "";
     /// <summary>text=行テキスト, html=Excel等HTML, image=画像DataURL</summary>
     private string previewMode = "text";
     private string? previewHtml;
@@ -74,17 +70,9 @@ public partial class Home : IDisposable
     private int _fileNavIndex = -1;
     private bool _showFileNavConfirm;
     private bool _pendingFileNavNext; // true=次へ, false=前へ
-
-    internal class PreviewLine
-    {
-        public string Content { get; set; } = "";
-        public string HighlightedContent { get; set; } = "";
-        public bool HasMatch { get; set; }
-        public bool IsSyntaxHighlighted { get; set; }
-    }
-
-    private const int PreviewMaxChars = 50_000;
-    private const int PreviewMaxLinesForHighlight = 500;
+    private bool _showRebuildConfirm;
+    /// <summary>true=全体を再構築, false=差分更新</summary>
+    private bool _indexUpdateFullRebuild;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -121,6 +109,7 @@ public partial class Home : IDisposable
         {
             await IndexService.InitializeAsync(indexPath);
             indexCount = IndexService.GetStats().DocumentCount;
+            SearchService.Warmup();
         }
         _autoRebuildTimer = new Timer(OnAutoRebuildTick, null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
     }
@@ -142,8 +131,6 @@ public partial class Home : IDisposable
     {
         _autoRebuildTimer?.Dispose();
         _autoRebuildTimer = null;
-        _searchDebounceTimer?.Dispose();
-        _searchDebounceTimer = null;
         _searchCts?.Cancel();
         _searchCts?.Dispose();
         _searchCts = null;
@@ -157,24 +144,17 @@ public partial class Home : IDisposable
     private async Task HandleKeyDown(KeyboardEventArgs e)
     {
         if (e.Key == "Enter" && !isIndexing)
-        {
-            _searchDebounceTimer?.Change(Timeout.Infinite, Timeout.Infinite);
             await ExecuteSearch();
-        }
-        if (e.Key == "Escape") { searchQuery = string.Empty; searchErrorMessage = null; _searchDebounceTimer?.Change(Timeout.Infinite, Timeout.Infinite); await InvokeAsync(StateHasChanged); }
+        if (e.Key == "Escape") { searchQuery = string.Empty; searchErrorMessage = null; await InvokeAsync(StateHasChanged); }
     }
 
-    private void OnSearchInputChanged()
+    private void OnSearchQueryChangedAsync(string v)
     {
-        _searchDebounceTimer?.Dispose();
-        if (string.IsNullOrWhiteSpace(searchQuery)) return;
-        _searchDebounceTimer = new Timer(_ =>
-        {
-            _searchDebounceTimer?.Dispose();
-            _searchDebounceTimer = null;
-            InvokeAsync(ExecuteSearch);
-        }, null, SearchDebounceMs, Timeout.Infinite);
+        searchQuery = v;
     }
+
+    /// <summary>手動検索用。Enter または「検索」ボタンで呼ぶ。入力変更では呼ばない。</summary>
+    private void OnSearchInputChanged() { }
 
     private async Task ExecuteSearch()
     {
@@ -362,6 +342,15 @@ public partial class Home : IDisposable
         else await SelectFile(item);
     }
 
+    private async Task OnFolderRowClick(TreeNode item)
+    {
+        if (selectedFolder?.Children == null) return;
+        var list = GetSortedAndFilteredItems(selectedFolder.Children).ToList();
+        selectedFolderRowIndex = list.IndexOf(item);
+        if (selectedFolderRowIndex < 0) selectedFolderRowIndex = 0;
+        await OnFolderItemClick(item);
+    }
+
     private async Task OnFolderListKeyDown(KeyboardEventArgs e)
     {
         if (selectedFolder?.Children == null) return;
@@ -382,121 +371,21 @@ public partial class Home : IDisposable
         _previewCts = new CancellationTokenSource();
         var token = _previewCts.Token;
         isLoadingPreview = true;
-        previewLines.Clear();
+        _previewLines = Array.Empty<PreviewLineResult>();
         previewLineCount = 0;
         previewMode = "text";
         previewHtml = null;
         previewImageDataUrl = null;
-        isSourceCode = false;
-        currentLanguage = "";
         StateHasChanged();
         try
         {
-            var ext = Path.GetExtension(path).ToLowerInvariant();
-
-            // 画像: Data URL で img 表示
-            if (PreviewHelper.IsImageFile(ext))
-            {
-                try
-                {
-                    var bytes = await File.ReadAllBytesAsync(path, token);
-                    if (token.IsCancellationRequested) return;
-                    var base64 = Convert.ToBase64String(bytes);
-                    var mime = PreviewHelper.GetImageMimeType(ext);
-                    previewImageDataUrl = $"data:{mime};base64,{base64}";
-                    previewMode = "image";
-                }
-                catch
-                {
-                    previewMode = "text";
-                    previewLines.Add(new PreviewLine { Content = "[画像の読み込みに失敗しました]", HasMatch = false });
-                    previewLineCount = 1;
-                }
-                finally { isLoadingPreview = false; StateHasChanged(); }
-                return;
-            }
-
-            // Excel: HTML テーブルで直感的に表示
-            if (ext == ".xlsx")
-            {
-                try
-                {
-                    var query = searchQuery?.Trim() ?? "";
-                    previewHtml = OfficeExtractor.ExtractExcelAsHtml(path, string.IsNullOrWhiteSpace(query) ? null : query);
-                    previewMode = "html";
-                }
-                catch (Exception ex)
-                {
-                    previewMode = "text";
-                    previewLines.Add(new PreviewLine { Content = $"[Excelプレビューエラー] {ex.Message}", HasMatch = false });
-                    previewLineCount = 1;
-                }
-                finally { isLoadingPreview = false; StateHasChanged(); }
-                return;
-            }
-
-            string content;
-            var extractor = ExtractorFactory.GetExtractor(ext);
-            if (extractor != null)
-                content = await extractor.ExtractTextAsync(path, token);
-            else if (PreviewHelper.IsTextFile(ext) || IsTextFile(path))
-                content = await File.ReadAllTextAsync(path, token);
-            else
-                content = "[プレビュー不可]";
+            var result = await PreviewService.GetPreviewAsync(path, searchQuery?.Trim(), token);
             if (token.IsCancellationRequested) return;
-
-            if (content.Length > PreviewMaxChars) content = content.Substring(0, PreviewMaxChars) + "\n... (省略)";
-
-            isSourceCode = PreviewHelper.IsCodeFile(ext);
-            currentLanguage = PreviewHelper.GetLanguage(ext);
-            var searchTerms = string.IsNullOrWhiteSpace(searchQuery) ? Array.Empty<string>() : searchQuery.Split(' ', '　').Where(t => !string.IsNullOrWhiteSpace(t)).ToArray();
-
-            var lines = content.Split('\n');
-            string[] highlightedLines;
-            if (isSourceCode)
-            {
-                var toHighlight = lines.Length <= PreviewMaxLinesForHighlight
-                    ? content
-                    : string.Join("\n", lines.Take(PreviewMaxLinesForHighlight)) + "\n";
-                try
-                {
-                    var highlighted = await JSRuntime.InvokeAsync<string>("highlightCode", token, new object[] { toHighlight, currentLanguage });
-                    highlightedLines = highlighted.Split('\n');
-                    if (lines.Length > PreviewMaxLinesForHighlight)
-                    {
-                        var rest = lines.Skip(PreviewMaxLinesForHighlight).Select(l => System.Net.WebUtility.HtmlEncode(l.TrimEnd('\r')));
-                        highlightedLines = highlightedLines.Concat(rest).ToArray();
-                    }
-                }
-                catch
-                {
-                    highlightedLines = lines.Select(l => System.Net.WebUtility.HtmlEncode(l.TrimEnd('\r'))).ToArray();
-                    isSourceCode = false;
-                }
-            }
-            else
-            {
-                highlightedLines = lines.Select(l => System.Net.WebUtility.HtmlEncode(l.TrimEnd('\r'))).ToArray();
-            }
-            previewLineCount = lines.Length;
-
-            for (int i = 0; i < lines.Length; i++)
-            {
-                var originalLine = lines[i].TrimEnd('\r');
-                var displayLine = isSourceCode && i < highlightedLines.Length ? highlightedLines[i].TrimEnd('\r') : System.Net.WebUtility.HtmlEncode(originalLine);
-                var hasMatch = false;
-                foreach (var term in searchTerms)
-                {
-                    var pattern = Regex.Escape(term);
-                    if (Regex.IsMatch(originalLine, pattern, RegexOptions.IgnoreCase))
-                    {
-                        hasMatch = true;
-                        if (isSourceCode) displayLine = HighlightSearchInSyntax(displayLine, term);
-                        else displayLine = Regex.Replace(displayLine, Regex.Escape(System.Net.WebUtility.HtmlEncode(term)), m => $"<mark>{m.Value}</mark>", RegexOptions.IgnoreCase);
-                    }
-                }
-                previewLines.Add(new PreviewLine { Content = displayLine, HasMatch = hasMatch, IsSyntaxHighlighted = isSourceCode });
-            }
+            previewMode = result.Mode;
+            previewHtml = result.Html;
+            previewImageDataUrl = result.ImageDataUrl;
+            _previewLines = result.Lines;
+            previewLineCount = result.LineCount;
         }
         catch (OperationCanceledException)
         {
@@ -504,31 +393,10 @@ public partial class Home : IDisposable
         }
         catch (Exception ex)
         {
-            previewLines.Add(new PreviewLine { Content = $"[エラー] {ex.Message}", HasMatch = false });
+            _previewLines = new List<PreviewLineResult> { new($"[エラー] {ex.Message}", false) };
             previewLineCount = 1;
         }
         finally { isLoadingPreview = false; StateHasChanged(); }
-    }
-
-    private string HighlightSearchInSyntax(string htmlLine, string term)
-    {
-        try
-        {
-            var pattern = $"(?<=>|^)([^<]*?)({Regex.Escape(term)})([^<]*?)(?=<|$)";
-            return Regex.Replace(htmlLine, pattern, m => $"{m.Groups[1].Value}<mark>{m.Groups[2].Value}</mark>{m.Groups[3].Value}", RegexOptions.IgnoreCase);
-        }
-        catch { return htmlLine; }
-    }
-
-    private bool IsTextFile(string path)
-    {
-        try
-        {
-            using var s = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            var b = new byte[8192];
-            return !b.Take(s.Read(b, 0, b.Length)).Any(x => x == 0);
-        }
-        catch { return false; }
     }
 
     private bool ShowFileNav => selectedFile != null && _fileNavList != null && _fileNavList.Count > 1 && previewMode != "image";
@@ -539,22 +407,28 @@ public partial class Home : IDisposable
     private string? NavInfo => !string.IsNullOrEmpty(_highlightNavInfo) ? _highlightNavInfo
         : (_fileNavList != null && _fileNavIndex >= 0 && _fileNavIndex < _fileNavList.Count ? $"{_fileNavIndex + 1}/{_fileNavList.Count}" : null);
 
-    private async Task GoNext()
+    /// <summary>ハイライト位置へスクロールを試みる。スクロールできた場合は結果を返し、できなければ null。</summary>
+    private async Task<string?> TryScrollToHighlightAsync(bool next)
     {
-        var canGoNextFile = ShowFileNav;
-        var wrap = !canGoNextFile;
         try
         {
-            var result = await JSRuntime.InvokeAsync<string?>("scrollToNextHighlight", wrap);
-            if (!string.IsNullOrEmpty(result))
-            {
-                _highlightNavInfo = FormatHighlightNavInfo(result);
-                StateHasChanged();
-                return;
-            }
+            var fn = next ? "scrollToNextHighlight" : "scrollToPrevHighlight";
+            var wrap = !ShowFileNav;
+            return await JSRuntime.InvokeAsync<string?>(fn, wrap);
         }
-        catch { /* JS not ready */ }
-        if (canGoNextFile)
+        catch { return null; }
+    }
+
+    private async Task GoNext()
+    {
+        var result = await TryScrollToHighlightAsync(next: true);
+        if (!string.IsNullOrEmpty(result))
+        {
+            _highlightNavInfo = FormatHighlightNavInfo(result);
+            StateHasChanged();
+            return;
+        }
+        if (ShowFileNav)
         {
             if (SettingsService.Settings.SkipFileNavConfirm)
                 await SelectNextFile();
@@ -569,20 +443,14 @@ public partial class Home : IDisposable
 
     private async Task GoPrev()
     {
-        var canGoPrevFile = ShowFileNav;
-        var wrap = !canGoPrevFile;
-        try
+        var result = await TryScrollToHighlightAsync(next: false);
+        if (!string.IsNullOrEmpty(result))
         {
-            var result = await JSRuntime.InvokeAsync<string?>("scrollToPrevHighlight", wrap);
-            if (!string.IsNullOrEmpty(result))
-            {
-                _highlightNavInfo = FormatHighlightNavInfo(result);
-                StateHasChanged();
-                return;
-            }
+            _highlightNavInfo = FormatHighlightNavInfo(result);
+            StateHasChanged();
+            return;
         }
-        catch { /* JS not ready */ }
-        if (canGoPrevFile)
+        if (ShowFileNav)
         {
             if (SettingsService.Settings.SkipFileNavConfirm)
                 await SelectPrevFile();
@@ -657,26 +525,6 @@ public partial class Home : IDisposable
         System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = "explorer.exe", Arguments = $"\"{path}\"", UseShellExecute = true });
     }
 
-    private async Task OptimizeIndex()
-    {
-        if (isIndexing) return;
-        var path = SettingsService.Settings.IndexPath;
-        if (string.IsNullOrWhiteSpace(path)) return;
-        try
-        {
-            await IndexService.InitializeAsync(path);
-            await IndexService.OptimizeAsync(CancellationToken.None);
-            indexCount = IndexService.GetStats().DocumentCount;
-            indexErrorMessage = null;
-        }
-        catch (Exception ex)
-        {
-            indexErrorMessage = "最適化に失敗しました。";
-            Logger.LogError(ex, "Index optimize failed");
-        }
-        StateHasChanged();
-    }
-
     private static IndexRebuildOptions GetIndexRebuildOptions(IAppSettingsService settings)
     {
         var exts = settings.Settings.TargetExtensions;
@@ -689,7 +537,9 @@ public partial class Home : IDisposable
         return new Progress<IndexProgress>(p =>
         {
             indexProgressPercent = p.TotalFiles > 0 ? (int)((double)p.ProcessedFiles / p.TotalFiles * 100) : 0;
-            indexProgressText = $"{p.ProcessedFiles:N0} / {p.TotalFiles:N0} {countUnit}";
+            indexProgressText = p.ErrorCount > 0
+                ? $"{p.ProcessedFiles:N0} / {p.TotalFiles:N0} {countUnit}（スキップ {p.ErrorCount:N0} 件）"
+                : $"{p.ProcessedFiles:N0} / {p.TotalFiles:N0} {countUnit}";
             var shouldUpdate = p.CurrentFile == null
                 || (p.ProcessedFiles - _lastReportedProgressCount) >= ProgressReportInterval
                 || (DateTime.UtcNow - _lastReportedProgressTime).TotalMilliseconds >= ProgressReportThrottleMs;
@@ -702,7 +552,13 @@ public partial class Home : IDisposable
         });
     }
 
-    private async Task UpdateIndex()
+    /// <summary>インデックス更新の共通実行（差分・全体どちらもこの経路で実行）。</summary>
+    private async Task RunIndexUpdateAsync(
+        string initialMessage,
+        string countUnit,
+        Func<IProgress<IndexProgress>, Task> runAsync,
+        Func<Exception, string> getErrorMessage,
+        string logContext)
     {
         if (isIndexing) return;
         if (SettingsService.Settings.TargetFolders.Count == 0)
@@ -714,13 +570,14 @@ public partial class Home : IDisposable
         indexErrorMessage = null;
         isIndexing = true;
         indexProgressPercent = 0;
-        indexProgressText = "差分を検出中...";
+        indexProgressText = initialMessage;
         StateHasChanged();
+        await Task.Yield();
 
-        var progress = CreateThrottledProgress("件");
+        var progress = CreateThrottledProgress(countUnit);
         try
         {
-            await IndexService.UpdateIndexAsync(SettingsService.Settings.TargetFolders, progress, GetIndexRebuildOptions(SettingsService), CancellationToken.None);
+            await Task.Run(async () => await runAsync(progress));
             indexCount = IndexService.GetStats().DocumentCount;
             SettingsService.Settings.LastIndexUpdate = DateTime.Now;
             await SettingsService.SaveAsync();
@@ -728,8 +585,8 @@ public partial class Home : IDisposable
         }
         catch (Exception ex)
         {
-            indexErrorMessage = MsgUpdateFailed;
-            Logger.LogError(ex, "Index update failed");
+            indexErrorMessage = getErrorMessage(ex);
+            Logger.LogError(ex, logContext);
         }
         finally
         {
@@ -739,7 +596,31 @@ public partial class Home : IDisposable
         }
     }
 
-    private async Task RebuildIndex()
+    private Task UpdateIndex()
+    {
+        var folders = SettingsService.Settings.TargetFolders;
+        var options = GetIndexRebuildOptions(SettingsService);
+        return RunIndexUpdateAsync(
+            "差分を検出中...",
+            "件",
+            p => IndexService.UpdateIndexAsync(folders, p, options, CancellationToken.None),
+            ex => string.IsNullOrEmpty(ex.Message) ? MsgUpdateFailed : $"{MsgUpdateFailed} {ex.Message}",
+            "Index update failed");
+    }
+
+    private Task RebuildIndex()
+    {
+        var folders = SettingsService.Settings.TargetFolders;
+        var options = GetIndexRebuildOptions(SettingsService);
+        return RunIndexUpdateAsync(
+            "準備中...",
+            "ファイル",
+            p => IndexService.RebuildIndexAsync(folders, p, options, CancellationToken.None),
+            _ => MsgRebuildFailed,
+            "Index rebuild failed");
+    }
+
+    private void RequestRebuildIndex()
     {
         if (isIndexing) return;
         if (SettingsService.Settings.TargetFolders.Count == 0)
@@ -749,31 +630,32 @@ public partial class Home : IDisposable
             return;
         }
         indexErrorMessage = null;
-        isIndexing = true;
-        indexProgressPercent = 0;
-        indexProgressText = "準備中...";
+        _indexUpdateFullRebuild = false;
+        _showRebuildConfirm = true;
         StateHasChanged();
+    }
 
-        var progress = CreateThrottledProgress("ファイル");
-        try
-        {
-            await IndexService.RebuildIndexAsync(SettingsService.Settings.TargetFolders, progress, GetIndexRebuildOptions(SettingsService), CancellationToken.None);
-            indexCount = IndexService.GetStats().DocumentCount;
-            SettingsService.Settings.LastIndexUpdate = DateTime.Now;
-            await SettingsService.SaveAsync();
-            indexErrorMessage = null;
-        }
-        catch (Exception ex)
-        {
-            indexErrorMessage = MsgRebuildFailed;
-            Logger.LogError(ex, "Index rebuild failed");
-        }
-        finally
-        {
-            isIndexing = false;
-            indexProgressPercent = 0;
-            StateHasChanged();
-        }
+    private void CancelRebuildConfirm()
+    {
+        _showRebuildConfirm = false;
+        StateHasChanged();
+    }
+
+    private void OnIndexUpdateModeChanged(bool fullRebuild)
+    {
+        _indexUpdateFullRebuild = fullRebuild;
+        StateHasChanged();
+    }
+
+    /// <summary>選択中の方法でインデックス更新を実行する。</summary>
+    private async Task ConfirmIndexUpdateAsync()
+    {
+        _showRebuildConfirm = false;
+        StateHasChanged();
+        if (_indexUpdateFullRebuild)
+            await RebuildIndex();
+        else
+            await UpdateIndex();
     }
 
     private string GetLastUpdateText()
@@ -844,6 +726,12 @@ public partial class Home : IDisposable
         SettingsService.Settings.AutoRebuildIntervalMinutes = _settingsEdit.AutoRebuildIntervalMinutes;
         SettingsService.Settings.SkipFileNavConfirm = !_settingsEdit.ConfirmFileNav;
         await SettingsService.SaveAsync();
+        if (!string.IsNullOrWhiteSpace(SettingsService.Settings.IndexPath))
+        {
+            await IndexService.InitializeAsync(SettingsService.Settings.IndexPath);
+            indexCount = IndexService.GetStats().DocumentCount;
+        }
+        SearchService.RefreshIndex();
         showSettings = false;
     }
 
@@ -859,41 +747,8 @@ public partial class Home : IDisposable
 
     private void StopResize(MouseEventArgs _) => isResizing = false;
 
-    private string GetFileIconClass(string name) => Path.GetExtension(name).ToLowerInvariant() switch
-    {
-        ".doc" or ".docx" => "word", ".xls" or ".xlsx" => "excel", ".ppt" or ".pptx" => "ppt", ".pdf" => "pdf",
-        ".cs" or ".js" or ".ts" or ".py" or ".java" or ".cpp" or ".c" or ".h" or ".go" or ".rs" or ".rb" or ".php" or ".swift" or ".kt" or ".scala" or ".vb" or ".fs" => "code",
-        _ => "text"
-    };
+    private static string GetFileIconClass(string name) => DisplayFormatters.GetFileIconClass(name);
 
-    private string GetFileExt(string name) => Path.GetExtension(name).TrimStart('.').ToUpperInvariant();
-
-    private string GetFileType(string name) => Path.GetExtension(name).ToLowerInvariant() switch
-    {
-        ".doc" or ".docx" => "Word文書", ".xls" or ".xlsx" => "Excelブック", ".ppt" or ".pptx" => "PowerPoint",
-        ".pdf" => "PDF", ".txt" => "テキスト", ".csv" => "CSV", ".md" => "Markdown", ".json" => "JSON", ".xml" => "XML",
-        ".html" or ".htm" => "HTML", ".css" => "CSS", ".js" => "JavaScript", ".ts" => "TypeScript", ".cs" => "C#",
-        ".py" => "Python", ".java" => "Java", ".cpp" or ".c" or ".h" => "C/C++", ".go" => "Go", ".rs" => "Rust",
-        ".rb" => "Ruby", ".php" => "PHP", ".swift" => "Swift", ".kt" => "Kotlin", ".sql" => "SQL", ".sh" => "Shell",
-        ".ps1" => "PowerShell", ".yaml" or ".yml" => "YAML", ".png" or ".jpg" or ".jpeg" or ".gif" or ".bmp" => "画像",
-        ".mp3" or ".wav" or ".flac" => "音声", ".mp4" or ".avi" or ".mov" => "動画", ".zip" or ".rar" or ".7z" => "圧縮",
-        _ => Path.GetExtension(name).TrimStart('.').ToUpperInvariant() + "ファイル"
-    };
-
-    private string FormatSize(long b) => b < 1024 ? $"{b} B" : b < 1048576 ? $"{b / 1024} KB" : $"{b / 1048576.0:F1} MB";
-    private string FormatDate(DateTime d) => d.ToLocalTime().ToString("yyyy/MM/dd HH:mm");
-
-    private string FormatRelativeDate(DateTime d)
-    {
-        var local = d.ToLocalTime();
-        var diff = DateTime.Now - local;
-        if (diff.TotalMinutes < 1) return "たった今";
-        if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes}分前";
-        if (diff.TotalHours < 24) return $"{(int)diff.TotalHours}時間前";
-        if (diff.TotalDays < 2) return "昨日";
-        if (diff.TotalDays < 7) return $"{(int)diff.TotalDays}日前";
-        if (diff.TotalDays < 30) return $"{(int)(diff.TotalDays / 7)}週間前";
-        if (diff.TotalDays < 365) return $"{(int)(diff.TotalDays / 30)}ヶ月前";
-        return local.ToString("yyyy/MM/dd");
-    }
+    private IReadOnlyList<PreviewLineDisplay> previewLinesDisplay =>
+        _previewLines.Select(p => new PreviewLineDisplay(p.Content, p.HasMatch)).ToList();
 }

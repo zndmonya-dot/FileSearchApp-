@@ -1,0 +1,106 @@
+@namespace FileSearch.Blazor.Components.Shared
+@using FileSearch.Blazor.Components.Shared
+@using FileSearch.Blazor
+@using FullTextSearch.Core.Models
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.AspNetCore.Components
+@if (SelectedFile != null)
+{
+<div class="file-box">
+    <div class="file-header">
+        <span class="file-icon @((GetFileIconClass?.Invoke(SelectedFile.FileName)) ?? "text")">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688l-.011-.013-2.914-2.914-.013-.011Z"/></svg>
+        </span>
+        <div class="file-info">
+            <span class="file-name">@SelectedFile.FileName</span>
+            <span class="file-path-breadcrumb" title="@SelectedFile.FolderPath">@SelectedFile.FolderPath</span>
+        </div>
+        <div class="file-meta">
+            <span class="file-meta-item">@(PreviewMode == "image" ? "画像" : PreviewMode == "html" ? "表形式" : $"{PreviewLineCount} 行")</span>
+            <span class="file-meta-item">@DisplayFormatters.FormatSize(SelectedFile.FileSize)</span>
+        </div>
+        <div class="file-actions">
+            @if (ShowNavButtons)
+            {
+                <div class="btn-group highlight-nav-group">
+                    <button class="action-btn" @onclick="OnGoPrev" title="前へ（一致→ファイル）">
+                        <svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16"><path d="M4.22 10.5L8 6.72l3.78 3.78a.75.75 0 1 1-1.06 1.06L8 8.845 5.28 11.56a.75.75 0 1 1-1.06-1.06z"/></svg>
+                        <span>前へ</span>
+                    </button>
+                    <button class="action-btn" @onclick="OnGoNext" title="次へ（一致→ファイル）">
+                        <svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16"><path d="M4.22 5.5L8 9.28l3.78-3.78a.75.75 0 0 1 1.06 1.06L8 10.845 5.28 8.44a.75.75 0 0 1 1.06-1.06z"/></svg>
+                        <span>次へ</span>
+                    </button>
+                    @if (!string.IsNullOrEmpty(NavInfo))
+                    {
+                        <span class="highlight-nav-info" title="現在位置">@NavInfo</span>
+                    }
+                </div>
+            }
+            <div class="btn-group">
+                <button class="action-btn" @onclick="OnOpenFile" title="ファイルを開く">
+                    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Zm4.879-2.773 4.264 2.559a.25.25 0 0 1 0 .428l-4.264 2.559A.25.25 0 0 1 6 10.559V5.442a.25.25 0 0 1 .379-.215Z"/></svg>
+                    <span>開く</span>
+                </button>
+                <button class="action-btn" @onclick="OnOpenFolder" title="フォルダを開く">
+                    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M.513 1.513A1.75 1.75 0 0 1 1.75 1h3.5c.55 0 1.07.26 1.4.7l.9 1.2a.25.25 0 0 0 .2.1H13a1 1 0 0 1 1 1v.5H2.75a.75.75 0 0 0 0 1.5h11.978a1 1 0 0 1 .994 1.117L15 13.25A1.75 1.75 0 0 1 13.25 15H1.75A1.75 1.75 0 0 1 0 13.25V2.75c0-.464.184-.91.513-1.237Z"/></svg>
+                    <span>フォルダ</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    @if (IsLoadingPreview)
+    {
+        <div class="loading-state">
+            <div class="spinner-ring large"></div>
+            <span class="loading-state-text">読み込み中...</span>
+        </div>
+    }
+    else if (PreviewMode == "image" && !string.IsNullOrEmpty(PreviewImageDataUrl))
+    {
+        <div class="preview-image-wrap">
+            <img src="@PreviewImageDataUrl" alt="プレビュー" class="preview-image" />
+        </div>
+    }
+    else if (PreviewMode == "html" && !string.IsNullOrEmpty(PreviewHtml))
+    {
+        <div class="preview-html-wrap">@((MarkupString)PreviewHtml)</div>
+    }
+    else
+    {
+        <div class="code-view">
+            <table class="code-table">
+                <tbody>
+                    @for (int i = 0; i < PreviewLines.Count; i++)
+                    {
+                        var lineNum = i + 1;
+                        var line = PreviewLines[i];
+                        <tr class="code-line">
+                            <td class="line-number">@lineNum</td>
+                            <td class="line-content @(line.HasMatch ? "highlight" : "")">@((MarkupString)line.Content)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+}
+
+@code {
+    [Parameter] public SearchResultItem? SelectedFile { get; set; }
+    [Parameter] public bool IsLoadingPreview { get; set; }
+    [Parameter] public string PreviewMode { get; set; } = "text";
+    [Parameter] public string? PreviewImageDataUrl { get; set; }
+    [Parameter] public string? PreviewHtml { get; set; }
+    [Parameter] public IReadOnlyList<PreviewLineDisplay> PreviewLines { get; set; } = Array.Empty<PreviewLineDisplay>();
+    [Parameter] public int PreviewLineCount { get; set; }
+    [Parameter] public bool ShowNavButtons { get; set; }
+    [Parameter] public string? NavInfo { get; set; }
+    [Parameter] public EventCallback OnGoPrev { get; set; }
+    [Parameter] public EventCallback OnGoNext { get; set; }
+    [Parameter] public EventCallback OnOpenFile { get; set; }
+    [Parameter] public EventCallback OnOpenFolder { get; set; }
+    [Parameter] public Func<string, string>? GetFileIconClass { get; set; }
+}

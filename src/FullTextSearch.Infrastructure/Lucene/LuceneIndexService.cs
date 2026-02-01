@@ -1,8 +1,8 @@
 using FullTextSearch.Core.Extractors;
 using FullTextSearch.Core.Index;
 using FullTextSearch.Core.Models;
+using FullTextSearch.Infrastructure.Sudachi;
 using Lucene.Net.Analysis;
-using Lucene.Net.Analysis.Cjk;
 using Lucene.Net.Documents;
 using Lucene.Net.Index;
 using Lucene.Net.Search;
@@ -17,8 +17,8 @@ namespace FullTextSearch.Infrastructure.Lucene;
 public class LuceneIndexService : IIndexService, IDisposable
 {
     private const LuceneVersion AppLuceneVersion = LuceneVersion.LUCENE_48;
-    /// <summary>10万ファイル規模を想定した並列抽出数</summary>
-    private const int ParallelExtractCount = 24;
+    /// <summary>高速化: 並列抽出数（多めで I/O を飽和）</summary>
+    private const int ParallelExtractCount = 48;
 
     private readonly TextExtractorFactory _extractorFactory;
     private FSDirectory? _directory;
@@ -45,28 +45,44 @@ public class LuceneIndexService : IIndexService, IDisposable
 
     public Task InitializeAsync(string indexPath, CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(indexPath)) return Task.CompletedTask;
+        var normalizedPath = Path.GetFullPath(indexPath.Trim());
+
         lock (_lock)
         {
-            if (_writer != null)
+            var currentPath = _directory?.Directory?.FullName;
+            if (_writer != null && currentPath != null &&
+                string.Equals(currentPath, normalizedPath, StringComparison.OrdinalIgnoreCase))
             {
                 return Task.CompletedTask;
             }
 
-            // ディレクトリが存在しない場合は作成
-            if (!System.IO.Directory.Exists(indexPath))
+            if (_writer != null)
             {
-                System.IO.Directory.CreateDirectory(indexPath);
+                _writer.Dispose();
+                _analyzer?.Dispose();
+                _directory?.Dispose();
+                _writer = null;
+                _analyzer = null;
+                _directory = null;
             }
 
-            _directory = FSDirectory.Open(indexPath);
+            // ディレクトリが存在しない場合は作成
+            if (!System.IO.Directory.Exists(normalizedPath))
+            {
+                System.IO.Directory.CreateDirectory(normalizedPath);
+            }
 
-            // CJKAnalyzer: 日本語・中国語・韓国語をバイグラムで検索、英語も対応
-            _analyzer = new CJKAnalyzer(AppLuceneVersion);
+            _directory = FSDirectory.Open(normalizedPath);
+
+            // Sudachi C モードのみ
+            _analyzer = new SudachiAnalyzer();
+            SudachiTokenizer.Warmup();
 
             var config = new IndexWriterConfig(AppLuceneVersion, _analyzer)
             {
                 OpenMode = OpenMode.CREATE_OR_APPEND,
-                RAMBufferSizeMB = 256  // 大量ファイル時のフラッシュ頻度を下げて高速化
+                RAMBufferSizeMB = 512  // 高速化: メモリに溜めてからフラッシュ
             };
 
             _writer = new IndexWriter(_directory, config);
@@ -104,7 +120,9 @@ public class LuceneIndexService : IIndexService, IDisposable
         return Task.CompletedTask;
     }
 
-    public async Task IndexFolderAsync(string folderPath, IProgress<IndexProgress>? progress = null, CancellationToken cancellationToken = default)
+    /// <param name="progressOffset">再構築時など、進捗を累積表示するためのオフセット（ProcessedFiles に加算）</param>
+    /// <param name="progressTotalOverride">再構築時など、進捗の総数に使う値（未指定時はこのフォルダのファイル数のみ）</param>
+    public async Task IndexFolderAsync(string folderPath, IProgress<IndexProgress>? progress = null, CancellationToken cancellationToken = default, int progressOffset = 0, int? progressTotalOverride = null)
     {
         EnsureInitialized();
 
@@ -117,6 +135,7 @@ public class LuceneIndexService : IIndexService, IDisposable
             files.Add(filePath);
         }
         var totalFiles = files.Count;
+        var totalForProgress = progressTotalOverride ?? totalFiles;
 
         for (var i = 0; i < files.Count; i += ParallelExtractCount)
         {
@@ -138,8 +157,8 @@ public class LuceneIndexService : IIndexService, IDisposable
             {
                 progress?.Report(new IndexProgress
                 {
-                    ProcessedFiles = processedFiles,
-                    TotalFiles = totalFiles,
+                    ProcessedFiles = progressOffset + processedFiles,
+                    TotalFiles = totalForProgress,
                     CurrentFile = path,
                     ErrorCount = errorCount
                 });
@@ -152,15 +171,20 @@ public class LuceneIndexService : IIndexService, IDisposable
 
         progress?.Report(new IndexProgress
         {
-            ProcessedFiles = processedFiles,
-            TotalFiles = totalFiles,
+            ProcessedFiles = progressOffset + processedFiles,
+            TotalFiles = totalForProgress,
             CurrentFile = null,
             ErrorCount = errorCount
         });
 
-        lock (_lock)
+        // 高速化: 再構築中はフォルダごとに Commit せず、最後に 1 回だけコミット
+        var skipCommit = _currentRebuildOptions != null;
+        if (!skipCommit)
         {
-            _writer!.Commit();
+            lock (_lock)
+            {
+                _writer!.Commit();
+            }
         }
     }
 
@@ -172,18 +196,32 @@ public class LuceneIndexService : IIndexService, IDisposable
 
         try
         {
-            // 全てのドキュメントを削除
             lock (_lock)
             {
                 _writer!.DeleteAll();
-                _writer.Commit();
             }
 
-            // 全フォルダを再インデックス
-            foreach (var folder in folders)
+            var folderList = folders.ToList();
+            var globalTotal = 0;
+            foreach (var folder in folderList)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                await IndexFolderAsync(folder, progress, cancellationToken);
+                if (System.IO.Directory.Exists(folder))
+                    globalTotal += GetTargetFiles(folder).Count();
+            }
+
+            var processedOffset = 0;
+            foreach (var folder in folderList)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var folderCount = System.IO.Directory.Exists(folder) ? GetTargetFiles(folder).Count() : 0;
+                await IndexFolderAsync(folder, progress, cancellationToken, processedOffset, globalTotal);
+                processedOffset += folderCount;
+            }
+
+            lock (_lock)
+            {
+                _writer!.Commit();
             }
         }
         finally
@@ -291,16 +329,26 @@ public class LuceneIndexService : IIndexService, IDisposable
 
     /// <summary>
     /// インデックス内のパスと最終更新日時（Ticks）を取得。指定フォルダ配下のみ。
+    /// Writer が開いたままのため DirectoryReader.Open(writer) を使用（Open(directory) はロック競合で失敗する場合がある）。
     /// </summary>
     private Dictionary<string, long> GetIndexedPathsAndLastModified(List<string> normalizedFolderPaths)
     {
         var result = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
-        if (_directory == null) return result;
+        if (_writer == null) return result;
 
         DirectoryReader? reader = null;
         try
         {
-            reader = DirectoryReader.Open(_directory);
+            try
+            {
+                reader = DirectoryReader.Open(_writer, applyAllDeletes: true);
+            }
+            catch (Exception)
+            {
+                if (_directory != null)
+                    reader = DirectoryReader.Open(_directory);
+            }
+            if (reader == null) return result;
             var searcher = new IndexSearcher(reader);
             var topDocs = searcher.Search(new MatchAllDocsQuery(), reader.NumDocs);
             foreach (var scoreDoc in topDocs.ScoreDocs)

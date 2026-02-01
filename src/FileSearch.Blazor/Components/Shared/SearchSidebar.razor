@@ -1,0 +1,130 @@
+@namespace FileSearch.Blazor.Components.Shared
+@using FileSearch.Blazor.Components.Shared
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.AspNetCore.Components
+<aside class="sidebar" style="width: @(SidebarWidth)px">
+    <div class="sidebar-header">
+        <span class="sidebar-title">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M.513 1.513A1.75 1.75 0 0 1 1.75 1h3.5c.55 0 1.07.26 1.4.7l.9 1.2a.25.25 0 0 0 .2.1H13a1 1 0 0 1 1 1v.5H2.75a.75.75 0 0 0 0 1.5h11.978a1 1 0 0 1 .994 1.117L15 13.25A1.75 1.75 0 0 1 13.25 15H1.75A1.75 1.75 0 0 1 0 13.25V2.75c0-.464.184-.91.513-1.237Z"/></svg>
+            検索結果
+        </span>
+        <span class="sidebar-badge">@TotalFileCount</span>
+    </div>
+
+    <div class="sidebar-search">
+        <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M10.68 11.74a6 6 0 0 1-7.922-8.982 6 6 0 0 1 8.982 7.922l3.04 3.04a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215ZM11.5 7a4.499 4.499 0 1 0-8.997 0A4.499 4.499 0 0 0 11.5 7Z"/></svg>
+        <input id="search-input" type="text" placeholder="キーワードで検索（Enter）" value="@SearchQuery" @oninput="HandleSearchInput" @onkeydown="OnSearchKeyDown" disabled="@IsIndexing" tabindex="0" autofocus />
+    </div>
+    @if (IsIndexing)
+    {
+        <div class="sidebar-notice">
+            <span>再構築中は検索できません。</span>
+        </div>
+    }
+    @if (!string.IsNullOrEmpty(SearchErrorMessage))
+    {
+        <div class="error-banner search-error">
+            <span>@SearchErrorMessage</span>
+        </div>
+    }
+    <div class="sidebar-content">
+        @if (IsSearching)
+        {
+            <div class="tree-status">
+                <div class="spinner-ring"></div>
+                <span>検索中...</span>
+            </div>
+        }
+        else if (TreeNodes.Count == 0)
+        {
+            <div class="tree-status">
+                <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688l-.011-.013-2.914-2.914-.013-.011Z"/></svg>
+                <span>@(string.IsNullOrEmpty(SearchQuery) ? "検索キーワードを入力" : "結果なし")</span>
+            </div>
+        }
+        else
+        {
+            <SearchResultTree Nodes="TreeNodes"
+                             OnToggleNode="OnToggleNode"
+                             OnSelectFile="OnSelectFile"
+                             GetFileIconClass="GetFileIconClass" />
+        }
+    </div>
+
+    <div class="sidebar-footer">
+        @if (IsIndexing)
+        {
+            <div class="footer-status building">
+                <div class="footer-row">
+                    <div class="footer-icon spin">
+                        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M1.705 8.005a.75.75 0 0 1 .834.656 5.5 5.5 0 0 0 9.592 2.97l-1.204-1.204a.25.25 0 0 1 .177-.427h3.646a.25.25 0 0 1 .25.25v3.646a.25.25 0 0 1-.427.177l-1.38-1.38A7.002 7.002 0 0 1 1.05 8.84a.75.75 0 0 1 .656-.834ZM8 2.5a5.487 5.487 0 0 0-4.131 1.869l1.204 1.204A.25.25 0 0 1 4.896 6H1.25A1.75 1.75 0 0 1 1 5.75V2.104a.25.25 0 0 1 .427-.177l1.38 1.38A7.002 7.002 0 0 1 14.95 7.16a.75.75 0 0 1-1.49.178A5.5 5.5 0 0 0 8 2.5Z"/></svg>
+                    </div>
+                    <div class="footer-text">
+                        <span class="footer-primary">構築中 @IndexProgressPercent%</span>
+                        <span class="footer-secondary">@IndexProgressText</span>
+                    </div>
+                </div>
+                <div class="footer-progress">
+                    <div class="footer-progress-bar" style="width: @(IndexProgressPercent)%"></div>
+                </div>
+            </div>
+        }
+        else if (!string.IsNullOrEmpty(IndexErrorMessage))
+        {
+            <div class="footer-status error">
+                <div class="footer-row">
+                    <span class="footer-error-text">@IndexErrorMessage</span>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="footer-status">
+                <div class="footer-row">
+                    <div class="footer-icon">
+                        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M0 1.75A.75.75 0 0 1 .75 1h4.253c1.227 0 2.317.59 3 1.501A3.743 3.743 0 0 1 11.006 1h4.245a.75.75 0 0 1 .75.75v10.5a.75.75 0 0 1-.75.75h-4.507a2.25 2.25 0 0 0-1.591.659l-.622.621a.75.75 0 0 1-1.06 0l-.622-.621A2.25 2.25 0 0 0 5.258 13H.75a.75.75 0 0 1-.75-.75Zm7.251 10.324.004-5.073-.002-2.253A2.25 2.25 0 0 0 5.003 2.5H1.5v9h3.757a3.75 3.75 0 0 1 1.994.574ZM8.755 4.75l-.004 7.322a3.752 3.752 0 0 1 1.992-.572H14.5v-9h-3.495a2.25 2.25 0 0 0-2.25 2.25Z"/></svg>
+                    </div>
+                    <div class="footer-text">
+                        <span class="footer-primary">@IndexCount.ToString("N0") 件登録済み</span>
+                        <span class="footer-secondary">@GetLastUpdateText() に更新</span>
+                    </div>
+                    <button class="footer-action footer-action-with-label" @onclick="OnRequestRebuildIndex" title="インデックスを最初から作り直す（全件再スキャン）">
+                        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M1.705 8.005a.75.75 0 0 1 .834.656 5.5 5.5 0 0 0 9.592 2.97l-1.204-1.204a.25.25 0 0 1 .177-.427h3.646a.25.25 0 0 1 .25.25v3.646a.25.25 0 0 1-.427.177l-1.38-1.38A7.002 7.002 0 0 1 1.05 8.84a.75.75 0 0 1 .656-.834ZM8 2.5a5.487 5.487 0 0 0-4.131 1.869l1.204 1.204A.25.25 0 0 1 4.896 6H1.25A1.75 1.75 0 0 1 1 5.75V2.104a.25.25 0 0 1 .427-.177l1.38 1.38A7.002 7.002 0 0 1 14.95 7.16a.75.75 0 0 1-1.49.178A5.5 5.5 0 0 0 8 2.5Z"/></svg>
+                        <span class="footer-action-label">再構築</span>
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+    <div class="resize-handle" @onmousedown="OnStartResize"></div>
+</aside>
+
+@code {
+    [Parameter] public int SidebarWidth { get; set; }
+    [Parameter] public string SearchQuery { get; set; } = "";
+    [Parameter] public EventCallback<string> SearchQueryChanged { get; set; }
+    [Parameter] public int TotalFileCount { get; set; }
+    [Parameter] public IReadOnlyList<TreeNode> TreeNodes { get; set; } = Array.Empty<TreeNode>();
+    [Parameter] public bool IsSearching { get; set; }
+    [Parameter] public string? SearchErrorMessage { get; set; }
+    [Parameter] public bool IsIndexing { get; set; }
+    [Parameter] public int IndexProgressPercent { get; set; }
+    [Parameter] public string IndexProgressText { get; set; } = "";
+    [Parameter] public int IndexCount { get; set; }
+    [Parameter] public string? IndexErrorMessage { get; set; }
+    [Parameter] public EventCallback<KeyboardEventArgs> OnSearchKeyDown { get; set; }
+    [Parameter] public EventCallback OnSearchInputChanged { get; set; }
+    [Parameter] public EventCallback<TreeNode> OnToggleNode { get; set; }
+    [Parameter] public EventCallback<TreeNode> OnSelectFile { get; set; }
+    [Parameter] public Func<string, string>? GetFileIconClass { get; set; }
+    [Parameter] public EventCallback OnRequestRebuildIndex { get; set; }
+    [Parameter] public EventCallback<MouseEventArgs> OnStartResize { get; set; }
+    [Parameter] public Func<string> GetLastUpdateText { get; set; } = () => "";
+
+    private async Task HandleSearchInput(ChangeEventArgs e)
+    {
+        var v = e.Value?.ToString() ?? "";
+        await SearchQueryChanged.InvokeAsync(v);
+        await OnSearchInputChanged.InvokeAsync();
+    }
+}

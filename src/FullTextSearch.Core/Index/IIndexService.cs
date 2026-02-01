@@ -23,9 +23,10 @@ public interface IIndexService
     Task DeleteDocumentAsync(string filePath, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// フォルダ全体をインデックス
+    /// フォルダ全体をインデックス。
+    /// 再構築時は progressOffset / progressTotalOverride で進捗を全フォルダ合計で表示する。
     /// </summary>
-    Task IndexFolderAsync(string folderPath, IProgress<IndexProgress>? progress = null, CancellationToken cancellationToken = default);
+    Task IndexFolderAsync(string folderPath, IProgress<IndexProgress>? progress = null, CancellationToken cancellationToken = default, int progressOffset = 0, int? progressTotalOverride = null);
 
     /// <summary>
     /// インデックスを再構築（全削除のうえ全件追加）

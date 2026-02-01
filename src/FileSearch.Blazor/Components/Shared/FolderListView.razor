@@ -1,0 +1,111 @@
+@namespace FileSearch.Blazor.Components.Shared
+@using FileSearch.Blazor.Components.Shared
+@using FileSearch.Blazor
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.AspNetCore.Components
+@if (SelectedFolder != null)
+{
+<div class="file-box">
+    @if (ResultLimitReached)
+    {
+        <div class="result-limit-notice">
+            @MaxResults.ToString("N0") 件まで表示しています（一致はこれ以上ある可能性があります）。
+        </div>
+    }
+    <div class="file-header">
+        <span class="file-icon folder">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M.513 1.513A1.75 1.75 0 0 1 1.75 1h3.5c.55 0 1.07.26 1.4.7l.9 1.2a.25.25 0 0 0 .2.1H13a1 1 0 0 1 1 1v.5H2.75a.75.75 0 0 0 0 1.5h11.978a1 1 0 0 1 .994 1.117L15 13.25A1.75 1.75 0 0 1 13.25 15H1.75A1.75 1.75 0 0 1 0 13.25V2.75c0-.464.184-.91.513-1.237Z"/></svg>
+        </span>
+        <div class="file-info">
+            <span class="file-name">@SelectedFolder.Name</span>
+        </div>
+        <div class="file-meta">
+            <span class="file-meta-item">@(SelectedFolder.Children?.Count ?? 0) 件</span>
+        </div>
+    </div>
+    <div class="folder-list" tabindex="0" @onkeydown="OnFolderListKeyDown">
+        <table class="folder-table">
+            <thead>
+                <tr>
+                    <th class="sortable @(SortColumn == "name" ? "sorted" : "")" @onclick='() => OnSort.InvokeAsync("name")'>
+                        名前 @GetSortIcon("name")
+                    </th>
+                    <th class="col-date sortable @(SortColumn == "date" ? "sorted" : "")" @onclick='() => OnSort.InvokeAsync("date")'>
+                        更新日時 @GetSortIcon("date")
+                    </th>
+                    <th class="col-type sortable @(SortColumn == "type" ? "sorted" : "")">
+                        <span @onclick='() => OnSort.InvokeAsync("type")'>拡張子 @GetSortIcon("type")</span>
+                        <div class="filter-dropdown">
+                            <button class="filter-btn @(string.IsNullOrEmpty(FilterType) ? "" : "active")" @onclick="OnToggleFilterMenu" @onclick:stopPropagation="true" title="フィルター">
+                                <svg viewBox="0 0 16 16" fill="currentColor"><path d="M.75 3h14.5a.75.75 0 0 1 0 1.5H.75a.75.75 0 0 1 0-1.5ZM3 7.75A.75.75 0 0 1 3.75 7h8.5a.75.75 0 0 1 0 1.5h-8.5A.75.75 0 0 1 3 7.75Zm3 4a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1-.75-.75Z"/></svg>
+                            </button>
+                            @if (ShowFilterMenu && SelectedFolder?.Children != null)
+                            {
+                                <div class="filter-menu" @onclick:stopPropagation="true">
+                                    <div class="filter-option @(FilterType == "" ? "selected" : "")" @onclick='() => OnFilter.InvokeAsync("")'>すべて</div>
+                                    @if (SelectedFolder.Children.Any(c => c.IsFolder))
+                                    {
+                                        <div class="filter-option @(FilterType == "folder" ? "selected" : "")" @onclick='() => OnFilter.InvokeAsync("folder")'>フォルダ</div>
+                                    }
+                                    @foreach (var ext in GetUniqueExtensions(SelectedFolder.Children))
+                                    {
+                                        <div class="filter-option @(FilterType == ext ? "selected" : "")" @onclick="() => OnFilter.InvokeAsync(ext)">@ext.ToUpperInvariant()</div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </th>
+                    <th class="col-size sortable @(SortColumn == "size" ? "sorted" : "")" @onclick='() => OnSort.InvokeAsync("size")'>
+                        サイズ @GetSortIcon("size")
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (SelectedFolder!.Children != null)
+                {
+                    var folderListItems = SortedAndFilteredItems.ToList();
+                    @for (var i = 0; i < folderListItems.Count; i++)
+                    {
+                        var item = folderListItems[i];
+                        <tr class="folder-row @(i == SelectedRowIndex ? "selected" : "")" @onclick="async () => { await OnRowClick.InvokeAsync(item); }">
+                            <td class="col-name">
+                                @if (item.IsFolder)
+                                {
+                                    <svg class="item-icon folder" viewBox="0 0 16 16" fill="currentColor"><path d="M.513 1.513A1.75 1.75 0 0 1 1.75 1h3.5c.55 0 1.07.26 1.4.7l.9 1.2a.25.25 0 0 0 .2.1H13a1 1 0 0 1 1 1v.5H2.75a.75.75 0 0 0 0 1.5h11.978a1 1 0 0 1 .994 1.117L15 13.25A1.75 1.75 0 0 1 13.25 15H1.75A1.75 1.75 0 0 1 0 13.25V2.75c0-.464.184-.91.513-1.237Z"/></svg>
+                                }
+                                else
+                                {
+                                    <svg class="item-icon file" viewBox="0 0 16 16" fill="currentColor"><path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688l-.011-.013-2.914-2.914-.013-.011Z"/></svg>
+                                }
+                                <span class="item-name">@item.Name</span>
+                            </td>
+                            <td class="col-date">@(item.LastModified.HasValue ? DisplayFormatters.FormatDate(item.LastModified.Value) : "-")</td>
+                            <td class="col-type">@(item.IsFolder ? "フォルダ" : Path.GetExtension(item.Name).ToUpperInvariant())</td>
+                            <td class="col-size">@(item.IsFolder ? "-" : DisplayFormatters.FormatSize(item.FileSize))</td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+}
+
+@code {
+    [Parameter] public TreeNode? SelectedFolder { get; set; }
+    [Parameter] public bool ResultLimitReached { get; set; }
+    [Parameter] public int MaxResults { get; set; }
+    [Parameter] public IEnumerable<TreeNode> SortedAndFilteredItems { get; set; } = Enumerable.Empty<TreeNode>();
+    [Parameter] public string SortColumn { get; set; } = "name";
+    [Parameter] public bool SortAscending { get; set; } = true;
+    [Parameter] public string FilterType { get; set; } = "";
+    [Parameter] public bool ShowFilterMenu { get; set; }
+    [Parameter] public int SelectedRowIndex { get; set; }
+    [Parameter] public EventCallback<string> OnSort { get; set; }
+    [Parameter] public EventCallback OnToggleFilterMenu { get; set; }
+    [Parameter] public EventCallback<string> OnFilter { get; set; }
+    [Parameter] public EventCallback<TreeNode> OnRowClick { get; set; }
+    [Parameter] public EventCallback<KeyboardEventArgs> OnFolderListKeyDown { get; set; }
+    [Parameter] public Func<string, MarkupString> GetSortIcon { get; set; } = _ => (MarkupString)"";
+    [Parameter] public Func<List<TreeNode>, IEnumerable<string>> GetUniqueExtensions { get; set; } = _ => Enumerable.Empty<string>();
+}
