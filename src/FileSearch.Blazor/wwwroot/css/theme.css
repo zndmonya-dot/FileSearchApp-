@@ -48,11 +48,11 @@ html, body {
 }
 
 .app.light {
-    --color-header-bg: #24292f;
-    --color-header-border: #30363d;
-    --color-header-text: #ffffff;
-    --color-header-search-bg: #0d1117;
-    --color-header-search-border: #30363d;
+    --color-header-bg: #f6f8fa;
+    --color-header-border: #d0d7de;
+    --color-header-text: #1f2328;
+    --color-header-search-bg: #ffffff;
+    --color-header-search-border: #d0d7de;
     
     --color-canvas-default: #ffffff;
     --color-canvas-subtle: #f6f8fa;

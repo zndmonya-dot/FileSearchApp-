@@ -47,25 +47,12 @@
     height: 16px;
 }
 
-.header-logo {
-    display: flex;
-    align-items: center;
-    color: var(--color-header-text);
-    text-decoration: none;
-}
-
-.header-logo svg {
-    width: 32px;
-    height: 32px;
-}
-
-.header-repo-name {
-    font-size: 16px;
+.header-title {
+    font-size: 20px;
     font-weight: 600;
     color: var(--color-header-text);
-    margin-left: 8px;
     white-space: nowrap;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.02em;
 }
 
 .header-spacer {
@@ -155,6 +142,10 @@
 
 .header-btn:hover {
     background: rgba(255,255,255,0.1);
+}
+
+.app.light .header-btn:hover {
+    background: rgba(0,0,0,0.06);
 }
 
 .header-btn svg {
