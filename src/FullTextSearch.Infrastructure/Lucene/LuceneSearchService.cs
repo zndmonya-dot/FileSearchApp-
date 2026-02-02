@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
+using FullTextSearch.Core;
 using FullTextSearch.Core.Models;
 using FullTextSearch.Core.Search;
 using FullTextSearch.Infrastructure.Settings;
@@ -25,9 +26,6 @@ public class LuceneSearchService : ISearchService, IDisposable
     private const LuceneVersion AppLuceneVersion = LuceneVersion.LUCENE_48;
     private const int HighlightFragmentSize = 100;
     private const int MaxHighlights = 5;
-    private static readonly string DefaultIndexPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "FullTextSearch", "Index");
 
     private readonly IAppSettingsService _settingsService;
     private string? _currentIndexPath;
@@ -251,7 +249,7 @@ public class LuceneSearchService : ISearchService, IDisposable
     private string GetIndexPath()
     {
         var path = _settingsService.Settings.IndexPath;
-        var raw = string.IsNullOrWhiteSpace(path) ? DefaultIndexPath : path.Trim();
+        var raw = string.IsNullOrWhiteSpace(path) ? DefaultPaths.IndexPath : path.Trim();
         return Path.GetFullPath(raw);
     }
 

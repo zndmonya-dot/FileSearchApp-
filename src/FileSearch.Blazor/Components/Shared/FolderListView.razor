@@ -6,12 +6,6 @@
 @if (SelectedFolder != null)
 {
 <div class="file-box">
-    @if (ResultLimitReached)
-    {
-        <div class="result-limit-notice">
-            @MaxResults.ToString("N0") 件まで表示しています（一致はこれ以上ある可能性があります）。
-        </div>
-    }
     <div class="file-header">
         <span class="file-icon folder">
             <svg viewBox="0 0 16 16" fill="currentColor"><path d="M.513 1.513A1.75 1.75 0 0 1 1.75 1h3.5c.55 0 1.07.26 1.4.7l.9 1.2a.25.25 0 0 0 .2.1H13a1 1 0 0 1 1 1v.5H2.75a.75.75 0 0 0 0 1.5h11.978a1 1 0 0 1 .994 1.117L15 13.25A1.75 1.75 0 0 1 13.25 15H1.75A1.75 1.75 0 0 1 0 13.25V2.75c0-.464.184-.91.513-1.237Z"/></svg>
@@ -93,8 +87,6 @@
 
 @code {
     [Parameter] public TreeNode? SelectedFolder { get; set; }
-    [Parameter] public bool ResultLimitReached { get; set; }
-    [Parameter] public int MaxResults { get; set; }
     [Parameter] public IEnumerable<TreeNode> SortedAndFilteredItems { get; set; } = Enumerable.Empty<TreeNode>();
     [Parameter] public string SortColumn { get; set; } = "name";
     [Parameter] public bool SortAscending { get; set; } = true;

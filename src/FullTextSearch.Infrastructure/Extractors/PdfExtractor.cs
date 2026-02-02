@@ -16,6 +16,8 @@ public class PdfExtractor : ITextExtractor
 
     public IEnumerable<string> SupportedExtensions => SupportedExtensionSet;
 
+    public PreviewCategory PreviewCategory => PreviewCategory.Pdf;
+
     public bool CanExtract(string extension)
     {
         return SupportedExtensionSet.Contains(extension);

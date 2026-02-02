@@ -5,19 +5,9 @@ namespace FullTextSearch.Core.Preview;
 /// </summary>
 public static class PreviewHelper
 {
-    public static readonly HashSet<string> OfficeExtensions = new(StringComparer.OrdinalIgnoreCase)
-        { ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".pdf" };
-
     /// <summary>画像ファイルの拡張子（プレビューで img 表示するもの）</summary>
     public static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
         { ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".ico", ".svg" };
-
-    public static readonly HashSet<string> TextExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".txt", ".csv", ".log", ".md", ".json", ".xml", ".yaml", ".yml", ".cs", ".js", ".ts", ".py", ".java", ".cpp", ".c", ".h",
-        ".pas", ".dpr", ".dpk",
-        ".html", ".css", ".sql", ".sh", ".bat", ".ps1", ".ini", ".cfg", ".config"
-    };
 
     public static readonly IReadOnlyDictionary<string, string> LanguageMap = new Dictionary<string, string>
     {
@@ -44,18 +34,6 @@ public static class PreviewHelper
     {
         var ext = extension.StartsWith(".", StringComparison.Ordinal) ? extension : "." + extension;
         return CodeExtensions.Contains(ext);
-    }
-
-    public static bool IsOfficeFile(string extension)
-    {
-        var ext = extension.StartsWith(".", StringComparison.Ordinal) ? extension : "." + extension;
-        return OfficeExtensions.Contains(ext);
-    }
-
-    public static bool IsTextFile(string extension)
-    {
-        var ext = extension.StartsWith(".", StringComparison.Ordinal) ? extension : "." + extension;
-        return TextExtensions.Contains(ext);
     }
 
     public static bool IsImageFile(string extension)

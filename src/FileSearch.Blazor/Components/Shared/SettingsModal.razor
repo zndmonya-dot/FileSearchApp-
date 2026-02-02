@@ -11,6 +11,18 @@
                 </button>
             </div>
             <div class="settings-body">
+                <div class="settings-section settings-section-first">
+                    <h3>表示</h3>
+                    <p class="settings-desc">アプリのテーマを選択します</p>
+                    <div class="settings-field settings-field-inline">
+                        <label>テーマ</label>
+                        <select class="settings-select" @bind="State.ThemeMode">
+                            <option value="Dark">ダークモード</option>
+                            <option value="Light">ライトモード</option>
+                            <option value="System">システムに従う</option>
+                        </select>
+                    </div>
+                </div>
                 <div class="settings-section">
                     <h3>検索対象フォルダ</h3>
                     <p class="settings-desc">インデックス作成対象のフォルダを指定します</p>
@@ -33,7 +45,7 @@
                 </div>
                 <div class="settings-section">
                     <h3>対象拡張子</h3>
-                    <p class="settings-desc">インデックスする拡張子。空なら抽出器の対応拡張子を使用。同じものは追加できません。</p>
+                    <p class="settings-desc">インデックスする拡張子。空なら抽出器の対応拡張子を使用。</p>
                     <div class="settings-chips">
                         @foreach (var ext in State.TargetExtensions)
                         {
@@ -60,26 +72,10 @@
                         <button class="settings-btn-add" type="button" @onclick="HandleOpenIndexFolder" title="インデックスフォルダをエクスプローラーで開く">フォルダを開く</button>
                     </div>
                 </div>
-                <div class="settings-section">
-                    <div class="settings-desc" style="margin-bottom: 8px;">検索で返す結果の上限です。一致した総数ではなく、表示する最大件数です。</div>
+                <div class="settings-section settings-section-last">
+                    <h3>インデックス</h3>
+                    <p class="settings-desc">状態と定期再構築の間隔</p>
                     <div class="settings-grid">
-                        <div class="settings-field">
-                            <label>検索結果の上限（件）</label>
-                            <select class="settings-select" @bind="State.MaxResults">
-                                <option value="500">500</option>
-                                <option value="1000">1,000</option>
-                                <option value="5000">5,000</option>
-                                <option value="10000">10,000</option>
-                                <option value="50000">50,000</option>
-                                <option value="100000">100,000</option>
-                            </select>
-                        </div>
-                        <div class="settings-field">
-                            <label>インデックス済み</label>
-                            <div class="settings-stat">@IndexCount ファイル</div>
-                        </div>
-                    </div>
-                    <div class="settings-grid" style="margin-top: 12px;">
                         <div class="settings-field">
                             <label>最終更新</label>
                             <div class="settings-stat">@(LastIndexUpdate.HasValue ? LastIndexUpdate.Value.ToString("yyyy/MM/dd HH:mm:ss") : "未実行")</div>
@@ -98,13 +94,6 @@
                             </select>
                         </div>
                     </div>
-                    <div class="settings-subsection" style="margin-top: 12px;">
-                        <h4>表示</h4>
-                        <label class="settings-checkbox-label">
-                            <input type="checkbox" @bind="State.ConfirmFileNav" />
-                            ファイル切り替え時に確認する
-                        </label>
-                    </div>
                 </div>
             </div>
             <div class="settings-footer">
@@ -118,7 +107,6 @@
 @code {
     [Parameter] public bool Visible { get; set; }
     [Parameter] public SettingsEditState State { get; set; } = new();
-    [Parameter] public int IndexCount { get; set; }
     [Parameter] public DateTime? LastIndexUpdate { get; set; }
     [Parameter] public EventCallback OnCloseRequested { get; set; }
     [Parameter] public EventCallback OnSaveRequested { get; set; }

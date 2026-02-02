@@ -24,6 +24,8 @@ public class TextFileExtractor : ITextExtractor
 
     public IEnumerable<string> SupportedExtensions => SupportedExtensionSet;
 
+    public PreviewCategory PreviewCategory => PreviewCategory.Text;
+
     public bool CanExtract(string extension)
     {
         return SupportedExtensionSet.Contains(extension);

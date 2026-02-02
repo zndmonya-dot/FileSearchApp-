@@ -1,3 +1,5 @@
+using FullTextSearch.Core;
+
 namespace FullTextSearch.Core.Models;
 
 /// <summary>
@@ -11,23 +13,14 @@ public class AppSettings
     public List<string> TargetFolders { get; set; } = [];
 
     /// <summary>
-    /// 対象拡張子
+    /// 対象拡張子（空の場合は抽出器が対応する全拡張子を動的に使用）
     /// </summary>
-    public List<string> TargetExtensions { get; set; } =
-    [
-        ".txt", ".csv", ".log", ".md",
-        ".docx", ".xlsx", ".pptx",
-        ".pdf",
-        ".cs", ".js", ".ts", ".py", ".java", ".cpp", ".c", ".h",
-        ".html", ".css", ".xml", ".json", ".yaml", ".yml"
-    ];
+    public List<string> TargetExtensions { get; set; } = [];
 
     /// <summary>
     /// インデックス保存先フォルダ
     /// </summary>
-    public string IndexPath { get; set; } = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "FullTextSearch", "Index");
+    public string IndexPath { get; set; } = DefaultPaths.IndexPath;
 
 
     /// <summary>
@@ -41,20 +34,14 @@ public class AppSettings
     public DateTime? LastIndexUpdate { get; set; }
 
     /// <summary>
-    /// 検索結果の最大表示件数（ファイルサーバー向けに大きめのデフォルト）
-    /// </summary>
-    public int MaxResults { get; set; } = 10000;
-
-
-    /// <summary>
     /// 定期インデックス再構築の間隔（分）。0 の場合は無効。
     /// </summary>
     public int AutoRebuildIntervalMinutes { get; set; } = 0;
 
     /// <summary>
-    /// ファイル切り替え時の確認をスキップする（次回から確認しない）
+    /// テーマ: "Dark" / "Light" / "System"（システムに従う）
     /// </summary>
-    public bool SkipFileNavConfirm { get; set; } = false;
+    public string ThemeMode { get; set; } = "System";
 
 }
 

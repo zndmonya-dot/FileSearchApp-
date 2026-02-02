@@ -1,4 +1,5 @@
 using System.Text.Json;
+using FullTextSearch.Core.Extractors;
 using FullTextSearch.Core.Models;
 
 namespace FullTextSearch.Infrastructure.Settings;
@@ -20,8 +21,14 @@ public class AppSettingsService : IAppSettingsService
     };
 
     private readonly object _lock = new();
+    private readonly TextExtractorFactory _extractorFactory;
 
     public AppSettings Settings { get; private set; } = new();
+
+    public AppSettingsService(TextExtractorFactory extractorFactory)
+    {
+        _extractorFactory = extractorFactory;
+    }
 
     public async Task LoadAsync(CancellationToken cancellationToken = default)
     {
@@ -29,7 +36,12 @@ public class AppSettingsService : IAppSettingsService
         {
             if (!File.Exists(SettingsPath))
             {
-                // デフォルト設定を保存
+                // 初回: 対象拡張子は抽出器が対応する全拡張子を動的に設定
+                lock (_lock)
+                {
+                    Settings = new AppSettings();
+                    Settings.TargetExtensions = _extractorFactory.GetAllSupportedExtensions().ToList();
+                }
                 await SaveAsync(cancellationToken);
                 return;
             }

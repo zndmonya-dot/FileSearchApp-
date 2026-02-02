@@ -123,21 +123,22 @@
 .header-actions {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 2px;
+    margin-right: 10px;
 }
 
 .header-btn {
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
     display: flex;
     align-items: center;
     justify-content: center;
     background: transparent;
     border: none;
-    border-radius: 6px;
+    border-radius: 8px;
     color: var(--color-header-text);
     cursor: pointer;
-    transition: background 0.15s;
+    transition: background 0.15s, color 0.15s;
 }
 
 .header-btn:hover {
@@ -149,8 +150,8 @@
 }
 
 .header-btn svg {
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
 }
 
 /* ===== Main Container ===== */

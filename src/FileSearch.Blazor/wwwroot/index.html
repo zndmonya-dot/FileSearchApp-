@@ -61,6 +61,11 @@
                 return code;
             }
         };
+
+        // システムのテーマ設定（prefers-color-scheme）を取得。戻り値: "dark" / "light"
+        window.getPreferredColorScheme = function() {
+            return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        };
         
         window.applyHighlighting = function() {
             document.querySelectorAll('pre code:not(.hljs)').forEach((block) => {

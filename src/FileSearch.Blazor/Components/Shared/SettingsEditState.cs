@@ -8,11 +8,10 @@ public class SettingsEditState
     public List<string> TargetFolders { get; set; } = new();
     public string NewFolderPath { get; set; } = "";
     public string IndexPath { get; set; } = "";
-    public int MaxResults { get; set; } = 10000;
     public List<string> TargetExtensions { get; set; } = new();
     public string NewTargetExtension { get; set; } = "";
     public string? ExtensionMessage { get; set; }
     public int AutoRebuildIntervalMinutes { get; set; }
-    /// <summary>ファイル切り替え時に確認する（false=次回から確認しない）</summary>
-    public bool ConfirmFileNav { get; set; } = true;
+    /// <summary>テーマ: "Dark" / "Light" / "System"</summary>
+    public string ThemeMode { get; set; } = "System";
 }

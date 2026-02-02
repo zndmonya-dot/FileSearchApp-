@@ -14,7 +14,7 @@
 @inject ILogger<Home> Logger
 
 <div class="app @(isDarkMode ? "dark" : "light")">
-    <AppHeader IsDarkMode="isDarkMode" OnToggleTheme="ToggleTheme" OnOpenSettings="OpenSettings" />
+    <AppHeader OnOpenSettings="OpenSettings" />
 
     <div class="app-container">
         <SearchSidebar SidebarWidth="sidebarWidth"
@@ -25,9 +25,9 @@
                       IsSearching="isSearching"
                       SearchErrorMessage="@SearchErrorMessage"
                       IsIndexing="isIndexing"
+                      IndexCount="indexCount"
                       IndexProgressPercent="indexProgressPercent"
                       IndexProgressText="@indexProgressText"
-                      IndexCount="indexCount"
                       IndexErrorMessage="@IndexErrorMessage"
                       OnSearchKeyDown="HandleKeyDown"
                       OnSearchInputChanged="OnSearchInputChanged"
@@ -42,8 +42,6 @@
             @if (selectedFolder != null)
             {
                 <FolderListView SelectedFolder="selectedFolder"
-                               ResultLimitReached="resultLimitReached"
-                               MaxResults="SettingsService.Settings.MaxResults"
                                SortedAndFilteredItems="GetSortedAndFilteredItems(selectedFolder.Children ?? new List<TreeNode>())"
                                SortColumn="sortColumn"
                                SortAscending="sortAscending"
@@ -68,7 +66,7 @@
                                  PreviewLines="previewLinesDisplay"
                                  PreviewLineCount="previewLineCount"
                                  ShowNavButtons="ShowNavButtons"
-                                 NavInfo="NavInfo"
+                                 NavInfo="@NavInfo"
                                  OnGoPrev="GoPrev"
                                  OnGoNext="GoNext"
                                  OnOpenFile="OpenFile"
@@ -86,11 +84,6 @@
         </main>
     </div>
 
-    <FileNavConfirmDialog Visible="_showFileNavConfirm"
-                          IsNext="_pendingFileNavNext"
-                          OnConfirm="ConfirmFileNavAsync"
-                          OnCancel="CancelFileNavConfirm" />
-
     <IndexUpdateDialog Visible="_showRebuildConfirm"
                        FullRebuildSelected="_indexUpdateFullRebuild"
                        FullRebuildSelectedChanged="OnIndexUpdateModeChanged"
@@ -99,7 +92,6 @@
 
     <SettingsModal Visible="showSettings"
                    State="_settingsEdit"
-                   IndexCount="indexCount"
                    LastIndexUpdate="SettingsService.Settings.LastIndexUpdate"
                    OnCloseRequested="CloseSettings"
                    OnSaveRequested="SaveSettings"

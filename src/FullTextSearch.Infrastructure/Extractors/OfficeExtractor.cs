@@ -19,6 +19,8 @@ public class OfficeExtractor : ITextExtractor
 
     public IEnumerable<string> SupportedExtensions => SupportedExtensionSet;
 
+    public PreviewCategory PreviewCategory => PreviewCategory.Office;
+
     public bool CanExtract(string extension)
     {
         return SupportedExtensionSet.Contains(extension);

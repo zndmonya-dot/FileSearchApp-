@@ -58,7 +58,6 @@ public partial class Home : IDisposable
     private string? SearchErrorMessage => searchErrorMessage;
     /// <summary>SearchSidebar に渡すためプロパティで公開（未使用警告回避）</summary>
     private string? IndexErrorMessage => indexErrorMessage;
-    private bool resultLimitReached = false;
     /// <summary>text=行テキスト, html=Excel等HTML, image=画像DataURL</summary>
     private string previewMode = "text";
     private string? previewHtml;
@@ -68,14 +67,21 @@ public partial class Home : IDisposable
     private bool _hasTriedInitialHighlightScroll;
     private List<TreeNode>? _fileNavList;
     private int _fileNavIndex = -1;
-    private bool _showFileNavConfirm;
-    private bool _pendingFileNavNext; // true=次へ, false=前へ
     private bool _showRebuildConfirm;
     /// <summary>true=全体を再構築, false=差分更新</summary>
     private bool _indexUpdateFullRebuild;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (firstRender && string.Equals(SettingsService.Settings.ThemeMode, "System", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                var systemDark = await GetPreferredColorSchemeFromSystemAsync();
+                if (isDarkMode != systemDark) { isDarkMode = systemDark; StateHasChanged(); }
+            }
+            catch { /* JS not ready */ }
+        }
         if (!firstRender && selectedFile?.FilePath != _lastHighlightNavFilePath)
         {
             _lastHighlightNavFilePath = selectedFile?.FilePath;
@@ -104,6 +110,7 @@ public partial class Home : IDisposable
     protected override async Task OnInitializedAsync()
     {
         await SettingsService.LoadAsync();
+        ApplyThemeFromSettings();
         var indexPath = SettingsService.Settings.IndexPath;
         if (!string.IsNullOrWhiteSpace(indexPath))
         {
@@ -139,7 +146,22 @@ public partial class Home : IDisposable
         _previewCts = null;
     }
 
-    private void ToggleTheme() => isDarkMode = !isDarkMode;
+    private void ApplyThemeFromSettings()
+    {
+        var mode = SettingsService.Settings.ThemeMode ?? "System";
+        if (string.Equals(mode, "Dark", StringComparison.OrdinalIgnoreCase))
+            isDarkMode = true;
+        else if (string.Equals(mode, "Light", StringComparison.OrdinalIgnoreCase))
+            isDarkMode = false;
+        else
+            isDarkMode = true; // System: 初期値はダーク。OnAfterRenderAsync で JS から取得して更新
+    }
+
+    private async Task<bool> GetPreferredColorSchemeFromSystemAsync()
+    {
+        var scheme = await JSRuntime.InvokeAsync<string>("getPreferredColorScheme");
+        return string.Equals(scheme, "dark", StringComparison.OrdinalIgnoreCase);
+    }
 
     private async Task HandleKeyDown(KeyboardEventArgs e)
     {
@@ -165,20 +187,15 @@ public partial class Home : IDisposable
         _searchCts = new CancellationTokenSource();
         var token = _searchCts.Token;
         searchErrorMessage = null;
-        resultLimitReached = false;
         isSearching = true; treeNodes.Clear(); selectedFile = null; totalFileCount = 0;
         StateHasChanged();
         try
         {
-            var maxResults = SettingsService.Settings.MaxResults;
-            var result = await SearchService.SearchAsync(query, new SearchOptions
-            {
-                MaxResults = maxResults
-            }, token);
+            const int searchLimit = 100_000;
+            var result = await SearchService.SearchAsync(query, new SearchOptions { MaxResults = searchLimit }, token);
             if (token.IsCancellationRequested) return;
             treeNodes = BuildTree(result.Items.ToList());
             totalFileCount = result.Items.Count();
-            resultLimitReached = totalFileCount >= maxResults;
         }
         catch (OperationCanceledException)
         {
@@ -429,16 +446,7 @@ public partial class Home : IDisposable
             return;
         }
         if (ShowFileNav)
-        {
-            if (SettingsService.Settings.SkipFileNavConfirm)
-                await SelectNextFile();
-            else
-            {
-                _pendingFileNavNext = true;
-                _showFileNavConfirm = true;
-                StateHasChanged();
-            }
-        }
+            await SelectNextFile();
     }
 
     private async Task GoPrev()
@@ -451,32 +459,7 @@ public partial class Home : IDisposable
             return;
         }
         if (ShowFileNav)
-        {
-            if (SettingsService.Settings.SkipFileNavConfirm)
-                await SelectPrevFile();
-            else
-            {
-                _pendingFileNavNext = false;
-                _showFileNavConfirm = true;
-                StateHasChanged();
-            }
-        }
-    }
-
-    private async Task ConfirmFileNavAsync()
-    {
-        _showFileNavConfirm = false;
-        if (_pendingFileNavNext)
-            await SelectNextFile();
-        else
             await SelectPrevFile();
-        StateHasChanged();
-    }
-
-    private void CancelFileNavConfirm()
-    {
-        _showFileNavConfirm = false;
-        StateHasChanged();
     }
 
     private static string? FormatHighlightNavInfo(string? raw)
@@ -674,10 +657,9 @@ public partial class Home : IDisposable
     {
         _settingsEdit.TargetFolders = SettingsService.Settings.TargetFolders.ToList();
         _settingsEdit.IndexPath = SettingsService.Settings.IndexPath;
-        _settingsEdit.MaxResults = SettingsService.Settings.MaxResults;
         _settingsEdit.TargetExtensions = SettingsService.Settings.TargetExtensions.ToList();
         _settingsEdit.AutoRebuildIntervalMinutes = SettingsService.Settings.AutoRebuildIntervalMinutes;
-        _settingsEdit.ConfirmFileNav = !SettingsService.Settings.SkipFileNavConfirm;
+        _settingsEdit.ThemeMode = SettingsService.Settings.ThemeMode ?? "System";
         _settingsEdit.NewFolderPath = "";
         _settingsEdit.NewTargetExtension = "";
         _settingsEdit.ExtensionMessage = null;
@@ -721,10 +703,9 @@ public partial class Home : IDisposable
     {
         SettingsService.Settings.TargetFolders = _settingsEdit.TargetFolders.ToList();
         if (!string.IsNullOrWhiteSpace(_settingsEdit.IndexPath)) SettingsService.Settings.IndexPath = _settingsEdit.IndexPath;
-        SettingsService.Settings.MaxResults = _settingsEdit.MaxResults;
         SettingsService.Settings.TargetExtensions = _settingsEdit.TargetExtensions.ToList();
         SettingsService.Settings.AutoRebuildIntervalMinutes = _settingsEdit.AutoRebuildIntervalMinutes;
-        SettingsService.Settings.SkipFileNavConfirm = !_settingsEdit.ConfirmFileNav;
+        SettingsService.Settings.ThemeMode = _settingsEdit.ThemeMode ?? "System";
         await SettingsService.SaveAsync();
         if (!string.IsNullOrWhiteSpace(SettingsService.Settings.IndexPath))
         {
@@ -732,6 +713,14 @@ public partial class Home : IDisposable
             indexCount = IndexService.GetStats().DocumentCount;
         }
         SearchService.RefreshIndex();
+        if (string.Equals(SettingsService.Settings.ThemeMode, "System", StringComparison.OrdinalIgnoreCase))
+        {
+            try { isDarkMode = await GetPreferredColorSchemeFromSystemAsync(); } catch { /* keep current */ }
+        }
+        else
+        {
+            ApplyThemeFromSettings();
+        }
         showSettings = false;
     }
 

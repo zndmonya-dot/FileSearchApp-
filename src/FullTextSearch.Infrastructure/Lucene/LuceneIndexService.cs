@@ -476,15 +476,18 @@ public class LuceneIndexService : IIndexService, IDisposable
     private IEnumerable<string> GetTargetFiles(string folderPath)
     {
         HashSet<string> supportedExtensions;
+        var extractorSupported = _extractorFactory.GetAllSupportedExtensions().ToHashSet(StringComparer.OrdinalIgnoreCase);
         if (_currentRebuildOptions?.TargetExtensions != null && _currentRebuildOptions.TargetExtensions.Count > 0)
         {
-            supportedExtensions = _currentRebuildOptions.TargetExtensions
+            var userExtensions = _currentRebuildOptions.TargetExtensions
                 .Select(e => e.StartsWith(".", StringComparison.Ordinal) ? e : "." + e)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            // 設定で追加した拡張子のうち、抽出器が対応するものだけ列挙（対応しない拡張子は抽出できないため除外）
+            supportedExtensions = userExtensions.Where(extractorSupported.Contains).ToHashSet(StringComparer.OrdinalIgnoreCase);
         }
         else
         {
-            supportedExtensions = _extractorFactory.GetAllSupportedExtensions().ToHashSet(StringComparer.OrdinalIgnoreCase);
+            supportedExtensions = extractorSupported;
         }
 
         return SafeEnumerateFiles(folderPath, supportedExtensions);
