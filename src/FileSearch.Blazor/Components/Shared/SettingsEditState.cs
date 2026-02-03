@@ -7,6 +7,8 @@ public class SettingsEditState
 {
     public List<string> TargetFolders { get; set; } = new();
     public string NewFolderPath { get; set; } = "";
+    /// <summary>フォルダ追加時のエラー・注意メッセージ</summary>
+    public string? FolderMessage { get; set; }
     public string IndexPath { get; set; } = "";
     public List<string> TargetExtensions { get; set; } = new();
     public string NewTargetExtension { get; set; } = "";

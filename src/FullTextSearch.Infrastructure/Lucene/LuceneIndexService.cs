@@ -1,6 +1,7 @@
 using FullTextSearch.Core.Extractors;
 using FullTextSearch.Core.Index;
 using FullTextSearch.Core.Models;
+using FullTextSearch.Core.Preview;
 using FullTextSearch.Infrastructure.Sudachi;
 using Lucene.Net.Analysis;
 using Lucene.Net.Documents;
@@ -125,15 +126,20 @@ public class LuceneIndexService : IIndexService, IDisposable
     public async Task IndexFolderAsync(string folderPath, IProgress<IndexProgress>? progress = null, CancellationToken cancellationToken = default, int progressOffset = 0, int? progressTotalOverride = null)
     {
         EnsureInitialized();
-
-        var processedFiles = 0;
-        var errorCount = 0;
         var files = new List<string>();
         foreach (var filePath in GetTargetFiles(folderPath))
         {
             cancellationToken.ThrowIfCancellationRequested();
             files.Add(filePath);
         }
+        await IndexFolderWithFilesAsync(folderPath, files, progress, cancellationToken, progressOffset, progressTotalOverride);
+    }
+
+    /// <summary>ファイルリストを渡してインデックス（再構築時の重複列挙を避ける）</summary>
+    private async Task IndexFolderWithFilesAsync(string folderPath, IReadOnlyList<string> files, IProgress<IndexProgress>? progress, CancellationToken cancellationToken, int progressOffset = 0, int? progressTotalOverride = null)
+    {
+        var processedFiles = 0;
+        var errorCount = 0;
         var totalFiles = files.Count;
         var totalForProgress = progressTotalOverride ?? totalFiles;
 
@@ -164,7 +170,9 @@ public class LuceneIndexService : IIndexService, IDisposable
                 });
                 processedFiles++;
             }
-            var toAdd = docs.Where(d => d != null).Cast<IndexedDocument>().ToList();
+            var toAdd = new List<IndexedDocument>(docs.Length);
+            foreach (var d in docs)
+                if (d != null) toAdd.Add(d);
             if (toAdd.Count > 0)
                 AddDocumentsToWriterWithoutCommit(toAdd);
         }
@@ -202,21 +210,28 @@ public class LuceneIndexService : IIndexService, IDisposable
             }
 
             var folderList = folders.ToList();
+            var folderFileLists = new List<(string folder, List<string> files)>(folderList.Count);
             var globalTotal = 0;
             foreach (var folder in folderList)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                if (System.IO.Directory.Exists(folder))
-                    globalTotal += GetTargetFiles(folder).Count();
+                if (!System.IO.Directory.Exists(folder)) continue;
+                var files = new List<string>();
+                foreach (var path in GetTargetFiles(folder))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    files.Add(path);
+                }
+                globalTotal += files.Count;
+                folderFileLists.Add((folder, files));
             }
 
             var processedOffset = 0;
-            foreach (var folder in folderList)
+            foreach (var (folder, fileList) in folderFileLists)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var folderCount = System.IO.Directory.Exists(folder) ? GetTargetFiles(folder).Count() : 0;
-                await IndexFolderAsync(folder, progress, cancellationToken, processedOffset, globalTotal);
-                processedOffset += folderCount;
+                await IndexFolderWithFilesAsync(folder, fileList, progress, cancellationToken, processedOffset, globalTotal);
+                processedOffset += fileList.Count;
             }
 
             lock (_lock)
@@ -310,7 +325,9 @@ public class LuceneIndexService : IIndexService, IDisposable
                     processed++;
                     progress?.Report(new IndexProgress { ProcessedFiles = processed, TotalFiles = total, CurrentFile = path, ErrorCount = 0 });
                 }
-                var toAdd = docs.Where(d => d != null).Cast<IndexedDocument>().ToList();
+                var toAdd = new List<IndexedDocument>(docs.Length);
+                foreach (var d in docs)
+                    if (d != null) toAdd.Add(d);
                 if (toAdd.Count > 0)
                     AddDocumentsToWriterWithoutCommit(toAdd);
             }
@@ -422,17 +439,20 @@ public class LuceneIndexService : IIndexService, IDisposable
     }
 
     /// <summary>
-    /// ファイルからインデックス用ドキュメントを取得する。対象外・エラー時は null。
+    /// ファイルからインデックス用ドキュメントを取得する。抽出器がない場合は空本文でインデックス（ファイル名・パス検索用）。エラー時は null。
     /// </summary>
     private async Task<IndexedDocument?> TryGetIndexedDocumentAsync(string filePath, CancellationToken cancellationToken)
     {
         var fileInfo = new FileInfo(filePath);
         var extension = fileInfo.Extension.ToLowerInvariant();
         var extractor = _extractorFactory.GetExtractor(extension);
-        if (extractor == null)
-            return null;
 
-        var content = await extractor.ExtractTextAsync(filePath, cancellationToken);
+        string content;
+        if (extractor != null)
+            content = await extractor.ExtractTextAsync(filePath, cancellationToken);
+        else
+            content = string.Empty; // 抽出器非対応拡張子は空本文でインデックス（ファイル名・パスで検索可能にする）
+
         return new IndexedDocument
         {
             FilePath = filePath,
@@ -476,18 +496,18 @@ public class LuceneIndexService : IIndexService, IDisposable
     private IEnumerable<string> GetTargetFiles(string folderPath)
     {
         HashSet<string> supportedExtensions;
-        var extractorSupported = _extractorFactory.GetAllSupportedExtensions().ToHashSet(StringComparer.OrdinalIgnoreCase);
         if (_currentRebuildOptions?.TargetExtensions != null && _currentRebuildOptions.TargetExtensions.Count > 0)
         {
-            var userExtensions = _currentRebuildOptions.TargetExtensions
-                .Select(e => e.StartsWith(".", StringComparison.Ordinal) ? e : "." + e)
+            // ユーザーが設定した拡張子を「.」+ 小文字に正規化して使用
+            supportedExtensions = _currentRebuildOptions.TargetExtensions
+                .Select(PreviewHelper.NormalizeExtension)
+                .Where(e => !string.IsNullOrEmpty(e))
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
-            // 設定で追加した拡張子のうち、抽出器が対応するものだけ列挙（対応しない拡張子は抽出できないため除外）
-            supportedExtensions = userExtensions.Where(extractorSupported.Contains).ToHashSet(StringComparer.OrdinalIgnoreCase);
         }
         else
         {
-            supportedExtensions = extractorSupported;
+            var extractorSupported = _extractorFactory.GetAllSupportedExtensions();
+            supportedExtensions = extractorSupported.Select(PreviewHelper.NormalizeExtension).ToHashSet(StringComparer.OrdinalIgnoreCase);
         }
 
         return SafeEnumerateFiles(folderPath, supportedExtensions);
@@ -526,7 +546,9 @@ public class LuceneIndexService : IIndexService, IDisposable
 
             foreach (var file in files)
             {
-                if (!supportedExtensions.Contains(Path.GetExtension(file)))
+                var ext = Path.GetExtension(file);
+                if (string.IsNullOrEmpty(ext)) continue;
+                if (!supportedExtensions.Contains(ext.ToLowerInvariant()))
                     continue;
                 yield return file;
             }

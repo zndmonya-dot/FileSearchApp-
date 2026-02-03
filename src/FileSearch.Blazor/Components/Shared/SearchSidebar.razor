@@ -8,7 +8,9 @@
             <svg viewBox="0 0 16 16" fill="currentColor"><path d="M.513 1.513A1.75 1.75 0 0 1 1.75 1h3.5c.55 0 1.07.26 1.4.7l.9 1.2a.25.25 0 0 0 .2.1H13a1 1 0 0 1 1 1v.5H2.75a.75.75 0 0 0 0 1.5h11.978a1 1 0 0 1 .994 1.117L15 13.25A1.75 1.75 0 0 1 13.25 15H1.75A1.75 1.75 0 0 1 0 13.25V2.75c0-.464.184-.91.513-1.237Z"/></svg>
             検索結果
         </span>
-        <span class="sidebar-badge">@TotalFileCount</span>
+        <div class="sidebar-header-actions">
+            <span class="sidebar-badge">@TotalFileCount</span>
+        </div>
     </div>
 
     <div class="sidebar-search">
@@ -27,7 +29,7 @@
             <span>@SearchErrorMessage</span>
         </div>
     }
-    <div class="sidebar-content">
+    <div class="sidebar-content" id="tree-list">
         @if (IsSearching)
         {
             <div class="tree-status">
@@ -39,12 +41,13 @@
         {
             <div class="tree-status">
                 <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688l-.011-.013-2.914-2.914-.013-.011Z"/></svg>
-                <span>@(string.IsNullOrEmpty(SearchQuery) ? "検索キーワードを入力" : "結果なし")</span>
+                <span>@GetEmptyTreeMessage()</span>
             </div>
         }
         else
         {
             <SearchResultTree Nodes="TreeNodes"
+                             CurrentPreviewFilePath="@CurrentPreviewFilePath"
                              OnToggleNode="OnToggleNode"
                              OnSelectFile="OnSelectFile"
                              GetFileIconClass="GetFileIconClass" />
@@ -114,6 +117,8 @@
     [Parameter] public string? IndexErrorMessage { get; set; }
     [Parameter] public EventCallback<KeyboardEventArgs> OnSearchKeyDown { get; set; }
     [Parameter] public EventCallback OnSearchInputChanged { get; set; }
+    [Parameter] public string? CurrentPreviewFilePath { get; set; }
+    [Parameter] public bool HasSearchedCurrentQuery { get; set; }
     [Parameter] public EventCallback<TreeNode> OnToggleNode { get; set; }
     [Parameter] public EventCallback<TreeNode> OnSelectFile { get; set; }
     [Parameter] public Func<string, string>? GetFileIconClass { get; set; }
@@ -126,5 +131,11 @@
         var v = e.Value?.ToString() ?? "";
         await SearchQueryChanged.InvokeAsync(v);
         await OnSearchInputChanged.InvokeAsync();
+    }
+
+    private string GetEmptyTreeMessage()
+    {
+        if (string.IsNullOrWhiteSpace(SearchQuery)) return "検索キーワードを入力";
+        return HasSearchedCurrentQuery ? "結果なし" : "Enter で検索";
     }
 }

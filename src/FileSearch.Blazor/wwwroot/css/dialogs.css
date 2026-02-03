@@ -409,6 +409,7 @@
 
 .folder-path {
     flex: 1;
+    min-width: 0;
     font-size: 13px;
     color: #e6edf3;
     overflow: hidden;
@@ -592,21 +593,6 @@
     background: #f3f4f6;
 }
 
-.settings-btn-secondary {
-    height: 32px;
-    padding: 0 16px;
-    background: transparent;
-    border: 1px solid var(--color-border-default);
-    border-radius: 6px;
-    color: var(--color-fg-default);
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-}
-.settings-btn-secondary:hover {
-    background: var(--color-btn-hover-bg);
-}
-
 .settings-btn-save {
     height: 32px;
     padding: 0 16px;
@@ -621,107 +607,5 @@
 
 .settings-btn-save:hover {
     background: #2ea043;
-}
-
-/* Legacy support */
-.input-group input,
-.setting-col select {
-    flex: 1;
-    height: 32px;
-    background: var(--color-canvas-default);
-    border: 1px solid var(--color-border-default);
-    border-radius: 6px;
-    padding: 0 12px;
-    color: var(--color-fg-default);
-    font-size: 14px;
-    outline: none;
-}
-
-.input-group input:focus,
-.setting-col select:focus {
-    border-color: var(--color-accent-fg);
-    box-shadow: 0 0 0 3px var(--color-accent-muted);
-}
-
-.input-group button {
-    height: 32px;
-    padding: 0 16px;
-    background: var(--color-btn-bg);
-    border: 1px solid var(--color-btn-border);
-    border-radius: 6px;
-    color: var(--color-fg-default);
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-}
-
-.input-group button:hover {
-    background: var(--color-btn-hover-bg);
-}
-
-.setting-row {
-    display: flex;
-    gap: 16px;
-}
-
-.setting-col {
-    flex: 1;
-}
-
-.setting-col select {
-    width: 100%;
-}
-
-.stat-value {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--color-fg-default);
-    padding: 8px 0;
-}
-
-.hint {
-    font-size: 12px;
-    color: var(--color-fg-muted);
-    margin-top: 6px;
-}
-
-.modal-footer {
-    padding: 16px 24px;
-    border-top: 1px solid var(--color-border-muted);
-    display: flex;
-    justify-content: flex-end;
-    gap: 12px;
-}
-
-.btn-secondary {
-    height: 32px;
-    padding: 0 16px;
-    border: 1px solid var(--color-btn-border);
-    background: var(--color-btn-bg);
-    border-radius: 6px;
-    color: var(--color-fg-default);
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-}
-
-.btn-secondary:hover {
-    background: var(--color-btn-hover-bg);
-}
-
-.btn-primary {
-    height: 32px;
-    padding: 0 16px;
-    border: none;
-    background: var(--color-accent-emphasis);
-    color: #fff;
-    border-radius: 6px;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-}
-
-.btn-primary:hover {
-    background: #1158c7;
 }
 

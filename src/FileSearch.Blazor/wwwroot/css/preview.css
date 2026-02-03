@@ -56,7 +56,14 @@
     box-shadow: 0 1px 0 var(--color-border-muted);
 }
 
-/* File Header */
+/* プレビュー本文ラッパー */
+.preview-zoom-wrap {
+    flex: 1;
+    overflow: auto;
+    min-height: 0;
+}
+
+/* File Header - 長いパスは省略し、右のボタンとぶつからないようにする */
 .file-header {
     display: flex;
     align-items: center;
@@ -65,7 +72,8 @@
     border-bottom: 1px solid var(--color-border-default);
     gap: 12px;
     min-height: 48px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    min-width: 0;
 }
 
 .file-icon {
@@ -79,24 +87,30 @@
     height: 100%;
 }
 
-.file-icon.word { color: #2b579a; }
-.file-icon.excel { color: #217346; }
-.file-icon.ppt { color: #b7472a; }
-.file-icon.pdf { color: #f40f02; }
-.file-icon.text { color: var(--color-fg-muted); }
-.file-icon.code { color: #8250df; }
-
-.app.dark .file-icon.code { color: #d2a8ff; }
+.file-icon.text { color: var(--color-icon-text); }
+.file-icon.code { color: var(--color-icon-code); }
+.file-icon.word { color: var(--color-icon-word); }
+.file-icon.excel { color: var(--color-icon-excel); }
+.file-icon.ppt { color: var(--color-icon-ppt); }
+.file-icon.pdf { color: var(--color-icon-pdf); }
 
 .file-info {
     flex: 1;
     min-width: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }
 
 .file-name {
     font-size: 14px;
     font-weight: 600;
     color: var(--color-fg-default);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
 }
 
 .file-path-breadcrumb {
@@ -105,6 +119,7 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    min-width: 0;
 }
 
 .file-meta {
@@ -113,6 +128,7 @@
     gap: 16px;
     font-size: 12px;
     color: var(--color-fg-muted);
+    flex-shrink: 0;
 }
 
 .file-meta-item {
@@ -126,9 +142,10 @@
     height: 16px;
 }
 
-/* File Actions - GitHub Button Group */
+/* File Actions - 長いパス時も押し出されないよう縮めない */
 .file-actions {
     display: flex;
+    flex-shrink: 0;
 }
 
 .btn-group {
@@ -257,83 +274,20 @@
     border-radius: 4px;
 }
 
-/* ===== Image Preview ===== */
-.preview-image-wrap {
-    flex: 1;
-    overflow: auto;
-    background: var(--color-canvas-inset);
-    display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    padding: 16px;
-    min-height: 200px;
-}
-.preview-image {
-    max-width: 100%;
-    max-height: 80vh;
-    object-fit: contain;
-    border-radius: var(--size-radius, 6px);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-}
-
-/* ===== Excel / HTML Preview ===== */
+/* ===== HTML Preview (汎用) ===== */
 .preview-html-wrap {
     flex: 1;
     overflow: auto;
     background: var(--color-canvas-default);
     padding: 16px;
 }
-.preview-html-wrap .excel-sheet {
-    margin-bottom: 24px;
-}
-.preview-html-wrap .sheet-name {
-    font-weight: 600;
-    color: var(--color-fg-default);
-    margin-bottom: 8px;
-    font-size: 14px;
-}
-.preview-html-wrap .table-wrapper {
-    overflow: auto;
-    border: 1px solid var(--color-border-default);
-    border-radius: var(--size-radius, 6px);
-}
-.preview-html-wrap .excel-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 12px;
-}
-.preview-html-wrap .excel-table th,
-.preview-html-wrap .excel-table td {
-    border: 1px solid var(--color-border-muted);
-    padding: 6px 10px;
-    text-align: left;
-    color: var(--color-fg-default);
-}
-.preview-html-wrap .excel-table th {
-    background: var(--color-canvas-subtle);
-    font-weight: 600;
-}
-.preview-html-wrap .excel-table .row-header {
-    background: var(--color-canvas-subtle);
-    color: var(--color-fg-muted);
-    min-width: 36px;
-    text-align: right;
-}
-.preview-html-wrap .excel-table .highlight {
-    background: var(--color-attention-subtle);
-}
-.preview-html-wrap .excel-table mark {
-    background: #fff8c5;
-    color: #1f2328;
-    padding: 0 2px;
-    border-radius: 2px;
-}
-.app.dark .preview-html-wrap .excel-table mark {
-    background: rgba(210,153,34,0.4);
-    color: #e6edf3;
-}
 .preview-html-wrap .error {
     color: var(--color-danger-fg);
+}
+.preview-html-wrap .preview-empty {
+    color: var(--color-fg-muted);
+    margin: 0;
+    padding: 16px 0;
 }
 
 /* Syntax Highlighting Colors (GitHub-inspired) */
@@ -670,11 +624,11 @@
 }
 
 .item-icon.folder {
-    color: #54aeff;
+    color: var(--color-icon-folder);
 }
 
 .item-icon.file {
-    color: var(--color-fg-muted);
+    color: var(--color-icon-text);
 }
 
 .item-name {

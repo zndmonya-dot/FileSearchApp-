@@ -17,7 +17,7 @@
             <span class="file-meta-item">@(SelectedFolder.Children?.Count ?? 0) 件</span>
         </div>
     </div>
-    <div class="folder-list" tabindex="0" @onkeydown="OnFolderListKeyDown">
+    <div id="folder-list" class="folder-list">
         <table class="folder-table">
             <thead>
                 <tr>
@@ -97,7 +97,7 @@
     [Parameter] public EventCallback OnToggleFilterMenu { get; set; }
     [Parameter] public EventCallback<string> OnFilter { get; set; }
     [Parameter] public EventCallback<TreeNode> OnRowClick { get; set; }
-    [Parameter] public EventCallback<KeyboardEventArgs> OnFolderListKeyDown { get; set; }
     [Parameter] public Func<string, MarkupString> GetSortIcon { get; set; } = _ => (MarkupString)"";
     [Parameter] public Func<List<TreeNode>, IEnumerable<string>> GetUniqueExtensions { get; set; } = _ => Enumerable.Empty<string>();
+
 }

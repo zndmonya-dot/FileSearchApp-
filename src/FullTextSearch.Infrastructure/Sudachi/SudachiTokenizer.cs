@@ -80,6 +80,8 @@ public sealed class SudachiTokenizer : Tokenizer
         var text = ReadAll(reader);
         if (string.IsNullOrWhiteSpace(text))
             return;
+        if (text.Length > MaxInputCharsForTokenize)
+            text = text.Substring(0, MaxInputCharsForTokenize);
         var scriptPath = ResolveScriptPath();
         if (string.IsNullOrEmpty(scriptPath))
         {
@@ -104,6 +106,15 @@ public sealed class SudachiTokenizer : Tokenizer
 
     /// <summary>Lucene の 1 トークンあたり最大バイト数（UTF-8）。超えると "immense term" でエラーになる。</summary>
     private const int MaxTermUtf8Bytes = 32765;
+
+    /// <summary>1 ドキュメントあたり Sudachi に渡す最大文字数。超えると先頭のみ送りオーバーで落ちるのを防ぐ。</summary>
+    private const int MaxInputCharsForTokenize = 500_000;
+
+    /// <summary>バッチトークン化で一度に送る最大ドキュメント数。</summary>
+    private const int MaxBatchDocuments = 40;
+
+    /// <summary>バッチ時 1 ドキュメントあたりの最大文字数（ハイライト用なので先頭で十分）。</summary>
+    private const int MaxCharsPerContentInBatch = 80_000;
 
     /// <summary>長い文字列を Lucene の制限以内に分割する。</summary>
     private static List<string> SplitToMaxTermLength(string text)
@@ -288,7 +299,7 @@ public sealed class SudachiTokenizer : Tokenizer
         }
     }
 
-    /// <summary>検索ハイライト用: 複数ドキュメントの content を 1 回で Python に送り、ドキュメントごとのトークン列を返す。失敗時は null。</summary>
+    /// <summary>検索ハイライト用: 複数ドキュメントの content を 1 回で Python に送り、ドキュメントごとのトークン列を返す。失敗時は null。件数・長さ制限でオーバーを防ぐ。</summary>
     public static List<List<string>>? InvokeSudachiBatch(IReadOnlyList<string> contents)
     {
         if (contents == null || contents.Count == 0)
@@ -297,6 +308,16 @@ public sealed class SudachiTokenizer : Tokenizer
         if (string.IsNullOrEmpty(scriptPath)) return null;
         var python = FindPython();
         if (string.IsNullOrEmpty(python)) return null;
+
+        var n = Math.Min(contents.Count, MaxBatchDocuments);
+        var toSend = new List<string>(n);
+        for (var i = 0; i < n; i++)
+        {
+            var s = contents[i] ?? "";
+            if (s.Length > MaxCharsPerContentInBatch)
+                s = s.Substring(0, MaxCharsPerContentInBatch);
+            toSend.Add(s);
+        }
 
         lock (SharedProcessLock)
         {
@@ -323,7 +344,7 @@ public sealed class SudachiTokenizer : Tokenizer
                 }
 
                 var stdin = _sharedProcess.StandardInput;
-                foreach (var text in contents)
+                foreach (var text in toSend)
                 {
                     stdin.Write(text);
                     stdin.Write('\n');
@@ -343,16 +364,16 @@ public sealed class SudachiTokenizer : Tokenizer
                     {
                         result.Add(current);
                         current = new List<string>();
-                        if (result.Count >= contents.Count)
+                        if (result.Count >= toSend.Count)
                             break;
                         continue;
                     }
                     if (t.Length > 0)
                         current.Add(t);
                 }
-                if (current.Count > 0 || result.Count < contents.Count)
+                if (current.Count > 0 || result.Count < toSend.Count)
                     result.Add(current);
-                while (result.Count < contents.Count)
+                while (result.Count < toSend.Count)
                     result.Add([]);
                 return result;
             }
@@ -376,6 +397,8 @@ public sealed class SudachiTokenizer : Tokenizer
     /// <summary>フォールバック用: 1 ドキュメントごとにプロセス起動（遅い）。</summary>
     private static List<string> InvokeSudachiOneshot(string scriptPath, string text)
     {
+        if (text.Length > MaxInputCharsForTokenize)
+            text = text.Substring(0, MaxInputCharsForTokenize);
         var python = FindPython();
         if (string.IsNullOrEmpty(python))
             return [];

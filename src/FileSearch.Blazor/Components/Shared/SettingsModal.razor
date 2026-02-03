@@ -39,13 +39,18 @@
                         }
                     </div>
                     <div class="settings-input-row">
-                        <input class="settings-input" @bind="State.NewFolderPath" placeholder="C:\Users\..." />
+                        <input class="settings-input" @bind="State.NewFolderPath" @oninput="() => State.FolderMessage = null" placeholder="C:\Users\..." />
                         <button class="settings-btn-add" type="button" @onclick="HandleAddFolder">追加</button>
                     </div>
+                    @if (!string.IsNullOrEmpty(State.FolderMessage))
+                    {
+                        <p class="settings-msg settings-msg-warn">@State.FolderMessage</p>
+                    }
                 </div>
                 <div class="settings-section">
                     <h3>対象拡張子</h3>
                     <p class="settings-desc">インデックスする拡張子。空なら抽出器の対応拡張子を使用。</p>
+                    <p class="settings-desc settings-desc-note">追加・削除した拡張子を反映するには、必ず「保存」を押したあと、インデックスの「再構築」または「差分更新」を実行してください。</p>
                     <div class="settings-chips">
                         @foreach (var ext in State.TargetExtensions)
                         {

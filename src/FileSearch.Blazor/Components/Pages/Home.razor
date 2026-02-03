@@ -22,6 +22,8 @@
                       SearchQueryChanged="OnSearchQueryChangedAsync"
                       TotalFileCount="totalFileCount"
                       TreeNodes="treeNodes"
+                      CurrentPreviewFilePath="@(selectedFile?.FilePath)"
+                      HasSearchedCurrentQuery="@HasSearchedCurrentQuery"
                       IsSearching="isSearching"
                       SearchErrorMessage="@SearchErrorMessage"
                       IsIndexing="isIndexing"
@@ -52,7 +54,6 @@
                                OnToggleFilterMenu="ToggleFilterMenu"
                                OnFilter="SetFilter"
                                OnRowClick="OnFolderRowClick"
-                               OnFolderListKeyDown="OnFolderListKeyDown"
                                GetSortIcon="GetSortIcon"
                                GetUniqueExtensions="GetUniqueExtensions" />
             }
@@ -61,7 +62,6 @@
                 <FilePreviewView SelectedFile="selectedFile"
                                  IsLoadingPreview="isLoadingPreview"
                                  PreviewMode="previewMode"
-                                 PreviewImageDataUrl="previewImageDataUrl"
                                  PreviewHtml="previewHtml"
                                  PreviewLines="previewLinesDisplay"
                                  PreviewLineCount="previewLineCount"

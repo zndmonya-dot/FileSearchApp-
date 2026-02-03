@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <Machine>ZNDMONYA</Machine>
@@ -39,12 +39,6 @@
     </AppxPackagedFile>
     <AppxPackagedFile Include="C:\全文検索システム\src\FileSearch.Blazor\wwwroot\css\app.css">
       <PackagePath>wwwroot\css\app.css</PackagePath>
-    </AppxPackagedFile>
-    <AppxPackagedFile Include="C:\全文検索システム\src\FileSearch.Blazor\wwwroot\css\bootstrap\bootstrap.min.css">
-      <PackagePath>wwwroot\css\bootstrap\bootstrap.min.css</PackagePath>
-    </AppxPackagedFile>
-    <AppxPackagedFile Include="C:\全文検索システム\src\FileSearch.Blazor\wwwroot\css\bootstrap\bootstrap.min.css.map">
-      <PackagePath>wwwroot\css\bootstrap\bootstrap.min.css.map</PackagePath>
     </AppxPackagedFile>
     <AppxPackagedFile Include="C:\全文検索システム\src\FileSearch.Blazor\wwwroot\css\dialogs.css">
       <PackagePath>wwwroot\css\dialogs.css</PackagePath>
@@ -594,9 +588,6 @@
     </AppxPackagedFile>
     <AppxPackagedFile Include="C:\全文検索システム\src\FileSearch.Blazor\Components\Layout\MainLayout.razor.css">
       <PackagePath>Components\Layout\MainLayout.razor.css</PackagePath>
-    </AppxPackagedFile>
-    <AppxPackagedFile Include="C:\全文検索システム\src\FileSearch.Blazor\Components\Layout\NavMenu.razor.css">
-      <PackagePath>Components\Layout\NavMenu.razor.css</PackagePath>
     </AppxPackagedFile>
   </ItemGroup>
   <ItemGroup>

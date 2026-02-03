@@ -5,10 +5,6 @@ namespace FullTextSearch.Core.Preview;
 /// </summary>
 public static class PreviewHelper
 {
-    /// <summary>画像ファイルの拡張子（プレビューで img 表示するもの）</summary>
-    public static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
-        { ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".ico", ".svg" };
-
     public static readonly IReadOnlyDictionary<string, string> LanguageMap = new Dictionary<string, string>
     {
         { ".cs", "csharp" }, { ".js", "javascript" }, { ".ts", "typescript" }, { ".py", "python" },
@@ -36,26 +32,14 @@ public static class PreviewHelper
         return CodeExtensions.Contains(ext);
     }
 
-    public static bool IsImageFile(string extension)
+    /// <summary>拡張子を「.」+ 小文字に正規化（パスまたは拡張子文字列を受け取る）</summary>
+    public static string NormalizeExtension(string extensionOrPath)
     {
-        var ext = extension.StartsWith(".", StringComparison.Ordinal) ? extension : "." + extension;
-        return ImageExtensions.Contains(ext);
-    }
-
-    /// <summary>Data URL 用の MIME タイプ</summary>
-    public static string GetImageMimeType(string extension)
-    {
-        var ext = (extension.StartsWith(".", StringComparison.Ordinal) ? extension : "." + extension).ToLowerInvariant();
-        return ext switch
-        {
-            ".png" => "image/png",
-            ".jpg" or ".jpeg" => "image/jpeg",
-            ".gif" => "image/gif",
-            ".bmp" => "image/bmp",
-            ".webp" => "image/webp",
-            ".ico" => "image/x-icon",
-            ".svg" => "image/svg+xml",
-            _ => "application/octet-stream"
-        };
+        var raw = string.IsNullOrEmpty(extensionOrPath) ? "" : extensionOrPath.Trim();
+        if (raw.Length > 0 && (raw.Contains(Path.DirectorySeparatorChar) || raw.Contains(Path.AltDirectorySeparatorChar)))
+            raw = Path.GetExtension(raw);
+        if (string.IsNullOrEmpty(raw)) return "";
+        if (!raw.StartsWith(".", StringComparison.Ordinal)) raw = "." + raw;
+        return raw.ToLowerInvariant();
     }
 }

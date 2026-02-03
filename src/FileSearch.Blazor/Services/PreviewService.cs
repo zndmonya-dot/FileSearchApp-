@@ -10,7 +10,7 @@ using Microsoft.JSInterop;
 namespace FileSearch.Blazor.Services;
 
 /// <summary>
-/// ファイルプレビュー取得サービス（画像／Excel／テキスト／コード）
+/// ファイルプレビュー取得サービス（Office・PDF・テキスト・コードは行テキスト）
 /// </summary>
 public class PreviewService : IPreviewService
 {
@@ -31,44 +31,13 @@ public class PreviewService : IPreviewService
 
     public async Task<PreviewResult> GetPreviewAsync(string path, string? searchQuery, CancellationToken cancellationToken = default)
     {
-        var ext = Path.GetExtension(path).ToLowerInvariant();
+        if (string.IsNullOrEmpty(path))
+            return CreateErrorResult("ファイルパスが指定されていません");
 
-        // 画像: Data URL で img 表示
-        if (PreviewHelper.IsImageFile(ext))
-        {
-            try
-            {
-                var bytes = await File.ReadAllBytesAsync(path, cancellationToken);
-                if (cancellationToken.IsCancellationRequested) return CreateErrorResult("[キャンセル]");
-                var base64 = Convert.ToBase64String(bytes);
-                var mime = PreviewHelper.GetImageMimeType(ext);
-                return new PreviewResult
-                {
-                    Mode = "image",
-                    ImageDataUrl = $"data:{mime};base64,{base64}"
-                };
-            }
-            catch
-            {
-                return CreateErrorResult("[画像の読み込みに失敗しました]");
-            }
-        }
+        var ext = PreviewHelper.NormalizeExtension(path);
 
-        // 抽出器で種別判定（Office/PDF/テキスト）
+        // 抽出器で種別判定（Office/PDF/テキスト）。Excel も Word/PPT と同様にテキストでプレビュー
         var extractor = _extractorFactory.GetExtractor(ext);
-        if (extractor?.PreviewCategory == PreviewCategory.Office && ext == ".xlsx")
-        {
-            try
-            {
-                var query = searchQuery?.Trim();
-                var html = OfficeExtractor.ExtractExcelAsHtml(path, string.IsNullOrWhiteSpace(query) ? null : query);
-                return new PreviewResult { Mode = "html", Html = html };
-            }
-            catch (Exception ex)
-            {
-                return CreateErrorResult($"[Excelプレビューエラー] {ex.Message}");
-            }
-        }
 
         // テキスト／コード（抽出器が対応する拡張子のみ）
         string content;
@@ -147,7 +116,7 @@ public class PreviewService : IPreviewService
             resultLines.Add(new PreviewLineResult(displayLine, hasMatch));
         }
 
-        // 調査用: マッチしたのに <mark> が付いていない行を記録（HTML 構造でマッチしていない原因特定用）
+#if DEBUG
         if (_logger != null && isSourceCode && searchTerms.Length > 0)
         {
             for (int i = 0; i < resultLines.Count; i++)
@@ -160,7 +129,7 @@ public class PreviewService : IPreviewService
                 }
             }
         }
-
+#endif
         return new PreviewResult
         {
             Mode = "text",

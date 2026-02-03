@@ -4,6 +4,7 @@ using FullTextSearch.Core.Preview;
 using FullTextSearch.Core.Search;
 using FullTextSearch.Infrastructure.Settings;
 using FileSearch.Blazor.Components.Shared;
+using FileSearch.Blazor.Services;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
@@ -13,6 +14,8 @@ namespace FileSearch.Blazor.Components.Pages;
 
 public partial class Home : IDisposable
 {
+    #region State
+
     private string searchQuery = "";
     private List<TreeNode> treeNodes = new();
     private SearchResultItem? selectedFile;
@@ -34,9 +37,7 @@ public partial class Home : IDisposable
     private int resizeStartWidth = 0;
     private CancellationTokenSource? _searchCts;
     private CancellationTokenSource? _previewCts;
-    /// <summary>10万件時もUIが重くならないよう進捗報告をスロットル（件数間隔）</summary>
     private const int ProgressReportInterval = 500;
-    /// <summary>進捗UI更新の最小間隔（ミリ秒）</summary>
     private const int ProgressReportThrottleMs = 250;
     private int _lastReportedProgressCount = -1;
     private DateTime _lastReportedProgressTime;
@@ -54,22 +55,26 @@ public partial class Home : IDisposable
     private string indexProgressText = "";
     private string? searchErrorMessage = null;
     private string? indexErrorMessage = null;
-    /// <summary>SearchSidebar に渡すためプロパティで公開（未使用警告回避）</summary>
     private string? SearchErrorMessage => searchErrorMessage;
-    /// <summary>SearchSidebar に渡すためプロパティで公開（未使用警告回避）</summary>
     private string? IndexErrorMessage => indexErrorMessage;
-    /// <summary>text=行テキスト, html=Excel等HTML, image=画像DataURL</summary>
     private string previewMode = "text";
     private string? previewHtml;
-    private string? previewImageDataUrl;
     private string? _lastHighlightNavFilePath;
     private string? _highlightNavInfo;
     private bool _hasTriedInitialHighlightScroll;
     private List<TreeNode>? _fileNavList;
     private int _fileNavIndex = -1;
     private bool _showRebuildConfirm;
-    /// <summary>true=全体を再構築, false=差分更新</summary>
     private bool _indexUpdateFullRebuild;
+    /// <summary>最後に実際に実行した検索クエリ（入力中は未実行と区別するため）</summary>
+    private string? _lastExecutedSearchQuery;
+
+    /// <summary>現在の入力がすでに検索実行済みか（未実行なら「Enter で検索」と表示）</summary>
+    private bool HasSearchedCurrentQuery => _lastExecutedSearchQuery != null && (searchQuery?.Trim() ?? "") == _lastExecutedSearchQuery;
+
+    #endregion
+
+    #region Lifecycle
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -90,7 +95,6 @@ public partial class Home : IDisposable
             try { await JSRuntime.InvokeVoidAsync("resetHighlightNav"); }
             catch { /* JS not ready */ }
         }
-        // プレビュー読み込み後、検索中なら最初の一致へスクロールして位置を表示
         if (!firstRender && !isLoadingPreview && ShowHighlightNav && !_hasTriedInitialHighlightScroll)
         {
             _hasTriedInitialHighlightScroll = true;
@@ -120,6 +124,10 @@ public partial class Home : IDisposable
         }
         _autoRebuildTimer = new Timer(OnAutoRebuildTick, null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
     }
+
+    #endregion
+
+    #region Search and tree
 
     private void OnAutoRebuildTick(object? _)
     {
@@ -175,13 +183,13 @@ public partial class Home : IDisposable
         searchQuery = v;
     }
 
-    /// <summary>手動検索用。Enter または「検索」ボタンで呼ぶ。入力変更では呼ばない。</summary>
     private void OnSearchInputChanged() { }
 
     private async Task ExecuteSearch()
     {
         var query = searchQuery?.Trim() ?? "";
         if (isIndexing || string.IsNullOrWhiteSpace(query)) return;
+        _lastExecutedSearchQuery = query;
         _searchCts?.Cancel();
         _searchCts?.Dispose();
         _searchCts = new CancellationTokenSource();
@@ -194,73 +202,16 @@ public partial class Home : IDisposable
             const int searchLimit = 100_000;
             var result = await SearchService.SearchAsync(query, new SearchOptions { MaxResults = searchLimit }, token);
             if (token.IsCancellationRequested) return;
-            treeNodes = BuildTree(result.Items.ToList());
-            totalFileCount = result.Items.Count();
+            treeNodes = TreeBuilder.BuildTree(SettingsService.Settings.TargetFolders, result.Items);
+            totalFileCount = result.Items.Count;
         }
-        catch (OperationCanceledException)
-        {
-            // 新しい検索でキャンセルされた場合は無視
-        }
+        catch (OperationCanceledException) { }
         catch (Exception ex)
         {
             searchErrorMessage = "検索に失敗しました。";
             Logger.LogError(ex, "Search failed");
         }
         finally { isSearching = false; StateHasChanged(); }
-    }
-
-    private List<TreeNode> BuildTree(List<SearchResultItem> items)
-    {
-        try
-        {
-            var targetFolders = SettingsService.Settings.TargetFolders;
-            var result = new List<TreeNode>();
-            foreach (var targetFolder in targetFolders)
-            {
-                var normalizedTarget = targetFolder.TrimEnd('\\', '/').ToLowerInvariant();
-                var matchingItems = items.Where(i => i.FolderPath.ToLowerInvariant().StartsWith(normalizedTarget)).ToList();
-                if (matchingItems.Count == 0) continue;
-                var rootNode = new TreeNode { Name = Path.GetFileName(targetFolder) ?? targetFolder, FullPath = targetFolder, IsFolder = true, IsExpanded = true, Children = new List<TreeNode>() };
-                foreach (var item in matchingItems)
-                {
-                    var relativePath = item.FolderPath.Length > targetFolder.Length ? item.FolderPath.Substring(targetFolder.Length).TrimStart('\\', '/') : "";
-                    var parts = string.IsNullOrEmpty(relativePath) ? Array.Empty<string>() : relativePath.Split(new[] { '\\', '/' }, StringSplitOptions.RemoveEmptyEntries);
-                    var current = rootNode;
-                    foreach (var part in parts)
-                    {
-                        current.Children ??= new List<TreeNode>();
-                        var child = current.Children.FirstOrDefault(c => c.IsFolder && c.Name == part);
-                        if (child == null)
-                        {
-                            var childFullPath = Path.Combine(current.FullPath, part);
-                            child = new TreeNode { Name = part, FullPath = childFullPath, IsFolder = true, IsExpanded = false, Children = new List<TreeNode>() };
-                            current.Children.Add(child);
-                        }
-                        current = child;
-                    }
-                    current.Children ??= new List<TreeNode>();
-                    current.Children.Add(new TreeNode { Name = item.FileName, FilePath = item.FilePath, IsFolder = false, FileData = item, LastModified = item.LastModified, FileSize = item.FileSize });
-                }
-                SortTree(rootNode); UpdateFileCount(rootNode); result.Add(rootNode);
-            }
-            return result;
-        }
-        catch { return new List<TreeNode>(); }
-    }
-
-    private void SortTree(TreeNode node)
-    {
-        if (node.Children == null) return;
-        node.Children = node.Children.OrderBy(c => !c.IsFolder).ThenBy(c => c.Name).ToList();
-        foreach (var child in node.Children.Where(c => c.IsFolder)) SortTree(child);
-    }
-
-    private int UpdateFileCount(TreeNode node)
-    {
-        if (!node.IsFolder) return 0;
-        int count = node.Children?.Count(c => !c.IsFolder) ?? 0;
-        foreach (var child in node.Children?.Where(c => c.IsFolder) ?? Enumerable.Empty<TreeNode>()) count += UpdateFileCount(child);
-        node.FileCount = count; return count;
     }
 
     private void ToggleNode(TreeNode node)
@@ -325,26 +276,10 @@ public partial class Home : IDisposable
         if (node.FileData == null) return;
         selectedFolder = null;
         selectedFile = node.FileData;
-        _fileNavList = CollectAllFileNodes(treeNodes);
+        _fileNavList = TreeBuilder.CollectAllFileNodes(treeNodes);
         _fileNavIndex = _fileNavList.FindIndex(n => string.Equals(n.FilePath, node.FilePath, StringComparison.OrdinalIgnoreCase));
         if (_fileNavIndex < 0) _fileNavIndex = 0;
         await LoadPreview(node.FilePath!);
-    }
-
-    private static List<TreeNode> CollectAllFileNodes(List<TreeNode> roots)
-    {
-        var list = new List<TreeNode>();
-        foreach (var node in roots)
-            CollectFilesRec(node, list);
-        return list;
-    }
-
-    private static void CollectFilesRec(TreeNode node, List<TreeNode> acc)
-    {
-        if (!node.IsFolder && node.FileData != null)
-            acc.Add(node);
-        foreach (var c in node.Children ?? Enumerable.Empty<TreeNode>())
-            CollectFilesRec(c, acc);
     }
 
     private async Task OnFolderItemClick(TreeNode item)
@@ -368,18 +303,9 @@ public partial class Home : IDisposable
         await OnFolderItemClick(item);
     }
 
-    private async Task OnFolderListKeyDown(KeyboardEventArgs e)
-    {
-        if (selectedFolder?.Children == null) return;
-        var items = GetSortedAndFilteredItems(selectedFolder.Children).ToList();
-        if (items.Count == 0) return;
-        if (selectedFolderRowIndex >= items.Count) selectedFolderRowIndex = items.Count - 1;
-        if (selectedFolderRowIndex < 0) selectedFolderRowIndex = 0;
-        if (e.Key == "ArrowDown") { selectedFolderRowIndex = Math.Min(selectedFolderRowIndex + 1, items.Count - 1); StateHasChanged(); }
-        else if (e.Key == "ArrowUp") { selectedFolderRowIndex = Math.Max(0, selectedFolderRowIndex - 1); StateHasChanged(); }
-        else if (e.Key == "Enter" && selectedFolderRowIndex >= 0 && selectedFolderRowIndex < items.Count)
-            await OnFolderItemClick(items[selectedFolderRowIndex]);
-    }
+    #endregion
+
+    #region Preview and navigation
 
     private async Task LoadPreview(string path)
     {
@@ -392,7 +318,6 @@ public partial class Home : IDisposable
         previewLineCount = 0;
         previewMode = "text";
         previewHtml = null;
-        previewImageDataUrl = null;
         StateHasChanged();
         try
         {
@@ -400,13 +325,16 @@ public partial class Home : IDisposable
             if (token.IsCancellationRequested) return;
             previewMode = result.Mode;
             previewHtml = result.Html;
-            previewImageDataUrl = result.ImageDataUrl;
-            _previewLines = result.Lines;
+            _previewLines = result.Lines ?? Array.Empty<PreviewLineResult>();
             previewLineCount = result.LineCount;
         }
         catch (OperationCanceledException)
         {
-            // 別のファイル選択でキャンセルされた場合は何もしない
+            // キャンセル時は「0 行」が残らないよう1行メッセージを表示
+            _previewLines = new List<PreviewLineResult> { new("読み込みをキャンセルしました", false) };
+            previewLineCount = 1;
+            previewMode = "text";
+            previewHtml = null;
         }
         catch (Exception ex)
         {
@@ -416,15 +344,14 @@ public partial class Home : IDisposable
         finally { isLoadingPreview = false; StateHasChanged(); }
     }
 
-    private bool ShowFileNav => selectedFile != null && _fileNavList != null && _fileNavList.Count > 1 && previewMode != "image";
-    private bool ShowHighlightNav => selectedFile != null && !string.IsNullOrWhiteSpace(searchQuery) && previewMode != "image";
+    private bool ShowFileNav => selectedFile != null && _fileNavList != null && _fileNavList.Count > 1;
+    private bool ShowHighlightNav => selectedFile != null && !string.IsNullOrWhiteSpace(searchQuery);
 
-    private bool ShowNavButtons => selectedFile != null && previewMode != "image" && (ShowFileNav || ShowHighlightNav);
+    private bool ShowNavButtons => selectedFile != null && (ShowFileNav || ShowHighlightNav);
 
     private string? NavInfo => !string.IsNullOrEmpty(_highlightNavInfo) ? _highlightNavInfo
         : (_fileNavList != null && _fileNavIndex >= 0 && _fileNavIndex < _fileNavList.Count ? $"{_fileNavIndex + 1}/{_fileNavList.Count}" : null);
 
-    /// <summary>ハイライト位置へスクロールを試みる。スクロールできた場合は結果を返し、できなければ null。</summary>
     private async Task<string?> TryScrollToHighlightAsync(bool next)
     {
         try
@@ -500,6 +427,10 @@ public partial class Home : IDisposable
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = "explorer.exe", Arguments = $"/select,\"{selectedFile.FilePath}\"", UseShellExecute = true });
     }
 
+    #endregion
+
+    #region Index build
+
     private void OpenIndexFolder()
     {
         var path = SettingsService.Settings.IndexPath;
@@ -535,7 +466,6 @@ public partial class Home : IDisposable
         });
     }
 
-    /// <summary>インデックス更新の共通実行（差分・全体どちらもこの経路で実行）。</summary>
     private async Task RunIndexUpdateAsync(
         string initialMessage,
         string countUnit,
@@ -630,7 +560,6 @@ public partial class Home : IDisposable
         StateHasChanged();
     }
 
-    /// <summary>選択中の方法でインデックス更新を実行する。</summary>
     private async Task ConfirmIndexUpdateAsync()
     {
         _showRebuildConfirm = false;
@@ -641,17 +570,11 @@ public partial class Home : IDisposable
             await UpdateIndex();
     }
 
-    private string GetLastUpdateText()
-    {
-        var lastUpdate = SettingsService.Settings.LastIndexUpdate;
-        if (!lastUpdate.HasValue) return "未実行";
-        var diff = DateTime.Now - lastUpdate.Value;
-        if (diff.TotalMinutes < 1) return "たった今";
-        if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes}分前";
-        if (diff.TotalHours < 24) return $"{(int)diff.TotalHours}時間前";
-        if (diff.TotalDays < 7) return $"{(int)diff.TotalDays}日前";
-        return lastUpdate.Value.ToString("MM/dd HH:mm");
-    }
+    #endregion
+
+    #region Settings
+
+    private string GetLastUpdateText() => DisplayFormatters.FormatLastIndexUpdate(SettingsService.Settings.LastIndexUpdate);
 
     private void OpenSettings()
     {
@@ -670,12 +593,26 @@ public partial class Home : IDisposable
 
     private void HandleAddFolder()
     {
-        var path = (_settingsEdit.NewFolderPath ?? "").Trim();
-        if (!string.IsNullOrWhiteSpace(path) && Directory.Exists(path) && !_settingsEdit.TargetFolders.Contains(path))
+        _settingsEdit.FolderMessage = null;
+        var path = (_settingsEdit.NewFolderPath ?? "").Trim().TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        if (string.IsNullOrWhiteSpace(path))
         {
-            _settingsEdit.TargetFolders.Add(path);
-            _settingsEdit.NewFolderPath = "";
+            _settingsEdit.FolderMessage = "フォルダパスを入力してください";
+            return;
         }
+        if (!Directory.Exists(path))
+        {
+            _settingsEdit.FolderMessage = "フォルダが見つかりません。パスを確認してください。";
+            return;
+        }
+        var normalizedExisting = _settingsEdit.TargetFolders.Select(f => f.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)).ToList();
+        if (normalizedExisting.Contains(path, StringComparer.OrdinalIgnoreCase))
+        {
+            _settingsEdit.FolderMessage = "既に追加されています";
+            return;
+        }
+        _settingsEdit.TargetFolders.Add(path);
+        _settingsEdit.NewFolderPath = "";
     }
 
     private void RemoveFolder(string f)
@@ -724,6 +661,10 @@ public partial class Home : IDisposable
         showSettings = false;
     }
 
+    #endregion
+
+    #region Resize and helpers
+
     private void StartResize(MouseEventArgs e) { isResizing = true; resizeStartX = e.ClientX; resizeStartWidth = sidebarWidth; }
 
     private void OnResize(MouseEventArgs e)
@@ -739,5 +680,7 @@ public partial class Home : IDisposable
     private static string GetFileIconClass(string name) => DisplayFormatters.GetFileIconClass(name);
 
     private IReadOnlyList<PreviewLineDisplay> previewLinesDisplay =>
-        _previewLines.Select(p => new PreviewLineDisplay(p.Content, p.HasMatch)).ToList();
+        (_previewLines ?? Array.Empty<PreviewLineResult>()).Select(p => new PreviewLineDisplay(p.Content, p.HasMatch)).ToList();
+
+    #endregion
 }

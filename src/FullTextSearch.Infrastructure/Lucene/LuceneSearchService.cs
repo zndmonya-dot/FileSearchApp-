@@ -159,7 +159,7 @@ public class LuceneSearchService : ISearchService, IDisposable
                         cancellationToken.ThrowIfCancellationRequested();
                         var info = docInfos[i];
                         var content = contentsForBatch[i];
-                        var highlights = new List<MatchHighlight>();
+                        var highlights = new List<MatchHighlight>(MaxHighlights);
                         if (!skipHighlights && highlighter != null && !string.IsNullOrEmpty(content))
                         {
                             try
@@ -402,7 +402,7 @@ public class LuceneSearchService : ISearchService, IDisposable
             return new MatchAllDocsQuery();
 
         // 各ユーザー入力語について: トークン化して「一続きの語」として PhraseQuery で検索する
-        var queryList = new List<Query>();
+        var queryList = new List<Query>(Math.Min(userTerms.Length, MaxQueryClauses));
         foreach (var userTerm in userTerms)
         {
             if (queryList.Count >= MaxQueryClauses) break;

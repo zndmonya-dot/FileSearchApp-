@@ -16,8 +16,6 @@ html, body {
     --color-header-bg: #161b22;
     --color-header-border: #30363d;
     --color-header-text: #f0f6fc;
-    --color-header-search-bg: #0d1117;
-    --color-header-search-border: #30363d;
     
     --color-canvas-default: #0d1117;
     --color-canvas-subtle: #161b22;
@@ -40,6 +38,15 @@ html, body {
     --color-attention-subtle: rgba(187,128,9,0.15);
     --color-danger-fg: #f85149;
     
+    /* ファイル種別アイコン（ダーク用：やや明るめで視認性確保） */
+    --color-icon-folder: #58a6ff;
+    --color-icon-text: var(--color-fg-muted);
+    --color-icon-code: #bc8cff;
+    --color-icon-word: #79b8ff;
+    --color-icon-excel: #56d364;
+    --color-icon-ppt: #d29922;
+    --color-icon-pdf: #ff7b72;
+    
     --color-neutral-muted: rgba(110,118,129,0.4);
     --color-btn-bg: #21262d;
     --color-btn-border: #30363d;
@@ -51,8 +58,6 @@ html, body {
     --color-header-bg: #f6f8fa;
     --color-header-border: #d0d7de;
     --color-header-text: #1f2328;
-    --color-header-search-bg: #ffffff;
-    --color-header-search-border: #d0d7de;
     
     --color-canvas-default: #ffffff;
     --color-canvas-subtle: #f6f8fa;
@@ -74,6 +79,15 @@ html, body {
     --color-attention-fg: #9a6700;
     --color-attention-subtle: rgba(212,167,44,0.15);
     --color-danger-fg: #cf222e;
+    
+    /* ファイル種別アイコン（ライト用） */
+    --color-icon-folder: #0969da;
+    --color-icon-text: var(--color-fg-muted);
+    --color-icon-code: #8250df;
+    --color-icon-word: #0550ae;
+    --color-icon-excel: #1a7f37;
+    --color-icon-ppt: #9a6700;
+    --color-icon-pdf: #cf222e;
     
     --color-neutral-muted: rgba(175,184,193,0.2);
     --color-btn-bg: #f6f8fa;

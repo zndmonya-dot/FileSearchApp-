@@ -16,7 +16,7 @@
             <span class="file-path-breadcrumb" title="@SelectedFile.FolderPath">@SelectedFile.FolderPath</span>
         </div>
         <div class="file-meta">
-            <span class="file-meta-item">@(PreviewMode == "image" ? "画像" : PreviewMode == "html" ? "表形式" : $"{PreviewLineCount} 行")</span>
+            <span class="file-meta-item">@(PreviewMode == "html" ? "表形式" : $"{PreviewLineCount} 行")</span>
             <span class="file-meta-item">@DisplayFormatters.FormatSize(SelectedFile.FileSize)</span>
         </div>
         <div class="file-actions">
@@ -50,6 +50,7 @@
         </div>
     </div>
 
+    <div class="preview-zoom-wrap">
     @if (IsLoadingPreview)
     {
         <div class="loading-state">
@@ -57,25 +58,27 @@
             <span class="loading-state-text">読み込み中...</span>
         </div>
     }
-    else if (PreviewMode == "image" && !string.IsNullOrEmpty(PreviewImageDataUrl))
+    else if (PreviewMode == "html")
     {
-        <div class="preview-image-wrap">
-            <img src="@PreviewImageDataUrl" alt="プレビュー" class="preview-image" />
-        </div>
-    }
-    else if (PreviewMode == "html" && !string.IsNullOrEmpty(PreviewHtml))
-    {
-        <div class="preview-html-wrap">@((MarkupString)PreviewHtml)</div>
+        @if (!string.IsNullOrEmpty(PreviewHtml))
+        {
+            <div class="preview-html-wrap">@((MarkupString)PreviewHtml)</div>
+        }
+        else
+        {
+            <div class="preview-html-wrap"><p class="preview-empty">プレビューを読み込めませんでした</p></div>
+        }
     }
     else
     {
+        var lines = PreviewLines ?? Array.Empty<PreviewLineDisplay>();
         <div class="code-view">
             <table class="code-table">
                 <tbody>
-                    @for (int i = 0; i < PreviewLines.Count; i++)
+                    @for (int i = 0; i < lines.Count; i++)
                     {
                         var lineNum = i + 1;
-                        var line = PreviewLines[i];
+                        var line = lines[i];
                         <tr class="code-line">
                             <td class="line-number">@lineNum</td>
                             <td class="line-content @(line.HasMatch ? "highlight" : "")">@((MarkupString)line.Content)</td>
@@ -85,6 +88,7 @@
             </table>
         </div>
     }
+    </div>
 </div>
 }
 
@@ -92,7 +96,6 @@
     [Parameter] public SearchResultItem? SelectedFile { get; set; }
     [Parameter] public bool IsLoadingPreview { get; set; }
     [Parameter] public string PreviewMode { get; set; } = "text";
-    [Parameter] public string? PreviewImageDataUrl { get; set; }
     [Parameter] public string? PreviewHtml { get; set; }
     [Parameter] public IReadOnlyList<PreviewLineDisplay> PreviewLines { get; set; } = Array.Empty<PreviewLineDisplay>();
     [Parameter] public int PreviewLineCount { get; set; }

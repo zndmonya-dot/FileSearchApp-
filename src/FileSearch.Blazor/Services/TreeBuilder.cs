@@ -1,0 +1,143 @@
+using FullTextSearch.Core.Models;
+using FileSearch.Blazor.Components.Shared;
+
+namespace FileSearch.Blazor.Services;
+
+/// <summary>
+/// 検索結果からツリー構造を構築する静的ヘルパー
+/// </summary>
+public static class TreeBuilder
+{
+    /// <summary>検索結果一覧と対象フォルダ一覧からツリーを構築する</summary>
+    public static List<TreeNode> BuildTree(IReadOnlyList<string> targetFolders, IReadOnlyList<SearchResultItem> items)
+    {
+        if (items == null || items.Count == 0) return [];
+        try
+        {
+            // 1 回の走査で「対象フォルダ → 該当アイテム一覧」にグループ化（フォルダ数×件数ループを避ける）
+            var normalizedTargets = new List<(string original, string normalized)>(targetFolders.Count);
+            foreach (var f in targetFolders)
+                normalizedTargets.Add((f, f.TrimEnd('\\', '/').ToLowerInvariant()));
+            var bucket = new List<SearchResultItem>[targetFolders.Count];
+            for (var t = 0; t < targetFolders.Count; t++)
+                bucket[t] = new List<SearchResultItem>();
+            foreach (var item in items)
+            {
+                var folderLower = item.FolderPath.ToLowerInvariant();
+                for (var t = 0; t < normalizedTargets.Count; t++)
+                {
+                    if (folderLower.StartsWith(normalizedTargets[t].normalized))
+                    {
+                        bucket[t].Add(item);
+                        break;
+                    }
+                }
+            }
+
+            var result = new List<TreeNode>(targetFolders.Count);
+            for (var t = 0; t < targetFolders.Count; t++)
+            {
+                var matchingItems = bucket[t];
+                if (matchingItems.Count == 0) continue;
+                var targetFolder = normalizedTargets[t].original;
+
+                var rootNode = new TreeNode
+                {
+                    Name = Path.GetFileName(targetFolder) ?? targetFolder,
+                    FullPath = targetFolder,
+                    IsFolder = true,
+                    IsExpanded = true,
+                    Children = new List<TreeNode>()
+                };
+                foreach (var item in matchingItems)
+                {
+                    var relativePath = item.FolderPath.Length > targetFolder.Length
+                        ? item.FolderPath.Substring(targetFolder.Length).TrimStart('\\', '/')
+                        : "";
+                    var parts = string.IsNullOrEmpty(relativePath)
+                        ? Array.Empty<string>()
+                        : relativePath.Split(new[] { '\\', '/' }, StringSplitOptions.RemoveEmptyEntries);
+                    var current = rootNode;
+                    foreach (var part in parts)
+                    {
+                        current.Children ??= new List<TreeNode>();
+                        var child = current.Children.FirstOrDefault(c => c.IsFolder && c.Name == part);
+                        if (child == null)
+                        {
+                            var childFullPath = Path.Combine(current.FullPath, part);
+                            child = new TreeNode
+                            {
+                                Name = part,
+                                FullPath = childFullPath,
+                                IsFolder = true,
+                                IsExpanded = false,
+                                Children = new List<TreeNode>()
+                            };
+                            current.Children.Add(child);
+                        }
+                        current = child;
+                    }
+                    current.Children ??= new List<TreeNode>();
+                    current.Children.Add(new TreeNode
+                    {
+                        Name = item.FileName,
+                        FilePath = item.FilePath,
+                        IsFolder = false,
+                        FileData = item,
+                        LastModified = item.LastModified,
+                        FileSize = item.FileSize
+                    });
+                }
+                SortTreeInPlace(rootNode);
+                UpdateFileCount(rootNode);
+                result.Add(rootNode);
+            }
+            return result;
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    /// <summary>ツリー全体からファイルノードのみをフラットに収集する</summary>
+    public static List<TreeNode> CollectAllFileNodes(List<TreeNode> roots)
+    {
+        var list = new List<TreeNode>();
+        foreach (var node in roots)
+            CollectFilesRec(node, list);
+        return list;
+    }
+
+    private static void SortTreeInPlace(TreeNode node)
+    {
+        if (node.Children == null || node.Children.Count == 0) return;
+        node.Children.Sort((a, b) =>
+        {
+            if (a.IsFolder != b.IsFolder) return a.IsFolder ? -1 : 1;
+            return string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase);
+        });
+        foreach (var child in node.Children)
+        {
+            if (child.IsFolder) SortTreeInPlace(child);
+        }
+    }
+
+    private static int UpdateFileCount(TreeNode node)
+    {
+        if (!node.IsFolder) return 0;
+        var count = node.Children?.Count(c => !c.IsFolder) ?? 0;
+        foreach (var child in node.Children?.Where(c => c.IsFolder) ?? Enumerable.Empty<TreeNode>())
+            count += UpdateFileCount(child);
+        node.FileCount = count;
+        return count;
+    }
+
+    private static void CollectFilesRec(TreeNode node, List<TreeNode> acc)
+    {
+        if (!node.IsFolder && node.FileData != null)
+            acc.Add(node);
+        foreach (var c in node.Children ?? Enumerable.Empty<TreeNode>())
+            CollectFilesRec(c, acc);
+    }
+}

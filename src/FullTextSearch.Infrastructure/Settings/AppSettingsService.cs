@@ -1,6 +1,7 @@
 using System.Text.Json;
 using FullTextSearch.Core.Extractors;
 using FullTextSearch.Core.Models;
+using FullTextSearch.Core.Preview;
 
 namespace FullTextSearch.Infrastructure.Settings;
 
@@ -40,7 +41,7 @@ public class AppSettingsService : IAppSettingsService
                 lock (_lock)
                 {
                     Settings = new AppSettings();
-                    Settings.TargetExtensions = _extractorFactory.GetAllSupportedExtensions().ToList();
+                    Settings.TargetExtensions = NormalizeExtensions(_extractorFactory.GetAllSupportedExtensions().ToList());
                 }
                 await SaveAsync(cancellationToken);
                 return;
@@ -54,6 +55,7 @@ public class AppSettingsService : IAppSettingsService
                 lock (_lock)
                 {
                     Settings = settings;
+                    Settings.TargetExtensions = NormalizeExtensions(Settings.TargetExtensions ?? new List<string>());
                 }
             }
         }
@@ -86,6 +88,21 @@ public class AppSettingsService : IAppSettingsService
         {
             // 設定の保存に失敗した場合は無視
         }
+    }
+
+    /// <summary>拡張子を「.」+ 小文字に正規化し重複を除く</summary>
+    private static List<string> NormalizeExtensions(List<string> extensions)
+    {
+        if (extensions == null || extensions.Count == 0) return new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var result = new List<string>();
+        foreach (var e in extensions)
+        {
+            var x = PreviewHelper.NormalizeExtension(e);
+            if (string.IsNullOrEmpty(x) || !seen.Add(x)) continue;
+            result.Add(x);
+        }
+        return result;
     }
 
 }
