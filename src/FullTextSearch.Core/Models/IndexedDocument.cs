@@ -1,7 +1,8 @@
+// インデックス 1 件分のデータ。ファイルパス・抽出テキスト・メタ情報を保持する。
 namespace FullTextSearch.Core.Models;
 
 /// <summary>
-/// インデックスに登録されるドキュメント
+/// インデックスに登録されるドキュメント。Lucene に書き込む際の元データ。
 /// </summary>
 public class IndexedDocument
 {

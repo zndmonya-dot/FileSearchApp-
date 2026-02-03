@@ -1,3 +1,4 @@
+// テキスト・ソースコードファイル（.txt, .csv, .cs 等）からテキストを抽出する実装。
 using System.Text;
 using UtfUnknown;
 using FullTextSearch.Core.Extractors;
@@ -5,10 +6,11 @@ using FullTextSearch.Core.Extractors;
 namespace FullTextSearch.Infrastructure.Extractors;
 
 /// <summary>
-/// テキストファイル用のテキスト抽出器
+/// テキストファイル用のテキスト抽出器。UTF/Shift_JIS 等を自動判定して読み込む。
 /// </summary>
 public class TextFileExtractor : ITextExtractor
 {
+    /// <summary>対応拡張子（10MB 超のファイルは読み込まない）</summary>
     private static readonly HashSet<string> SupportedExtensionSet = new(StringComparer.OrdinalIgnoreCase)
     {
         ".txt", ".csv", ".log", ".md",
@@ -31,6 +33,7 @@ public class TextFileExtractor : ITextExtractor
         return SupportedExtensionSet.Contains(extension);
     }
 
+    /// <summary>ファイルからテキストを読み取る。エンコーディングは自動検出。10MB 超は例外。</summary>
     public async Task<string> ExtractTextAsync(string filePath, CancellationToken cancellationToken = default)
     {
         if (!File.Exists(filePath))
@@ -38,7 +41,7 @@ public class TextFileExtractor : ITextExtractor
             throw new FileNotFoundException("File not found", filePath);
         }
 
-        // ファイルサイズチェック（10MB以上は読み込まない）
+        // 10MB 以上は読み込まない（メモリ保護）
         var fileInfo = new FileInfo(filePath);
         if (fileInfo.Length > 10 * 1024 * 1024)
         {

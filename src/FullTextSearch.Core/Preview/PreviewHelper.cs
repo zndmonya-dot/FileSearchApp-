@@ -5,6 +5,7 @@ namespace FullTextSearch.Core.Preview;
 /// </summary>
 public static class PreviewHelper
 {
+    /// <summary>拡張子 → Highlight.js 用言語名のマップ（シンタックスハイライト用）</summary>
     public static readonly IReadOnlyDictionary<string, string> LanguageMap = new Dictionary<string, string>
     {
         { ".cs", "csharp" }, { ".js", "javascript" }, { ".ts", "typescript" }, { ".py", "python" },
@@ -18,14 +19,17 @@ public static class PreviewHelper
         { ".pas", "delphi" }, { ".dpr", "delphi" }, { ".dpk", "delphi" }
     };
 
+    /// <summary>シンタックスハイライト対象の拡張子一覧（LanguageMap のキー）</summary>
     public static readonly HashSet<string> CodeExtensions = new(LanguageMap.Keys, StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>拡張子から Highlight.js 用の言語名を取得する。未対応の場合は "plaintext"。</summary>
     public static string GetLanguage(string extension)
     {
         var ext = extension.StartsWith(".", StringComparison.Ordinal) ? extension : "." + extension;
         return LanguageMap.TryGetValue(ext, out var lang) ? lang : "plaintext";
     }
 
+    /// <summary>指定拡張子がコードファイル（シンタックスハイライト対象）かどうか。</summary>
     public static bool IsCodeFile(string extension)
     {
         var ext = extension.StartsWith(".", StringComparison.Ordinal) ? extension : "." + extension;

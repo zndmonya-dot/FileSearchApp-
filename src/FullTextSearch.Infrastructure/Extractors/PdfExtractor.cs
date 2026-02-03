@@ -1,3 +1,4 @@
+// PDF からテキストを抽出する実装（PdfPig 使用）。
 using System.Text;
 using FullTextSearch.Core.Extractors;
 using UglyToad.PdfPig;
@@ -5,7 +6,7 @@ using UglyToad.PdfPig;
 namespace FullTextSearch.Infrastructure.Extractors;
 
 /// <summary>
-/// PDFファイル用のテキスト抽出器
+/// PDF ファイル用のテキスト抽出器。全ページのテキストを連結して返す。
 /// </summary>
 public class PdfExtractor : ITextExtractor
 {
@@ -23,6 +24,7 @@ public class PdfExtractor : ITextExtractor
         return SupportedExtensionSet.Contains(extension);
     }
 
+    /// <summary>PDF の全ページからテキストを抽出する。</summary>
     public Task<string> ExtractTextAsync(string filePath, CancellationToken cancellationToken = default)
     {
         if (!File.Exists(filePath))

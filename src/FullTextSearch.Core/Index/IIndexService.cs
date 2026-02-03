@@ -1,9 +1,10 @@
+// インデックス操作のインターフェースと進捗・オプション・統計の型定義。
 using FullTextSearch.Core.Models;
 
 namespace FullTextSearch.Core.Index;
 
 /// <summary>
-/// インデックスサービスのインターフェース
+/// インデックスサービスのインターフェース。初期化・追加・削除・再構築・差分更新・統計を提供する。
 /// </summary>
 public interface IIndexService
 {

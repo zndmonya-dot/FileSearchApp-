@@ -1,24 +1,20 @@
-﻿using Microsoft.UI.Xaml;
-
-// To learn more about WinUI, the WinUI project structure,
-// and more about our project templates, see: http://aka.ms/winui-project-info.
+// Windows プラットフォーム用の WinUI アプリケーション。MauiProgram でアプリを構築する。
+using Microsoft.UI.Xaml;
 
 namespace FileSearch.Blazor.WinUI;
 
 /// <summary>
-/// Provides application-specific behavior to supplement the default Application class.
+/// Windows 用の MAUI アプリケーション。WinUI の初期化後、MauiProgram.CreateMauiApp() で Blazor アプリを構築する。
 /// </summary>
 public partial class App : MauiWinUIApplication
 {
-	/// <summary>
-	/// Initializes the singleton application object.  This is the first line of authored code
-	/// executed, and as such is the logical equivalent of main() or WinMain().
-	/// </summary>
+	/// <summary>シングルトンのアプリケーションオブジェクトを初期化する。</summary>
 	public App()
 	{
 		this.InitializeComponent();
 	}
 
+	/// <summary>MAUI アプリ（DI 登録済み）を構築する。</summary>
 	protected override MauiApp CreateMauiApp() => MauiProgram.CreateMauiApp();
 }
 

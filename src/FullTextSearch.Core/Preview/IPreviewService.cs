@@ -1,9 +1,10 @@
+// ファイルプレビュー取得のインターフェース。パスと検索語からプレビュー結果を返す。
 namespace FullTextSearch.Core.Preview;
 
 using FullTextSearch.Core.Models;
 
 /// <summary>
-/// ファイルプレビュー取得サービス
+/// ファイルプレビュー取得サービス。指定パスの内容を行テキストまたは HTML で返す。
 /// </summary>
 public interface IPreviewService
 {

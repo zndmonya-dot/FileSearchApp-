@@ -5,9 +5,11 @@ namespace FileSearch.Blazor;
 /// </summary>
 public static class DisplayFormatters
 {
+    /// <summary>バイト数を B / KB / MB で短く表示する。</summary>
     public static string FormatSize(long b) =>
         b < 1024 ? $"{b} B" : b < 1048576 ? $"{b / 1024} KB" : $"{b / 1048576.0:F1} MB";
 
+    /// <summary>日付を yyyy/MM/dd HH:mm で表示する。</summary>
     public static string FormatDate(DateTime d) =>
         d.ToLocalTime().ToString("yyyy/MM/dd HH:mm");
 
@@ -23,6 +25,7 @@ public static class DisplayFormatters
         return lastUpdate.Value.ToString("MM/dd HH:mm");
     }
 
+    /// <summary>ファイル名の拡張子からプレビュー用のアイコン CSS クラス（word / excel / ppt / pdf / code / text）を返す。</summary>
     public static string GetFileIconClass(string name) =>
         Path.GetExtension(name).ToLowerInvariant() switch
         {

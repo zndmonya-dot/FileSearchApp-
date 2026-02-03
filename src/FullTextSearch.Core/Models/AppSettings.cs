@@ -1,9 +1,10 @@
+// アプリ設定のモデル。検索対象フォルダ・拡張子・インデックスパス・テーマ等を保持する。
 using FullTextSearch.Core;
 
 namespace FullTextSearch.Core.Models;
 
 /// <summary>
-/// アプリケーション設定
+/// アプリケーション設定。JSON で永続化される。
 /// </summary>
 public class AppSettings
 {
@@ -43,6 +44,10 @@ public class AppSettings
     /// </summary>
     public string ThemeMode { get; set; } = "System";
 
+    /// <summary>
+    /// シンタックスハイライト用の拡張子→言語名マップ（設定で上書き・追加）。null または空の場合は PreviewHelper の組み込み LanguageMap を使用。
+    /// </summary>
+    public Dictionary<string, string>? ExtensionLanguageMap { get; set; }
 }
 
 

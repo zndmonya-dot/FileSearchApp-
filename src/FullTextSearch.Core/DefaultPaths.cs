@@ -1,7 +1,8 @@
+// アプリのデフォルトパスを一元定義。インデックス保存先など。
 namespace FullTextSearch.Core;
 
 /// <summary>
-/// アプリケーションのデフォルトパス（一元定義）
+/// アプリケーションのデフォルトパス（一元定義）。LocalApplicationData 配下を使用する。
 /// </summary>
 public static class DefaultPaths
 {

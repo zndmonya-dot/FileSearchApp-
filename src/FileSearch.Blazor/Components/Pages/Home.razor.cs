@@ -1,3 +1,4 @@
+// メイン画面のコードビハインド。検索・ツリー選択・プレビュー・インデックス更新・設定の状態とイベント処理を行う。
 using FullTextSearch.Core.Index;
 using FullTextSearch.Core.Models;
 using FullTextSearch.Core.Preview;
@@ -12,9 +13,12 @@ using Microsoft.Extensions.Logging;
 
 namespace FileSearch.Blazor.Components.Pages;
 
+/// <summary>
+/// メイン画面（/）。検索入力・結果ツリー・プレビュー・サイドバー・設定・インデックス更新を統合する。
+/// </summary>
 public partial class Home : IDisposable
 {
-    #region State
+    #region 状態（検索・選択・プレビュー・設定・UI）
 
     private string searchQuery = "";
     private List<TreeNode> treeNodes = new();
@@ -74,7 +78,7 @@ public partial class Home : IDisposable
 
     #endregion
 
-    #region Lifecycle
+    #region ライフサイクル（初回テーマ・ハイライトスクロール）
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -127,7 +131,7 @@ public partial class Home : IDisposable
 
     #endregion
 
-    #region Search and tree
+    #region 検索とツリー（ExecuteSearch / ノード展開・選択・ソート・フィルター）
 
     private void OnAutoRebuildTick(object? _)
     {
@@ -305,7 +309,7 @@ public partial class Home : IDisposable
 
     #endregion
 
-    #region Preview and navigation
+    #region プレビューとナビゲーション（LoadPreview / 前へ・次へ / ファイル・フォルダを開く）
 
     private async Task LoadPreview(string path)
     {
@@ -429,7 +433,7 @@ public partial class Home : IDisposable
 
     #endregion
 
-    #region Index build
+    #region インデックス構築（再構築・差分更新・進捗・ダイアログ）
 
     private void OpenIndexFolder()
     {
@@ -572,7 +576,7 @@ public partial class Home : IDisposable
 
     #endregion
 
-    #region Settings
+    #region 設定（開く・保存・フォルダ・拡張子の追加削除）
 
     private string GetLastUpdateText() => DisplayFormatters.FormatLastIndexUpdate(SettingsService.Settings.LastIndexUpdate);
 
@@ -586,6 +590,12 @@ public partial class Home : IDisposable
         _settingsEdit.NewFolderPath = "";
         _settingsEdit.NewTargetExtension = "";
         _settingsEdit.ExtensionMessage = null;
+        _settingsEdit.ExtensionLanguageMap = SettingsService.Settings.ExtensionLanguageMap != null && SettingsService.Settings.ExtensionLanguageMap.Count > 0
+            ? new Dictionary<string, string>(SettingsService.Settings.ExtensionLanguageMap)
+            : new Dictionary<string, string>();
+        _settingsEdit.NewExtensionLanguageExt = "";
+        _settingsEdit.NewExtensionLanguageLang = "";
+        _settingsEdit.ExtensionLanguageMessage = null;
         showSettings = true;
     }
 
@@ -636,6 +646,26 @@ public partial class Home : IDisposable
         _settingsEdit.TargetExtensions.Remove(ext);
     }
 
+    private void HandleAddExtensionLanguage()
+    {
+        _settingsEdit.ExtensionLanguageMessage = null;
+        var ext = FullTextSearch.Core.Preview.PreviewHelper.NormalizeExtension(_settingsEdit.NewExtensionLanguageExt ?? "");
+        var lang = (_settingsEdit.NewExtensionLanguageLang ?? "").Trim();
+        if (string.IsNullOrEmpty(ext)) { _settingsEdit.ExtensionLanguageMessage = "拡張子を入力してください（例: .cs）"; return; }
+        if (string.IsNullOrEmpty(lang)) { _settingsEdit.ExtensionLanguageMessage = "言語名を入力してください（例: csharp）"; return; }
+        _settingsEdit.ExtensionLanguageMap ??= new Dictionary<string, string>();
+        _settingsEdit.ExtensionLanguageMap[ext] = lang;
+        _settingsEdit.NewExtensionLanguageExt = "";
+        _settingsEdit.NewExtensionLanguageLang = "";
+        StateHasChanged();
+    }
+
+    private void RemoveExtensionLanguage(string ext)
+    {
+        _settingsEdit.ExtensionLanguageMap?.Remove(ext);
+        StateHasChanged();
+    }
+
     private async Task SaveSettings()
     {
         SettingsService.Settings.TargetFolders = _settingsEdit.TargetFolders.ToList();
@@ -643,6 +673,9 @@ public partial class Home : IDisposable
         SettingsService.Settings.TargetExtensions = _settingsEdit.TargetExtensions.ToList();
         SettingsService.Settings.AutoRebuildIntervalMinutes = _settingsEdit.AutoRebuildIntervalMinutes;
         SettingsService.Settings.ThemeMode = _settingsEdit.ThemeMode ?? "System";
+        SettingsService.Settings.ExtensionLanguageMap = _settingsEdit.ExtensionLanguageMap != null && _settingsEdit.ExtensionLanguageMap.Count > 0
+            ? new Dictionary<string, string>(_settingsEdit.ExtensionLanguageMap)
+            : null;
         await SettingsService.SaveAsync();
         if (!string.IsNullOrWhiteSpace(SettingsService.Settings.IndexPath))
         {
@@ -663,7 +696,7 @@ public partial class Home : IDisposable
 
     #endregion
 
-    #region Resize and helpers
+    #region サイドバーリサイズとヘルパー
 
     private void StartResize(MouseEventArgs e) { isResizing = true; resizeStartX = e.ClientX; resizeStartWidth = sidebarWidth; }
 

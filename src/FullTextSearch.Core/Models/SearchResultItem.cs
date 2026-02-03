@@ -1,7 +1,8 @@
+// 検索結果 1 件。ファイル情報とマッチ箇所のハイライト情報を持つ。
 namespace FullTextSearch.Core.Models;
 
 /// <summary>
-/// 検索結果の1件を表すモデル
+/// 検索結果の 1 件を表すモデル。一覧表示・プレビュー選択に使用する。
 /// </summary>
 public class SearchResultItem
 {

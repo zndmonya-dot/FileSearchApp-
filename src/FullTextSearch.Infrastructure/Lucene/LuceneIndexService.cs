@@ -1,3 +1,4 @@
+// Lucene.NET によるインデックス作成・更新・削除。Sudachi 形態素解析（モード C）でトークナイズ。
 using FullTextSearch.Core.Extractors;
 using FullTextSearch.Core.Index;
 using FullTextSearch.Core.Models;
@@ -13,12 +14,12 @@ using Lucene.Net.Util;
 namespace FullTextSearch.Infrastructure.Lucene;
 
 /// <summary>
-/// Lucene.NETを使用したインデックスサービスの実装
+/// Lucene.NET を使用したインデックスサービスの実装。再構築・差分更新・フォルダ単位のインデックス化を行う。
 /// </summary>
 public class LuceneIndexService : IIndexService, IDisposable
 {
     private const LuceneVersion AppLuceneVersion = LuceneVersion.LUCENE_48;
-    /// <summary>高速化: 並列抽出数（多めで I/O を飽和）</summary>
+    /// <summary>並列テキスト抽出数（I/O 飽和を狙った値）</summary>
     private const int ParallelExtractCount = 48;
 
     private readonly TextExtractorFactory _extractorFactory;
@@ -29,7 +30,7 @@ public class LuceneIndexService : IIndexService, IDisposable
     private bool _disposed;
     private IndexRebuildOptions? _currentRebuildOptions;
 
-    // フィールド名の定数
+    /// <summary>Lucene ドキュメントのフィールド名（変更すると既存インデックスと非互換）</summary>
     public const string FieldFilePath = "filepath";
     public const string FieldFileName = "filename";
     public const string FieldFolderPath = "folderpath";
@@ -39,11 +40,13 @@ public class LuceneIndexService : IIndexService, IDisposable
     public const string FieldFileType = "filetype";
     public const string FieldIndexedAt = "indexedat";
 
+    /// <summary>テキスト抽出に使うファクトリを注入する。</summary>
     public LuceneIndexService(TextExtractorFactory extractorFactory)
     {
         _extractorFactory = extractorFactory;
     }
 
+    /// <summary>指定パスにインデックスを初期化する。既に同パスで開いていれば何もしない。</summary>
     public Task InitializeAsync(string indexPath, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(indexPath)) return Task.CompletedTask;

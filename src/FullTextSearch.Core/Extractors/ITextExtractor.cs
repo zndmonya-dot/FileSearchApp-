@@ -49,6 +49,7 @@ public class TextExtractorFactory
 {
     private readonly IEnumerable<ITextExtractor> _extractors;
 
+    /// <summary>登録された抽出器のコレクションでファクトリを初期化する。</summary>
     public TextExtractorFactory(IEnumerable<ITextExtractor> extractors)
     {
         _extractors = extractors;

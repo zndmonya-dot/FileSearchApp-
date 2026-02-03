@@ -1,34 +1,42 @@
+// ファイルパスからプレビュー用の行テキストを取得。抽出器でテキスト抽出し、コードは Highlight.js でハイライト。
 using System.Text;
 using System.Text.RegularExpressions;
 using FullTextSearch.Core.Extractors;
 using FullTextSearch.Core.Models;
 using FullTextSearch.Core.Preview;
 using FullTextSearch.Infrastructure.Extractors;
+using FullTextSearch.Infrastructure.Settings;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
 namespace FileSearch.Blazor.Services;
 
 /// <summary>
-/// ファイルプレビュー取得サービス（Office・PDF・テキスト・コードは行テキスト）
+/// ファイルプレビュー取得サービス。Office / PDF / テキスト・コードをすべて行テキスト（Mode=text）で返す。
 /// </summary>
 public class PreviewService : IPreviewService
 {
+    /// <summary>プレビューに使う最大文字数（超えた分は省略）</summary>
     private const int PreviewMaxChars = 50_000;
+    /// <summary>シンタックスハイライトをかける最大行数（それ以降はエスケープのみ）</summary>
     private const int PreviewMaxLinesForHighlight = 500;
     private const int DiagnosticHtmlSampleLength = 400;
 
     private readonly TextExtractorFactory _extractorFactory;
     private readonly IJSRuntime _jsRuntime;
     private readonly ILogger<PreviewService>? _logger;
+    private readonly IAppSettingsService _settingsService;
 
-    public PreviewService(TextExtractorFactory extractorFactory, IJSRuntime jsRuntime, ILogger<PreviewService>? logger = null)
+    /// <summary>抽出器ファクトリ、JS ランタイム、設定サービス（拡張子→言語マップ用）を注入する。</summary>
+    public PreviewService(TextExtractorFactory extractorFactory, IJSRuntime jsRuntime, IAppSettingsService settingsService, ILogger<PreviewService>? logger = null)
     {
         _extractorFactory = extractorFactory;
         _jsRuntime = jsRuntime;
+        _settingsService = settingsService;
         _logger = logger;
     }
 
+    /// <summary>指定パスのファイルをテキスト抽出し、検索語でハイライトした行リストを返す。コードは JS でシンタックスハイライト。</summary>
     public async Task<PreviewResult> GetPreviewAsync(string path, string? searchQuery, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrEmpty(path))
@@ -51,8 +59,9 @@ public class PreviewService : IPreviewService
 
         // 検索語と本文を NFC 正規化して、合成／分解の違いでハイライトが外れるのを防ぐ
         content = content.IsNormalized(NormalizationForm.FormC) ? content : content.Normalize(NormalizationForm.FormC);
-        var isSourceCode = PreviewHelper.IsCodeFile(ext);
-        var currentLanguage = PreviewHelper.GetLanguage(ext);
+        var languageMap = GetMergedLanguageMap();
+        var isSourceCode = IsCodeFileWithMap(ext, languageMap);
+        var currentLanguage = GetLanguageWithMap(ext, languageMap);
         var searchTerms = string.IsNullOrWhiteSpace(searchQuery)
             ? Array.Empty<string>()
             : searchQuery.Split(' ', '　')
@@ -136,6 +145,37 @@ public class PreviewService : IPreviewService
             Lines = resultLines,
             LineCount = lines.Length
         };
+    }
+
+    /// <summary>組み込み LanguageMap と設定の ExtensionLanguageMap をマージしたマップを返す。設定のキーは正規化して上書きする。</summary>
+    private IReadOnlyDictionary<string, string> GetMergedLanguageMap()
+    {
+        var merged = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var kv in PreviewHelper.LanguageMap)
+            merged[kv.Key] = kv.Value;
+        var custom = _settingsService.Settings.ExtensionLanguageMap;
+        if (custom != null && custom.Count > 0)
+        {
+            foreach (var kv in custom)
+            {
+                var key = PreviewHelper.NormalizeExtension(kv.Key);
+                if (!string.IsNullOrEmpty(key) && !string.IsNullOrEmpty(kv.Value))
+                    merged[key] = kv.Value;
+            }
+        }
+        return merged;
+    }
+
+    private static string GetLanguageWithMap(string extension, IReadOnlyDictionary<string, string> languageMap)
+    {
+        var ext = extension.StartsWith(".", StringComparison.Ordinal) ? extension : "." + extension;
+        return languageMap.TryGetValue(ext, out var lang) ? lang : "plaintext";
+    }
+
+    private static bool IsCodeFileWithMap(string extension, IReadOnlyDictionary<string, string> languageMap)
+    {
+        var ext = extension.StartsWith(".", StringComparison.Ordinal) ? extension : "." + extension;
+        return languageMap.ContainsKey(ext);
     }
 
     private static PreviewResult CreateErrorResult(string message)

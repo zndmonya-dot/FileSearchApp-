@@ -1,7 +1,8 @@
+// プレビュー API の戻り値。行テキスト（Mode=text）または HTML を返す。
 namespace FullTextSearch.Core.Models;
 
 /// <summary>
-/// プレビュー結果（モード・行リスト・HTML）
+/// プレビュー結果。Mode（text / html）、行リスト、行数、HTML 本文を返す。
 /// </summary>
 public class PreviewResult
 {

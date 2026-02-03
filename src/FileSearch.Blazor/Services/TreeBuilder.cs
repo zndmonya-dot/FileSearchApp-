@@ -1,10 +1,11 @@
+// 検索結果一覧を「対象フォルダ → サブフォルダ → ファイル」のツリーに変換する。
 using FullTextSearch.Core.Models;
 using FileSearch.Blazor.Components.Shared;
 
 namespace FileSearch.Blazor.Services;
 
 /// <summary>
-/// 検索結果からツリー構造を構築する静的ヘルパー
+/// 検索結果からツリー構造を構築する静的ヘルパー。フォルダ別グルーピング・ソート・ファイル件数集計を行う。
 /// </summary>
 public static class TreeBuilder
 {
@@ -109,6 +110,7 @@ public static class TreeBuilder
         return list;
     }
 
+    /// <summary>フォルダを上・名前順にソートし、子ノードも再帰的にソートする。</summary>
     private static void SortTreeInPlace(TreeNode node)
     {
         if (node.Children == null || node.Children.Count == 0) return;
@@ -123,6 +125,7 @@ public static class TreeBuilder
         }
     }
 
+    /// <summary>フォルダノードの FileCount を配下のファイル数で更新する。</summary>
     private static int UpdateFileCount(TreeNode node)
     {
         if (!node.IsFolder) return 0;

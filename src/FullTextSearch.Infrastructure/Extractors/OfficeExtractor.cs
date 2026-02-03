@@ -1,3 +1,4 @@
+// Word/Excel/PowerPoint（.docx, .xlsx, .pptx）から DocumentFormat.OpenXml でテキストを抽出。
 using System.Text;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
@@ -7,7 +8,7 @@ using FullTextSearch.Core.Extractors;
 namespace FullTextSearch.Infrastructure.Extractors;
 
 /// <summary>
-/// Office文書（Word/Excel/PowerPoint）用のテキスト抽出器
+/// Office 文書（Word / Excel / PowerPoint）用のテキスト抽出器。段落・セル・スライドのテキストを連結して返す。
 /// </summary>
 public class OfficeExtractor : ITextExtractor
 {

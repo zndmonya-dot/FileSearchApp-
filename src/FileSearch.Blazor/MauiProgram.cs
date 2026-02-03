@@ -1,3 +1,4 @@
+// Blazor Hybrid (MAUI) のエントリポイント。DI 登録（抽出器・検索・インデックス・設定・プレビュー）を行う。
 using Microsoft.Extensions.Logging;
 using FullTextSearch.Core.Index;
 using FullTextSearch.Core.Preview;
@@ -10,8 +11,12 @@ using FullTextSearch.Infrastructure.Settings;
 
 namespace FileSearch.Blazor;
 
+/// <summary>
+/// MAUI アプリのビルダーとサービス登録。Core/Infrastructure の実装を Singleton または Scoped で登録する。
+/// </summary>
 public static class MauiProgram
 {
+    /// <summary>アプリケーションのビルドと DI コンテナの構成を行う。</summary>
     public static MauiApp CreateMauiApp()
     {
         var builder = MauiApp.CreateBuilder();
@@ -29,7 +34,7 @@ public static class MauiProgram
         builder.Logging.AddDebug();
 #endif
 
-        // テキスト抽出器
+        // テキスト抽出器（Office / PDF / テキスト）
         builder.Services.AddSingleton<ITextExtractor, OfficeExtractor>();
         builder.Services.AddSingleton<ITextExtractor, PdfExtractor>();
         builder.Services.AddSingleton<ITextExtractor, TextFileExtractor>();

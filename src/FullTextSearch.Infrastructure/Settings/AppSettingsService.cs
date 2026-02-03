@@ -1,3 +1,4 @@
+// アプリ設定の永続化。LocalApplicationData/FullTextSearch/settings.json に JSON で保存。
 using System.Text.Json;
 using FullTextSearch.Core.Extractors;
 using FullTextSearch.Core.Models;
@@ -6,10 +7,11 @@ using FullTextSearch.Core.Preview;
 namespace FullTextSearch.Infrastructure.Settings;
 
 /// <summary>
-/// アプリケーション設定サービスの実装
+/// アプリケーション設定サービスの実装。JSON ファイルの読み書きと初回時の拡張子初期化を行う。
 /// </summary>
 public class AppSettingsService : IAppSettingsService
 {
+    /// <summary>設定ファイルのパス（LocalApplicationData/FullTextSearch/settings.json）</summary>
     private static readonly string SettingsPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "FullTextSearch",
@@ -26,11 +28,13 @@ public class AppSettingsService : IAppSettingsService
 
     public AppSettings Settings { get; private set; } = new();
 
+    /// <summary>抽出器ファクトリは初回読み込み時に対象拡張子を初期化するために使用する。</summary>
     public AppSettingsService(TextExtractorFactory extractorFactory)
     {
         _extractorFactory = extractorFactory;
     }
 
+    /// <summary>設定ファイルを読み込む。存在しない場合は初回用に拡張子を設定して保存する。</summary>
     public async Task LoadAsync(CancellationToken cancellationToken = default)
     {
         try
@@ -66,6 +70,7 @@ public class AppSettingsService : IAppSettingsService
         }
     }
 
+    /// <summary>現在の設定を JSON ファイルに保存する。</summary>
     public async Task SaveAsync(CancellationToken cancellationToken = default)
     {
         try

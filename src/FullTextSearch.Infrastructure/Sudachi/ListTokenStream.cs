@@ -13,6 +13,7 @@ public sealed class ListTokenStream : TokenStream
     private readonly IReadOnlyList<string> _tokens;
     private int _index;
 
+    /// <summary>事前に取得したトークン列を Lucene の TokenStream として返すために使用する。</summary>
     public ListTokenStream(IReadOnlyList<string> tokens)
         : base(AttributeFactory.DEFAULT_ATTRIBUTE_FACTORY)
     {

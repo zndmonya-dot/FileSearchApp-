@@ -1,3 +1,4 @@
+// Lucene.NET による全文検索とハイライト。Sudachi でクエリをトークナイズし、設定のインデックスパスを参照。
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -19,12 +20,14 @@ using Lucene.Net.Util;
 namespace FullTextSearch.Infrastructure.Lucene;
 
 /// <summary>
-/// Lucene.NETを使用した検索サービスの実装
+/// Lucene.NET を使用した検索サービスの実装。部分一致・ハイライト・ファイル種類フィルター等に対応。
 /// </summary>
 public class LuceneSearchService : ISearchService, IDisposable
 {
     private const LuceneVersion AppLuceneVersion = LuceneVersion.LUCENE_48;
+    /// <summary>ハイライト抜粋の最大文字数</summary>
     private const int HighlightFragmentSize = 100;
+    /// <summary>1 ドキュメントあたりのハイライト箇所の最大数</summary>
     private const int MaxHighlights = 5;
 
     private readonly IAppSettingsService _settingsService;
@@ -36,11 +39,13 @@ public class LuceneSearchService : ISearchService, IDisposable
     private readonly object _lock = new();
     private bool _disposed;
 
+    /// <summary>設定サービスからインデックスパスを取得するために使用する。</summary>
     public LuceneSearchService(IAppSettingsService settingsService)
     {
         _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
     }
 
+    /// <summary>全文検索を実行し、ハイライト付きの検索結果を返す。UI スレッドをブロックしないよう Task.Run で実行。</summary>
     public async Task<SearchResult> SearchAsync(string query, SearchOptions? options = null, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(query))
@@ -488,7 +493,7 @@ public class LuceneSearchService : ISearchService, IDisposable
     }
 
     /// <summary>
-    /// インデックスを再読み込み
+    /// インデックスキャッシュを破棄し、次回検索で最新のインデックスを読み直す（設定でパス変更したときなどに呼ぶ）。
     /// </summary>
     public void RefreshIndex()
     {
