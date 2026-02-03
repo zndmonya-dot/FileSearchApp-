@@ -37,6 +37,7 @@ project.lock.json
 # MAUI / Windows（ビルド出力は無視、installers/ はコミット可）
 *.appx
 *.msix
+publish/
 *.appxbundle
 *.msixbundle
 !installers/*.msix

@@ -28,6 +28,10 @@
         <AppxPackageSigningEnabled>true</AppxPackageSigningEnabled>
         <PackageCertificateThumbprint>1B9840ABF96610DF80AA2D8E189161A99581E4BE</PackageCertificateThumbprint>
     </PropertyGroup>
+    <!-- スタンドアロン publish 用（.NET 8 で win-x64 を使う） -->
+    <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows' and '$(RuntimeIdentifierOverride)' != ''">
+        <RuntimeIdentifier>$(RuntimeIdentifierOverride)</RuntimeIdentifier>
+    </PropertyGroup>
 
     <ItemGroup>
         <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#1976d2" />
@@ -48,9 +52,9 @@
         <ProjectReference Include="..\FullTextSearch.Infrastructure\FullTextSearch.Infrastructure.csproj" />
     </ItemGroup>
 
-    <!-- Sudachi 形態素解析用 Python スクリプト（実行時に exe 同階層に必要） -->
+    <!-- Sudachi 形態素解析用 Python スクリプト（実行時に exe 同階層に必要・publish にも含める） -->
     <ItemGroup>
-        <Content Include="..\..\tools\sudachi_tokenize.py" Link="sudachi_tokenize.py" CopyToOutputDirectory="PreserveNewest" />
+        <Content Include="..\..\tools\sudachi_tokenize.py" Link="sudachi_tokenize.py" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     </ItemGroup>
 
 </Project>
