@@ -442,31 +442,38 @@ public class LuceneIndexService : IIndexService, IDisposable
     }
 
     /// <summary>
-    /// ファイルからインデックス用ドキュメントを取得する。抽出器がない場合は空本文でインデックス（ファイル名・パス検索用）。エラー時は null。
+    /// ファイルからインデックス用ドキュメントを取得する。抽出器がない場合は空本文でインデックス（ファイル名・パス検索用）。エラー時は null を返し次のファイルへ。
     /// </summary>
     private async Task<IndexedDocument?> TryGetIndexedDocumentAsync(string filePath, CancellationToken cancellationToken)
     {
-        var fileInfo = new FileInfo(filePath);
-        var extension = fileInfo.Extension.ToLowerInvariant();
-        var extractor = _extractorFactory.GetExtractor(extension);
-
-        string content;
-        if (extractor != null)
-            content = await extractor.ExtractTextAsync(filePath, cancellationToken);
-        else
-            content = string.Empty; // 抽出器非対応拡張子は空本文でインデックス（ファイル名・パスで検索可能にする）
-
-        return new IndexedDocument
+        try
         {
-            FilePath = filePath,
-            FileName = fileInfo.Name,
-            FolderPath = fileInfo.DirectoryName ?? string.Empty,
-            Content = content,
-            FileSize = fileInfo.Length,
-            LastModified = fileInfo.LastWriteTimeUtc,
-            FileType = GetFileType(extension),
-            IndexedAt = DateTime.UtcNow
-        };
+            var fileInfo = new FileInfo(filePath);
+            var extension = fileInfo.Extension.ToLowerInvariant();
+            var extractor = _extractorFactory.GetExtractor(extension);
+
+            string content;
+            if (extractor != null)
+                content = await extractor.ExtractTextAsync(filePath, cancellationToken);
+            else
+                content = string.Empty; // 抽出器非対応拡張子は空本文でインデックス（ファイル名・パスで検索可能にする）
+
+            return new IndexedDocument
+            {
+                FilePath = filePath,
+                FileName = fileInfo.Name,
+                FolderPath = fileInfo.DirectoryName ?? string.Empty,
+                Content = content,
+                FileSize = fileInfo.Length,
+                LastModified = fileInfo.LastWriteTimeUtc,
+                FileType = GetFileType(extension),
+                IndexedAt = DateTime.UtcNow
+            };
+        }
+        catch
+        {
+            return null; // エラーになったらそのファイルを飛ばして次へ
+        }
     }
 
     /// <summary>
@@ -482,16 +489,23 @@ public class LuceneIndexService : IIndexService, IDisposable
     }
 
     /// <summary>
-    /// ライターに複数ドキュメントを一括追加。Commit は呼ばない。1ロックで追加して10万件時の競合を軽減。
+    /// ライターに複数ドキュメントを一括追加。Commit は呼ばない。1件でもエラーならそのドキュメントを飛ばして次へ。
     /// </summary>
     private void AddDocumentsToWriterWithoutCommit(IEnumerable<IndexedDocument> documents)
     {
-        lock (_lock)
+        foreach (var document in documents)
         {
-            foreach (var document in documents)
+            try
             {
                 var doc = CreateLuceneDocument(document);
-                _writer!.UpdateDocument(new Term(FieldFilePath, document.FilePath), doc);
+                lock (_lock)
+                {
+                    _writer!.UpdateDocument(new Term(FieldFilePath, document.FilePath), doc);
+                }
+            }
+            catch
+            {
+                // エラーになったらそのドキュメントを飛ばして次へ（Lucene 追加時の例外もスキップ）
             }
         }
     }
