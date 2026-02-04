@@ -10,7 +10,7 @@
         <EnableDefaultCssItems>false</EnableDefaultCssItems>
         <Nullable>enable</Nullable>
 
-        <ApplicationTitle>ファイル検索</ApplicationTitle>
+        <ApplicationTitle>全文検索システム</ApplicationTitle>
         <ApplicationId>com.fulltext.filesearch</ApplicationId>
         <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
         <ApplicationVersion>1</ApplicationVersion>
@@ -34,8 +34,8 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#1976d2" />
-        <MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#1976d2" BaseSize="128,128" />
+        <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#161b22" />
+        <MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#161b22" BaseSize="128,128" />
         <MauiFont Include="Resources\Fonts\*" />
         <MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
     </ItemGroup>
