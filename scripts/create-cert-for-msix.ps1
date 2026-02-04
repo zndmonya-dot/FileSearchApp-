@@ -5,10 +5,10 @@
 $ErrorActionPreference = "Stop"
 $root = Resolve-Path (Join-Path $PSScriptRoot "..")
 $certFolder = Join-Path $root "installers\社内配布"
-$cerName = "FileSearch_配布用.cer"
+$cerName = "全文検索システム_配布用.cer"
 
-$subject = "CN=FileSearch App"
-$friendlyName = "FileSearch MSIX Signing"
+$subject = "CN=全文検索システム"
+$friendlyName = "全文検索システム MSIX 署名"
 
 Write-Host "Creating self-signed code signing certificate..."
 $cert = New-SelfSignedCertificate `

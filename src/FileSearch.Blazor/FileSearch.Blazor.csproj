@@ -27,6 +27,8 @@
         <WindowsPackageType>MSIX</WindowsPackageType>
         <AppxPackageSigningEnabled>true</AppxPackageSigningEnabled>
         <PackageCertificateThumbprint>1B9840ABF96610DF80AA2D8E189161A99581E4BE</PackageCertificateThumbprint>
+        <!-- シンボルパッケージを無効化（社内配布では不要）。mspdbcmf.exe 未検出の警告を出さないため空でないダミー値を設定 -->
+        <MsPdbCmfExeFullpath>skip</MsPdbCmfExeFullpath>
     </PropertyGroup>
     <!-- スタンドアロン publish 用（.NET 8 で win-x64 を使う） -->
     <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows' and '$(RuntimeIdentifierOverride)' != ''">
@@ -56,5 +58,6 @@
     <ItemGroup>
         <Content Include="..\..\tools\sudachi_tokenize.py" Link="sudachi_tokenize.py" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     </ItemGroup>
+
 
 </Project>
