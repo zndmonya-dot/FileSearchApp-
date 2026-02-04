@@ -104,7 +104,8 @@ public partial class Home : IDisposable
             _hasTriedInitialHighlightScroll = true;
             try
             {
-                var result = await JSRuntime.InvokeAsync<string?>("scrollToNextHighlight");
+                // 初回はスクロールアニメなしで最初のハイライト位置に合わせる（目が疲れないように）
+                var result = await JSRuntime.InvokeAsync<string?>("scrollToFirstHighlightInstant");
                 if (!string.IsNullOrEmpty(result))
                 {
                     _highlightNavInfo = FormatHighlightNavInfo(result);

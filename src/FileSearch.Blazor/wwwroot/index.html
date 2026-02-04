@@ -78,6 +78,16 @@
             _highlightIndex = -1;
             document.querySelectorAll('.code-view tr.highlight-current').forEach(function(r) { r.classList.remove('highlight-current'); });
         };
+        /** 初回表示用: 最初のハイライトに即座に合わせる（アニメーションなし）。戻り値は scrollToNextHighlight と同じ形式。 */
+        window.scrollToFirstHighlightInstant = function() {
+            var marks = Array.from(document.querySelectorAll('.file-box mark'));
+            if (marks.length === 0) return null;
+            _highlightIndex = 0;
+            var m = marks[0];
+            _applyHighlightCurrent(m);
+            m.scrollIntoView({ behavior: 'auto', block: 'center' });
+            return _getLineNum(m) + '|' + 1 + '|' + marks.length;
+        };
         function _applyHighlightCurrent(mark) {
             document.querySelectorAll('.code-view tr.highlight-current').forEach(function(r) { r.classList.remove('highlight-current'); });
             var row = mark.closest('.code-line') || mark.closest('tr');
