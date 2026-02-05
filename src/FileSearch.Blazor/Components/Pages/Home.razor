@@ -37,6 +37,7 @@
                       OnSelectFile="SelectFile"
                       GetFileIconClass="GetFileIconClass"
                       OnRequestRebuildIndex="RequestRebuildIndex"
+                      OnCancelIndexBuild="CancelIndexBuild"
                       OnStartResize="StartResize"
                       GetLastUpdateText="GetLastUpdateText" />
 
@@ -61,8 +62,6 @@
             {
                 <FilePreviewView SelectedFile="selectedFile"
                                  IsLoadingPreview="isLoadingPreview"
-                                 PreviewMode="previewMode"
-                                 PreviewHtml="previewHtml"
                                  PreviewLines="previewLinesDisplay"
                                  PreviewLineCount="previewLineCount"
                                  ShowNavButtons="ShowNavButtons"

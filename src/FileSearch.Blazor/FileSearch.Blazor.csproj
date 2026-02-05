@@ -26,7 +26,7 @@
     <PropertyGroup Condition="'$(Configuration)' == 'Release' and $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
         <WindowsPackageType>MSIX</WindowsPackageType>
         <AppxPackageSigningEnabled>true</AppxPackageSigningEnabled>
-        <PackageCertificateThumbprint>1B9840ABF96610DF80AA2D8E189161A99581E4BE</PackageCertificateThumbprint>
+        <PackageCertificateThumbprint>D7582ACD056D07FF3DFA5089F3FABDD99E9F3ED1</PackageCertificateThumbprint>
         <!-- シンボルパッケージを無効化（社内配布では不要）。mspdbcmf.exe 未検出の警告を出さないため空でないダミー値を設定 -->
         <MsPdbCmfExeFullpath>skip</MsPdbCmfExeFullpath>
     </PropertyGroup>

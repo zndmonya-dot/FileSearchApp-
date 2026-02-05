@@ -66,6 +66,7 @@
                         <span class="footer-primary">構築中 @IndexProgressPercent%</span>
                         <span class="footer-secondary">@IndexProgressText</span>
                     </div>
+                    <button type="button" class="footer-action footer-cancel" @onclick="OnCancelIndexBuild" title="インデックス構築をキャンセル">キャンセル</button>
                 </div>
                 <div class="footer-progress">
                     <div class="footer-progress-bar" style="width: @(IndexProgressPercent)%"></div>
@@ -123,6 +124,7 @@
     [Parameter] public EventCallback<TreeNode> OnSelectFile { get; set; }
     [Parameter] public Func<string, string>? GetFileIconClass { get; set; }
     [Parameter] public EventCallback OnRequestRebuildIndex { get; set; }
+    [Parameter] public EventCallback OnCancelIndexBuild { get; set; }
     [Parameter] public EventCallback<MouseEventArgs> OnStartResize { get; set; }
     [Parameter] public Func<string> GetLastUpdateText { get; set; } = () => "";
 

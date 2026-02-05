@@ -305,10 +305,21 @@
     height: 14px;
 }
 
-.footer-action.footer-action-with-label {
+.footer-action.footer-action-with-label,
+.footer-action.footer-cancel {
     width: auto;
     padding: 0 6px;
     gap: 4px;
+}
+
+.footer-action.footer-cancel:hover {
+    background: rgba(248, 81, 73, 0.2);
+    color: #f85149;
+}
+
+.app.light .footer-action.footer-cancel:hover {
+    background: rgba(207, 34, 46, 0.12);
+    color: #cf222e;
 }
 
 .footer-action.footer-action-with-label .footer-action-label {

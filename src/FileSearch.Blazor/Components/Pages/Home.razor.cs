@@ -41,6 +41,10 @@ public partial class Home : IDisposable
     private int resizeStartWidth = 0;
     private CancellationTokenSource? _searchCts;
     private CancellationTokenSource? _previewCts;
+    private CancellationTokenSource? _indexCts;
+    private Timer? _previewDebounceTimer;
+    private string? _pendingPreviewPath;
+    private const int PreviewDebounceMs = 300;
     private const int ProgressReportInterval = 500;
     private const int ProgressReportThrottleMs = 250;
     private int _lastReportedProgressCount = -1;
@@ -61,8 +65,6 @@ public partial class Home : IDisposable
     private string? indexErrorMessage = null;
     private string? SearchErrorMessage => searchErrorMessage;
     private string? IndexErrorMessage => indexErrorMessage;
-    private string previewMode = "text";
-    private string? previewHtml;
     private string? _lastHighlightNavFilePath;
     private string? _highlightNavInfo;
     private bool _hasTriedInitialHighlightScroll;
@@ -82,6 +84,8 @@ public partial class Home : IDisposable
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (selectedFile != null && !string.IsNullOrEmpty(selectedFile.FilePath) && TreeBuilder.ExpandPathToFile(treeNodes, selectedFile.FilePath))
+            StateHasChanged();
         if (firstRender && string.Equals(SettingsService.Settings.ThemeMode, "System", StringComparison.OrdinalIgnoreCase))
         {
             try
@@ -151,12 +155,17 @@ public partial class Home : IDisposable
     {
         _autoRebuildTimer?.Dispose();
         _autoRebuildTimer = null;
+        _previewDebounceTimer?.Dispose();
+        _previewDebounceTimer = null;
         _searchCts?.Cancel();
         _searchCts?.Dispose();
         _searchCts = null;
         _previewCts?.Cancel();
         _previewCts?.Dispose();
         _previewCts = null;
+        _indexCts?.Cancel();
+        _indexCts?.Dispose();
+        _indexCts = null;
     }
 
     private void ApplyThemeFromSettings()
@@ -276,18 +285,19 @@ public partial class Home : IDisposable
         return filtered;
     }
 
-    private async Task SelectFile(TreeNode node)
+    private void SelectFile(TreeNode node)
     {
         if (node.FileData == null) return;
         selectedFolder = null;
         selectedFile = node.FileData;
+        TreeBuilder.ExpandPathToFile(treeNodes, node.FilePath!);
         _fileNavList = TreeBuilder.CollectAllFileNodes(treeNodes);
         _fileNavIndex = _fileNavList.FindIndex(n => string.Equals(n.FilePath, node.FilePath, StringComparison.OrdinalIgnoreCase));
         if (_fileNavIndex < 0) _fileNavIndex = 0;
-        await LoadPreview(node.FilePath!);
+        SchedulePreviewLoad(node.FilePath!);
     }
 
-    private async Task OnFolderItemClick(TreeNode item)
+    private void OnFolderItemClick(TreeNode item)
     {
         if (item.IsFolder)
         {
@@ -296,21 +306,35 @@ public partial class Home : IDisposable
             selectedFolder = item;
             selectedFolderRowIndex = 0;
         }
-        else await SelectFile(item);
+        else SelectFile(item);
     }
 
-    private async Task OnFolderRowClick(TreeNode item)
+    private void OnFolderRowClick(TreeNode item)
     {
         if (selectedFolder?.Children == null) return;
         var list = GetSortedAndFilteredItems(selectedFolder.Children).ToList();
         selectedFolderRowIndex = list.IndexOf(item);
         if (selectedFolderRowIndex < 0) selectedFolderRowIndex = 0;
-        await OnFolderItemClick(item);
+        OnFolderItemClick(item);
     }
 
     #endregion
 
     #region プレビューとナビゲーション（LoadPreview / 前へ・次へ / ファイル・フォルダを開く）
+
+    /// <summary>プレビュー読み込みを 300ms デバウンスしてスケジュールする。連続クリック時に無駄な抽出を減らす。</summary>
+    private void SchedulePreviewLoad(string path)
+    {
+        _pendingPreviewPath = path;
+        _previewDebounceTimer?.Dispose();
+        _previewDebounceTimer = new Timer(_ =>
+        {
+            var p = _pendingPreviewPath;
+            _pendingPreviewPath = null;
+            if (!string.IsNullOrEmpty(p))
+                _ = InvokeAsync(async () => { await LoadPreview(p); });
+        }, null, PreviewDebounceMs, Timeout.Infinite);
+    }
 
     private async Task LoadPreview(string path)
     {
@@ -321,25 +345,18 @@ public partial class Home : IDisposable
         isLoadingPreview = true;
         _previewLines = Array.Empty<PreviewLineResult>();
         previewLineCount = 0;
-        previewMode = "text";
-        previewHtml = null;
         StateHasChanged();
         try
         {
             var result = await PreviewService.GetPreviewAsync(path, searchQuery?.Trim(), token);
             if (token.IsCancellationRequested) return;
-            previewMode = result.Mode;
-            previewHtml = result.Html;
             _previewLines = result.Lines ?? Array.Empty<PreviewLineResult>();
             previewLineCount = result.LineCount;
         }
         catch (OperationCanceledException)
         {
-            // キャンセル時は「0 行」が残らないよう1行メッセージを表示
             _previewLines = new List<PreviewLineResult> { new("読み込みをキャンセルしました", false) };
             previewLineCount = 1;
-            previewMode = "text";
-            previewHtml = null;
         }
         catch (Exception ex)
         {
@@ -378,7 +395,7 @@ public partial class Home : IDisposable
             return;
         }
         if (ShowFileNav)
-            await SelectNextFile();
+            SelectNextFile();
     }
 
     private async Task GoPrev()
@@ -391,7 +408,7 @@ public partial class Home : IDisposable
             return;
         }
         if (ShowFileNav)
-            await SelectPrevFile();
+            SelectPrevFile();
     }
 
     private static string? FormatHighlightNavInfo(string? raw)
@@ -406,18 +423,18 @@ public partial class Home : IDisposable
         return lineNum > 0 ? $"{lineNum} 行目 ({current}/{total})" : $"{current}/{total}";
     }
 
-    private async Task SelectNextFile()
+    private void SelectNextFile()
     {
         if (_fileNavList == null || _fileNavList.Count < 2) return;
         var next = (_fileNavIndex + 1) % _fileNavList.Count;
-        await SelectFile(_fileNavList[next]);
+        SelectFile(_fileNavList[next]);
     }
 
-    private async Task SelectPrevFile()
+    private void SelectPrevFile()
     {
         if (_fileNavList == null || _fileNavList.Count < 2) return;
         var prev = _fileNavIndex <= 0 ? _fileNavList.Count - 1 : _fileNavIndex - 1;
-        await SelectFile(_fileNavList[prev]);
+        SelectFile(_fileNavList[prev]);
     }
 
     private void OpenFile()
@@ -456,9 +473,12 @@ public partial class Home : IDisposable
         return new Progress<IndexProgress>(p =>
         {
             indexProgressPercent = p.TotalFiles > 0 ? (int)((double)p.ProcessedFiles / p.TotalFiles * 100) : 0;
-            indexProgressText = p.ErrorCount > 0
+            var baseText = p.ErrorCount > 0
                 ? $"{p.ProcessedFiles:N0} / {p.TotalFiles:N0} {countUnit}（スキップ {p.ErrorCount:N0} 件）"
                 : $"{p.ProcessedFiles:N0} / {p.TotalFiles:N0} {countUnit}";
+            indexProgressText = string.IsNullOrEmpty(p.CurrentFile)
+                ? baseText
+                : $"{baseText} — 現在: {p.CurrentFile}";
             var shouldUpdate = p.CurrentFile == null
                 || (p.ProcessedFiles - _lastReportedProgressCount) >= ProgressReportInterval
                 || (DateTime.UtcNow - _lastReportedProgressTime).TotalMilliseconds >= ProgressReportThrottleMs;
@@ -474,7 +494,7 @@ public partial class Home : IDisposable
     private async Task RunIndexUpdateAsync(
         string initialMessage,
         string countUnit,
-        Func<IProgress<IndexProgress>, Task> runAsync,
+        Func<IProgress<IndexProgress>, CancellationToken, Task> runAsync,
         Func<Exception, string> getErrorMessage,
         string logContext)
     {
@@ -489,16 +509,25 @@ public partial class Home : IDisposable
         isIndexing = true;
         indexProgressPercent = 0;
         indexProgressText = initialMessage;
+        _indexCts?.Dispose();
+        _indexCts = new CancellationTokenSource();
+        var token = _indexCts.Token;
         StateHasChanged();
         await Task.Yield();
 
         var progress = CreateThrottledProgress(countUnit);
         try
         {
-            await Task.Run(async () => await runAsync(progress));
+            await Task.Run(async () => await runAsync(progress, token), token);
+            if (token.IsCancellationRequested) return;
             indexCount = IndexService.GetStats().DocumentCount;
             SettingsService.Settings.LastIndexUpdate = DateTime.Now;
             await SettingsService.SaveAsync();
+            indexErrorMessage = null;
+        }
+        catch (OperationCanceledException)
+        {
+            indexProgressText = "キャンセルしました";
             indexErrorMessage = null;
         }
         catch (Exception ex)
@@ -508,6 +537,8 @@ public partial class Home : IDisposable
         }
         finally
         {
+            _indexCts?.Dispose();
+            _indexCts = null;
             isIndexing = false;
             indexProgressPercent = 0;
             StateHasChanged();
@@ -521,7 +552,7 @@ public partial class Home : IDisposable
         return RunIndexUpdateAsync(
             "差分を検出中...",
             "件",
-            p => IndexService.UpdateIndexAsync(folders, p, options, CancellationToken.None),
+            (p, ct) => IndexService.UpdateIndexAsync(folders, p, options, ct),
             ex => string.IsNullOrEmpty(ex.Message) ? MsgUpdateFailed : $"{MsgUpdateFailed} {ex.Message}",
             "Index update failed");
     }
@@ -533,7 +564,7 @@ public partial class Home : IDisposable
         return RunIndexUpdateAsync(
             "準備中...",
             "ファイル",
-            p => IndexService.RebuildIndexAsync(folders, p, options, CancellationToken.None),
+            (p, ct) => IndexService.RebuildIndexAsync(folders, p, options, ct),
             _ => MsgRebuildFailed,
             "Index rebuild failed");
     }
@@ -573,6 +604,11 @@ public partial class Home : IDisposable
             await RebuildIndex();
         else
             await UpdateIndex();
+    }
+
+    private void CancelIndexBuild()
+    {
+        _indexCts?.Cancel();
     }
 
     #endregion

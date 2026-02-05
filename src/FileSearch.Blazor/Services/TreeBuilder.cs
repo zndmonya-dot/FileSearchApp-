@@ -101,6 +101,28 @@ public static class TreeBuilder
         }
     }
 
+    /// <summary>指定ファイルへ至るフォルダをすべて展開する（プレビュー中ファイルが閉じたフォルダ内にあっても行が表示されるように）。1つでも展開したら true。</summary>
+    public static bool ExpandPathToFile(List<TreeNode> roots, string filePath)
+    {
+        if (roots == null || string.IsNullOrEmpty(filePath)) return false;
+        var fileDir = (Path.GetDirectoryName(filePath) ?? "").Replace('/', '\\').TrimEnd('\\', '/');
+        if (string.IsNullOrEmpty(fileDir)) return false;
+        foreach (var node in roots)
+        {
+            if (!node.IsFolder) continue;
+            var folderPath = (node.FullPath ?? "").Replace('/', '\\').TrimEnd('\\', '/');
+            if (string.IsNullOrEmpty(folderPath)) continue;
+            if (!string.Equals(fileDir, folderPath, StringComparison.OrdinalIgnoreCase) && !fileDir.StartsWith(folderPath + "\\", StringComparison.OrdinalIgnoreCase))
+                continue;
+            var changed = !node.IsExpanded;
+            node.IsExpanded = true;
+            if (node.Children != null)
+                changed |= ExpandPathToFile(node.Children, filePath);
+            return changed;
+        }
+        return false;
+    }
+
     /// <summary>ツリー全体からファイルノードのみをフラットに収集する</summary>
     public static List<TreeNode> CollectAllFileNodes(List<TreeNode> roots)
     {

@@ -16,7 +16,7 @@
             <span class="file-path-breadcrumb" title="@SelectedFile.FolderPath">@SelectedFile.FolderPath</span>
         </div>
         <div class="file-meta">
-            <span class="file-meta-item">@(PreviewMode == "html" ? "表形式" : $"{PreviewLineCount} 行")</span>
+            <span class="file-meta-item">@($"{PreviewLineCount} 行")</span>
             <span class="file-meta-item">@DisplayFormatters.FormatSize(SelectedFile.FileSize)</span>
         </div>
         <div class="file-actions">
@@ -58,17 +58,6 @@
             <span class="loading-state-text">読み込み中...</span>
         </div>
     }
-    else if (PreviewMode == "html")
-    {
-        @if (!string.IsNullOrEmpty(PreviewHtml))
-        {
-            <div class="preview-html-wrap">@((MarkupString)PreviewHtml)</div>
-        }
-        else
-        {
-            <div class="preview-html-wrap"><p class="preview-empty">プレビューを読み込めませんでした</p></div>
-        }
-    }
     else
     {
         var lines = PreviewLines ?? Array.Empty<PreviewLineDisplay>();
@@ -95,8 +84,6 @@
 @code {
     [Parameter] public SearchResultItem? SelectedFile { get; set; }
     [Parameter] public bool IsLoadingPreview { get; set; }
-    [Parameter] public string PreviewMode { get; set; } = "text";
-    [Parameter] public string? PreviewHtml { get; set; }
     [Parameter] public IReadOnlyList<PreviewLineDisplay> PreviewLines { get; set; } = Array.Empty<PreviewLineDisplay>();
     [Parameter] public int PreviewLineCount { get; set; }
     [Parameter] public bool ShowNavButtons { get; set; }
