@@ -44,7 +44,7 @@ public partial class Home : IDisposable
     private CancellationTokenSource? _indexCts;
     private Timer? _previewDebounceTimer;
     private string? _pendingPreviewPath;
-    private const int PreviewDebounceMs = 500;
+    private const int PreviewDebounceMs = 200;
     private const int ProgressReportInterval = 500;
     private const int ProgressReportThrottleMs = 250;
     private int _lastReportedProgressCount = -1;
@@ -303,6 +303,11 @@ public partial class Home : IDisposable
         if (node.FileData == null) return;
         selectedFolder = null;
         selectedFile = node.FileData;
+        // 一瞬だけ前のファイルの内容が表示されるのを防ぐ（選択直後にクリア＋読み込み表示）
+        _previewLines = Array.Empty<PreviewLineResult>();
+        _previewLinesDisplayCache = null;
+        previewLineCount = 0;
+        isLoadingPreview = true;
         TreeBuilder.ExpandPathToFile(treeNodes, node.FilePath!);
         _fileNavList = TreeBuilder.CollectAllFileNodes(treeNodes);
         _fileNavIndex = _fileNavList.FindIndex(n => string.Equals(n.FilePath, node.FilePath, StringComparison.OrdinalIgnoreCase));
@@ -373,6 +378,7 @@ public partial class Home : IDisposable
         var token = _previewCts.Token;
         isLoadingPreview = true;
         _previewLines = Array.Empty<PreviewLineResult>();
+        _previewLinesDisplayCache = null;
         previewLineCount = 0;
         StateHasChanged();
         await Task.Yield();
@@ -381,17 +387,21 @@ public partial class Home : IDisposable
         {
             var result = await PreviewService.GetPreviewAsync(path, searchQuery?.Trim(), token);
             if (token.IsCancellationRequested) return;
-            _previewLines = result.Lines ?? Array.Empty<PreviewLineResult>();
+            var lines = result.Lines ?? Array.Empty<PreviewLineResult>();
+            _previewLines = lines;
             previewLineCount = result.LineCount;
+            _previewLinesDisplayCache = null;
         }
         catch (OperationCanceledException)
         {
             _previewLines = new List<PreviewLineResult> { new("読み込みをキャンセルしました", false) };
+            _previewLinesDisplayCache = null;
             previewLineCount = 1;
         }
         catch (Exception ex)
         {
             _previewLines = new List<PreviewLineResult> { new($"[エラー] {ex.Message}", false) };
+            _previewLinesDisplayCache = null;
             previewLineCount = 1;
         }
         finally { isLoadingPreview = false; StateHasChanged(); }
@@ -780,8 +790,19 @@ public partial class Home : IDisposable
 
     private static string GetFileIconClass(string name) => DisplayFormatters.GetFileIconClass(name);
 
-    private IReadOnlyList<PreviewLineDisplay> previewLinesDisplay =>
-        (_previewLines ?? Array.Empty<PreviewLineResult>()).Select(p => new PreviewLineDisplay(p.Content, p.HasMatch)).ToList();
+    private IReadOnlyList<PreviewLineDisplay>? _previewLinesDisplayCache;
+
+    private IReadOnlyList<PreviewLineDisplay> previewLinesDisplay
+    {
+        get
+        {
+            var src = _previewLines ?? Array.Empty<PreviewLineResult>();
+            if (_previewLinesDisplayCache != null && _previewLinesDisplayCache.Count == src.Count)
+                return _previewLinesDisplayCache;
+            _previewLinesDisplayCache = src.Select(p => new PreviewLineDisplay(p.Content, p.HasMatch)).ToList();
+            return _previewLinesDisplayCache;
+        }
+    }
 
     #endregion
 }

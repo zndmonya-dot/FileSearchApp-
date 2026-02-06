@@ -61,6 +61,30 @@
                 return code;
             }
         };
+        /** 複数行を一括でシンタックスハイライト（JS往復を減らしてプレビューを速くする） */
+        window.highlightCodeBatch = function(lines, language) {
+            if (!lines || !Array.isArray(lines)) return [];
+            if (!language || language === 'text' || language === 'plaintext') {
+                return lines.slice();
+            }
+            var result = [];
+            try {
+                for (var i = 0; i < lines.length; i++) {
+                    try {
+                        if (hljs.getLanguage(language)) {
+                            result.push(hljs.highlight(lines[i], { language: language }).value);
+                        } else {
+                            result.push(hljs.highlightAuto(lines[i]).value);
+                        }
+                    } catch (e) {
+                        result.push(lines[i]);
+                    }
+                }
+                return result;
+            } catch (e) {
+                return lines.slice();
+            }
+        };
 
         // システムのテーマ設定（prefers-color-scheme）を取得。戻り値: "dark" / "light"
         window.getPreferredColorScheme = function() {

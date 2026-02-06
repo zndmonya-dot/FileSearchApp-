@@ -20,6 +20,8 @@ public class PreviewService : IPreviewService
     private const int PreviewMaxChars = 50_000;
     /// <summary>シンタックスハイライトをかける最大行数（それ以降はエスケープのみ）</summary>
     private const int PreviewMaxLinesForHighlight = 500;
+    /// <summary>Highlight.js をバッチ呼び出しする行数（JS往復回数を減らしてプレビューを速くする）</summary>
+    private const int HighlightBatchSize = 50;
     private const int DiagnosticHtmlSampleLength = 400;
 
     private readonly TextExtractorFactory _extractorFactory;
@@ -73,20 +75,25 @@ public class PreviewService : IPreviewService
         string[] highlightedLines;
         if (isSourceCode)
         {
-            // 行ごとに Highlight.js を呼び、元行と必ず1対1で対応させる（全文渡しだと改行数がずれて「tes」等がハイライトされないことがある）
             highlightedLines = new string[lines.Length];
             var limit = Math.Min(lines.Length, PreviewMaxLinesForHighlight);
+            for (int i = limit; i < lines.Length; i++)
+                highlightedLines[i] = System.Net.WebUtility.HtmlEncode(lines[i].TrimEnd('\r'));
             try
             {
-                for (int i = 0; i < limit; i++)
+                for (int chunkStart = 0; chunkStart < limit && !cancellationToken.IsCancellationRequested; chunkStart += HighlightBatchSize)
                 {
-                    if (cancellationToken.IsCancellationRequested) break;
-                    var line = lines[i].TrimEnd('\r');
-                    var hl = await _jsRuntime.InvokeAsync<string>("highlightCode", cancellationToken, new object[] { line, currentLanguage });
-                    highlightedLines[i] = hl.TrimEnd('\r');
+                    var chunkLen = Math.Min(HighlightBatchSize, limit - chunkStart);
+                    var chunk = new string[chunkLen];
+                    for (int i = 0; i < chunkLen; i++)
+                        chunk[i] = lines[chunkStart + i].TrimEnd('\r');
+                    var highlightedChunk = await _jsRuntime.InvokeAsync<string[]>("highlightCodeBatch", cancellationToken, new object[] { chunk, currentLanguage });
+                    for (int i = 0; i < highlightedChunk.Length && (chunkStart + i) < limit; i++)
+                        highlightedLines[chunkStart + i] = (highlightedChunk[i] ?? chunk[i]).TrimEnd('\r');
                 }
-                for (int i = limit; i < lines.Length; i++)
-                    highlightedLines[i] = System.Net.WebUtility.HtmlEncode(lines[i].TrimEnd('\r'));
+                for (int i = 0; i < limit; i++)
+                    if (string.IsNullOrEmpty(highlightedLines[i]))
+                        highlightedLines[i] = System.Net.WebUtility.HtmlEncode(lines[i].TrimEnd('\r'));
             }
             catch
             {
