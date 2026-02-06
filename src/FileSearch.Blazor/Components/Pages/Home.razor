@@ -23,6 +23,7 @@
                       TotalFileCount="totalFileCount"
                       TreeNodes="treeNodes"
                       CurrentPreviewFilePath="@(selectedFile?.FilePath)"
+                      CurrentFolderPath="@(selectedFolder?.FullPath)"
                       HasSearchedCurrentQuery="@HasSearchedCurrentQuery"
                       IsSearching="isSearching"
                       SearchErrorMessage="@SearchErrorMessage"
@@ -55,6 +56,7 @@
                                OnToggleFilterMenu="ToggleFilterMenu"
                                OnFilter="SetFilter"
                                OnRowClick="OnFolderRowClick"
+                               OnGoToParent="GoToParentFolder"
                                GetSortIcon="GetSortIcon"
                                GetUniqueExtensions="GetUniqueExtensions" />
             }

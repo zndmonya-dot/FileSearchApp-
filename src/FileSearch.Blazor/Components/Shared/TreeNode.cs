@@ -9,6 +9,8 @@ public class TreeNode
 {
     /// <summary>表示名（フォルダ名またはファイル名）</summary>
     public string Name { get; set; } = "";
+    /// <summary>親フォルダノード（ルートの場合は null）</summary>
+    public TreeNode? Parent { get; set; }
     /// <summary>フォルダのフルパス（フォルダノード時）</summary>
     public string FullPath { get; set; } = "";
     /// <summary>ファイルのフルパス（ファイルノード時）</summary>

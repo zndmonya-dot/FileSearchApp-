@@ -44,7 +44,7 @@ public partial class Home : IDisposable
     private CancellationTokenSource? _indexCts;
     private Timer? _previewDebounceTimer;
     private string? _pendingPreviewPath;
-    private const int PreviewDebounceMs = 300;
+    private const int PreviewDebounceMs = 500;
     private const int ProgressReportInterval = 500;
     private const int ProgressReportThrottleMs = 250;
     private int _lastReportedProgressCount = -1;
@@ -84,8 +84,16 @@ public partial class Home : IDisposable
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        var treeChanged = false;
         if (selectedFile != null && !string.IsNullOrEmpty(selectedFile.FilePath) && TreeBuilder.ExpandPathToFile(treeNodes, selectedFile.FilePath))
+            treeChanged = true;
+        if (selectedFolder != null && !string.IsNullOrEmpty(selectedFolder.FullPath) && TreeBuilder.ExpandPathToFolder(treeNodes, selectedFolder.FullPath))
+            treeChanged = true;
+        if (treeChanged)
+        {
+            await Task.Yield();
             StateHasChanged();
+        }
         if (firstRender && string.Equals(SettingsService.Settings.ThemeMode, "System", StringComparison.OrdinalIgnoreCase))
         {
             try
@@ -108,7 +116,6 @@ public partial class Home : IDisposable
             _hasTriedInitialHighlightScroll = true;
             try
             {
-                // 初回はスクロールアニメなしで最初のハイライト位置に合わせる（目が疲れないように）
                 var result = await JSRuntime.InvokeAsync<string?>("scrollToFirstHighlightInstant");
                 if (!string.IsNullOrEmpty(result))
                 {
@@ -230,10 +237,16 @@ public partial class Home : IDisposable
 
     private void ToggleNode(TreeNode node)
     {
-        node.IsExpanded = !node.IsExpanded;
-        selectedFile = null;
-        selectedFolder = node;
-        selectedFolderRowIndex = 0;
+        // 展開時の大量描画を1フレーム遅延し、UIの応答性を保つ
+        _ = InvokeAsync(async () =>
+        {
+            await Task.Yield();
+            node.IsExpanded = !node.IsExpanded;
+            selectedFile = null;
+            selectedFolder = node;
+            selectedFolderRowIndex = 0;
+            StateHasChanged();
+        });
     }
 
     private void SetSort(string column)
@@ -318,14 +331,30 @@ public partial class Home : IDisposable
         OnFolderItemClick(item);
     }
 
+    /// <summary>フォルダ一覧で「親フォルダへ」を押したとき。親を選択し、ツリーと連動させる。</summary>
+    private void GoToParentFolder()
+    {
+        if (selectedFolder?.Parent == null) return;
+        var fromChild = selectedFolder;
+        var parent = selectedFolder.Parent;
+        parent.IsExpanded = true;
+        selectedFile = null;
+        selectedFolder = parent;
+        var list = GetSortedAndFilteredItems(parent.Children ?? new List<TreeNode>()).ToList();
+        selectedFolderRowIndex = list.IndexOf(fromChild);
+        if (selectedFolderRowIndex < 0) selectedFolderRowIndex = 0;
+        StateHasChanged();
+    }
+
     #endregion
 
     #region プレビューとナビゲーション（LoadPreview / 前へ・次へ / ファイル・フォルダを開く）
 
-    /// <summary>プレビュー読み込みを 300ms デバウンスしてスケジュールする。連続クリック時に無駄な抽出を減らす。</summary>
+    /// <summary>プレビュー読み込みをデバウンスしてスケジュールする。連続クリック時に無駄な抽出を減らし、即時キャンセルでフリーズを防ぐ。</summary>
     private void SchedulePreviewLoad(string path)
     {
         _pendingPreviewPath = path;
+        _previewCts?.Cancel();
         _previewDebounceTimer?.Dispose();
         _previewDebounceTimer = new Timer(_ =>
         {
@@ -346,6 +375,8 @@ public partial class Home : IDisposable
         _previewLines = Array.Empty<PreviewLineResult>();
         previewLineCount = 0;
         StateHasChanged();
+        await Task.Yield();
+        if (token.IsCancellationRequested) return;
         try
         {
             var result = await PreviewService.GetPreviewAsync(path, searchQuery?.Trim(), token);
@@ -478,7 +509,7 @@ public partial class Home : IDisposable
                 : $"{p.ProcessedFiles:N0} / {p.TotalFiles:N0} {countUnit}";
             indexProgressText = string.IsNullOrEmpty(p.CurrentFile)
                 ? baseText
-                : $"{baseText} — 現在: {p.CurrentFile}";
+                : Path.GetFileName(p.CurrentFile);
             var shouldUpdate = p.CurrentFile == null
                 || (p.ProcessedFiles - _lastReportedProgressCount) >= ProgressReportInterval
                 || (DateTime.UtcNow - _lastReportedProgressTime).TotalMilliseconds >= ProgressReportThrottleMs;

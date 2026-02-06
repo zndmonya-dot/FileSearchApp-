@@ -199,6 +199,17 @@ public class LuceneIndexService : IIndexService, IDisposable
         }
     }
 
+    /// <summary>C: や C:\ をドライブルート C:\ に正規化する。GetFullPath("C:") はカレントディレクトリを返すため、ルート指定が 0 件になるのを防ぐ。</summary>
+    private static string NormalizeFolderPath(string folder)
+    {
+        var s = folder.TrimEnd('\\', '/').Trim();
+        if (s.Length == 2 && char.IsLetter(s[0]) && s[1] == ':')
+            return s + "\\";
+        if (s.Length == 1 && char.IsLetter(s[0]))
+            return s + ":\\";
+        return Path.GetFullPath(s);
+    }
+
     public async Task RebuildIndexAsync(IEnumerable<string> folders, IProgress<IndexProgress>? progress = null, IndexRebuildOptions? options = null, CancellationToken cancellationToken = default)
     {
         EnsureInitialized();
@@ -212,7 +223,7 @@ public class LuceneIndexService : IIndexService, IDisposable
                 _writer!.DeleteAll();
             }
 
-            var folderList = folders.ToList();
+            var folderList = folders.Select(NormalizeFolderPath).ToList();
             var folderFileLists = new List<(string folder, List<string> files)>(folderList.Count);
             var globalTotal = 0;
             foreach (var folder in folderList)
@@ -262,7 +273,7 @@ public class LuceneIndexService : IIndexService, IDisposable
                 _writer!.Commit();
             }
 
-            var normalizedFolders = folderList.Select(f => Path.GetFullPath(f.TrimEnd('\\', '/'))).ToList();
+            var normalizedFolders = folderList.Select(NormalizeFolderPath).ToList();
 
             if (!DirectoryReader.IndexExists(_directory!))
             {

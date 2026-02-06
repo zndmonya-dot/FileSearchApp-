@@ -72,7 +72,8 @@ public static class TreeBuilder
                                 FullPath = childFullPath,
                                 IsFolder = true,
                                 IsExpanded = false,
-                                Children = new List<TreeNode>()
+                                Children = new List<TreeNode>(),
+                                Parent = current
                             };
                             current.Children.Add(child);
                         }
@@ -86,7 +87,8 @@ public static class TreeBuilder
                         IsFolder = false,
                         FileData = item,
                         LastModified = item.LastModified,
-                        FileSize = item.FileSize
+                        FileSize = item.FileSize,
+                        Parent = current
                     });
                 }
                 SortTreeInPlace(rootNode);
@@ -99,6 +101,28 @@ public static class TreeBuilder
         {
             return [];
         }
+    }
+
+    /// <summary>指定フォルダへ至るパス上のフォルダをすべて展開する（右パネルで選択中のフォルダがツリーで見えるように連動）。1つでも展開したら true。</summary>
+    public static bool ExpandPathToFolder(List<TreeNode> roots, string folderPath)
+    {
+        if (roots == null || string.IsNullOrEmpty(folderPath)) return false;
+        var target = (folderPath ?? "").Replace('/', '\\').TrimEnd('\\', '/');
+        if (string.IsNullOrEmpty(target)) return false;
+        foreach (var node in roots)
+        {
+            if (!node.IsFolder) continue;
+            var nodePath = (node.FullPath ?? "").Replace('/', '\\').TrimEnd('\\', '/');
+            if (string.IsNullOrEmpty(nodePath)) continue;
+            if (!string.Equals(target, nodePath, StringComparison.OrdinalIgnoreCase) && !target.StartsWith(nodePath + "\\", StringComparison.OrdinalIgnoreCase))
+                continue;
+            var changed = !node.IsExpanded;
+            node.IsExpanded = true;
+            if (node.Children != null && !string.Equals(target, nodePath, StringComparison.OrdinalIgnoreCase))
+                changed |= ExpandPathToFolder(node.Children, folderPath!);
+            return changed;
+        }
+        return false;
     }
 
     /// <summary>指定ファイルへ至るフォルダをすべて展開する（プレビュー中ファイルが閉じたフォルダ内にあっても行が表示されるように）。1つでも展開したら true。</summary>

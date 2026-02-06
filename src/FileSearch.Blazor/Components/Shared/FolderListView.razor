@@ -12,9 +12,24 @@
         </span>
         <div class="file-info">
             <span class="file-name">@SelectedFolder.Name</span>
+            @if (!string.IsNullOrEmpty(SelectedFolder.FullPath))
+            {
+                <span class="file-path-breadcrumb" title="@SelectedFolder.FullPath">@SelectedFolder.FullPath</span>
+            }
         </div>
         <div class="file-meta">
             <span class="file-meta-item">@(SelectedFolder.Children?.Count ?? 0) 件</span>
+        </div>
+        <div class="file-actions">
+            @if (SelectedFolder.Parent != null)
+            {
+                <div class="btn-group">
+                    <button class="action-btn" @onclick="OnGoToParent" title="親フォルダへ戻る">
+                        <svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16"><path d="M4.22 10.5L8 6.72l3.78 3.78a.75.75 0 1 1-1.06 1.06L8 8.845 5.28 11.56a.75.75 0 1 1-1.06-1.06z"/></svg>
+                        <span>親フォルダへ</span>
+                    </button>
+                </div>
+            }
         </div>
     </div>
     <div id="folder-list" class="folder-list">
@@ -97,6 +112,7 @@
     [Parameter] public EventCallback OnToggleFilterMenu { get; set; }
     [Parameter] public EventCallback<string> OnFilter { get; set; }
     [Parameter] public EventCallback<TreeNode> OnRowClick { get; set; }
+    [Parameter] public EventCallback OnGoToParent { get; set; }
     [Parameter] public Func<string, MarkupString> GetSortIcon { get; set; } = _ => (MarkupString)"";
     [Parameter] public Func<List<TreeNode>, IEnumerable<string>> GetUniqueExtensions { get; set; } = _ => Enumerable.Empty<string>();
 
