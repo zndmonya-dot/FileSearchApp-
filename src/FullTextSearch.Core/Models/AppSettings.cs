@@ -23,12 +23,6 @@ public class AppSettings
     /// </summary>
     public string IndexPath { get; set; } = DefaultPaths.IndexPath;
 
-
-    /// <summary>
-    /// プレビュー切り替え遅延（ミリ秒）
-    /// </summary>
-    public int PreviewDelayMs { get; set; } = 100;
-
     /// <summary>
     /// インデックス最終更新日時
     /// </summary>

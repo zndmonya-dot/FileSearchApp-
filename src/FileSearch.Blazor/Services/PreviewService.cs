@@ -105,7 +105,16 @@ public class PreviewService : IPreviewService
             highlightedLines = lines.Select(l => System.Net.WebUtility.HtmlEncode(l.TrimEnd('\r'))).ToArray();
         }
 
-        var resultLines = new List<PreviewLineResult>();
+        // 検索語ごとにパターンとエンコード済み文字列をループ外で1回だけ用意（行×語の重複計算を避ける）
+        var escapedPatterns = new string[searchTerms.Length];
+        var encodedTerms = new string[searchTerms.Length];
+        for (var t = 0; t < searchTerms.Length; t++)
+        {
+            escapedPatterns[t] = Regex.Escape(searchTerms[t]);
+            encodedTerms[t] = System.Net.WebUtility.HtmlEncode(searchTerms[t]);
+        }
+
+        var resultLines = new PreviewLineResult[lines.Length];
         for (int i = 0; i < lines.Length; i++)
         {
             var originalLine = lines[i].TrimEnd('\r');
@@ -113,28 +122,24 @@ public class PreviewService : IPreviewService
                 ? highlightedLines[i].TrimEnd('\r')
                 : System.Net.WebUtility.HtmlEncode(originalLine);
             var hasMatch = false;
-            foreach (var term in searchTerms)
+            for (var t = 0; t < searchTerms.Length; t++)
             {
-                var pattern = Regex.Escape(term);
-                if (Regex.IsMatch(originalLine, pattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+                if (Regex.IsMatch(originalLine, escapedPatterns[t], RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
                 {
                     hasMatch = true;
                     if (isSourceCode)
-                        displayLine = HighlightSearchInSyntax(displayLine, term);
+                        displayLine = HighlightSearchInSyntax(displayLine, searchTerms[t]);
                     else
-                    {
-                        var encodedTerm = System.Net.WebUtility.HtmlEncode(term);
-                        displayLine = Regex.Replace(displayLine, Regex.Escape(encodedTerm), m => $"<mark>{m.Value}</mark>", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-                    }
+                        displayLine = Regex.Replace(displayLine, Regex.Escape(encodedTerms[t]), m => $"<mark>{m.Value}</mark>", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
                 }
             }
-            resultLines.Add(new PreviewLineResult(displayLine, hasMatch));
+            resultLines[i] = new PreviewLineResult(displayLine, hasMatch);
         }
 
 #if DEBUG
         if (_logger != null && isSourceCode && searchTerms.Length > 0)
         {
-            for (int i = 0; i < resultLines.Count; i++)
+            for (int i = 0; i < resultLines.Length; i++)
             {
                 var r = resultLines[i];
                 if (r.HasMatch && !r.Content.Contains("<mark>", StringComparison.Ordinal))

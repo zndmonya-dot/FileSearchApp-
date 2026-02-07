@@ -1,6 +1,7 @@
 // テキスト・ソースコードファイル（.txt, .csv, .cs 等）からテキストを抽出する実装。
 using System.Text;
 using UtfUnknown;
+using FullTextSearch.Core;
 using FullTextSearch.Core.Extractors;
 
 namespace FullTextSearch.Infrastructure.Extractors;
@@ -41,9 +42,9 @@ public class TextFileExtractor : ITextExtractor
             throw new FileNotFoundException("File not found", filePath);
         }
 
-        // 10MB 以上は読み込まない（メモリ保護）
+        // 上限超過は読み込まない（メモリ保護。ContentLimits.MaxTextFileBytesToRead と一致）
         var fileInfo = new FileInfo(filePath);
-        if (fileInfo.Length > 10 * 1024 * 1024)
+        if (fileInfo.Length > ContentLimits.MaxTextFileBytesToRead)
         {
             throw new InvalidOperationException($"File is too large: {fileInfo.Length} bytes");
         }

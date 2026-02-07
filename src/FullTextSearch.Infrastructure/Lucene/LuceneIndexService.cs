@@ -444,13 +444,6 @@ public class LuceneIndexService : IIndexService, IDisposable
         return Task.CompletedTask;
     }
 
-    private async Task IndexFileAsync(string filePath, CancellationToken cancellationToken)
-    {
-        var document = await TryGetIndexedDocumentAsync(filePath, cancellationToken);
-        if (document != null)
-            await IndexDocumentAsync(document, cancellationToken);
-    }
-
     /// <summary>
     /// ファイルからインデックス用ドキュメントを取得する。抽出器がない場合は空本文でインデックス（ファイル名・パス検索用）。エラー時は null を返し次のファイルへ。
     /// </summary>

@@ -220,7 +220,7 @@ public partial class Home : IDisposable
         StateHasChanged();
         try
         {
-            const int searchLimit = 100_000;
+            const int searchLimit = 100_000; // 検索結果の最大件数
             var result = await SearchService.SearchAsync(query, new SearchOptions { MaxResults = searchLimit }, token);
             if (token.IsCancellationRequested) return;
             treeNodes = TreeBuilder.BuildTree(SettingsService.Settings.TargetFolders, result.Items);

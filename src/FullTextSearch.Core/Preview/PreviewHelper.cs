@@ -22,20 +22,6 @@ public static class PreviewHelper
     /// <summary>シンタックスハイライト対象の拡張子一覧（LanguageMap のキー）</summary>
     public static readonly HashSet<string> CodeExtensions = new(LanguageMap.Keys, StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>拡張子から Highlight.js 用の言語名を取得する。未対応の場合は "plaintext"。</summary>
-    public static string GetLanguage(string extension)
-    {
-        var ext = extension.StartsWith(".", StringComparison.Ordinal) ? extension : "." + extension;
-        return LanguageMap.TryGetValue(ext, out var lang) ? lang : "plaintext";
-    }
-
-    /// <summary>指定拡張子がコードファイル（シンタックスハイライト対象）かどうか。</summary>
-    public static bool IsCodeFile(string extension)
-    {
-        var ext = extension.StartsWith(".", StringComparison.Ordinal) ? extension : "." + extension;
-        return CodeExtensions.Contains(ext);
-    }
-
     /// <summary>拡張子を「.」+ 小文字に正規化（パスまたは拡張子文字列を受け取る）</summary>
     public static string NormalizeExtension(string extensionOrPath)
     {
