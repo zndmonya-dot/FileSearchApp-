@@ -100,7 +100,8 @@ FullTextSearch/
 - **Release ビルド**: `dotnet build FullTextSearch.sln -c Release`  
   → Windows の MSIX パッケージは `src\FileSearch.Blazor\bin\Release\...\*.msix` に出力されます。
 - **インストーラを Git で管理する場合**: ビルド後に `installers/` フォルダを作成し、そこに `.msix` をコピーしてコミットできます（ルートの `.gitignore` では `installers/` は無視していません）。
-- **社内配布**: MSIX と証明書（配布元で用意した .cer）をセットで配布する手順・利用者向けインストールは [docs/社内配布手順.md](docs/社内配布手順.md) を参照してください。証明書不要のスタンドアロン exe（ZIP）配布は `scripts\build-dist.bat` で生成できます。
+- **社内配布**: MSIX と証明書（配布元で用意した .cer）をセットで配布する手順・利用者向けインストールは [docs/社内配布手順.md](docs/社内配布手順.md) を参照。配布用ファイル（.msix / .cer / 手順）は `installers/社内配布/` に置く想定。証明書不要のスタンドアロン exe（ZIP）配布は `scripts\build-dist.bat` で生成できます。
+- **ドキュメント一覧**: 設計書・配布手順・調査メモの一覧は [docs/README.md](docs/README.md) を参照。
 
 ## 使用ライブラリ
 

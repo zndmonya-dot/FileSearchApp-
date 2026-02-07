@@ -49,7 +49,6 @@ public class PreviewService : IPreviewService
         // 抽出器で種別判定（Office/PDF/テキスト）。Excel も Word/PPT と同様にテキストでプレビュー
         var extractor = _extractorFactory.GetExtractor(ext);
 
-        // テキスト／コード（抽出器が対応する拡張子のみ）
         string content;
         if (extractor != null)
             content = await extractor.ExtractTextAsync(path, cancellationToken);

@@ -71,7 +71,6 @@ public class LuceneIndexService : IIndexService, IDisposable
                 _directory = null;
             }
 
-            // ディレクトリが存在しない場合は作成
             if (!System.IO.Directory.Exists(normalizedPath))
             {
                 System.IO.Directory.CreateDirectory(normalizedPath);
