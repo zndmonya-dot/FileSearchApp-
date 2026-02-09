@@ -237,14 +237,28 @@ public partial class Home : IDisposable
 
     private void ToggleNode(TreeNode node)
     {
+        if (!node.IsFolder) return;
         // 展開時の大量描画を1フレーム遅延し、UIの応答性を保つ
         _ = InvokeAsync(async () =>
         {
             await Task.Yield();
+            var wasExpanded = node.IsExpanded;
             node.IsExpanded = !node.IsExpanded;
-            selectedFile = null;
-            selectedFolder = node;
-            selectedFolderRowIndex = 0;
+            
+            // フォルダを開く場合は選択、閉じる場合は選択をクリア
+            if (node.IsExpanded)
+            {
+                selectedFile = null;
+                selectedFolder = node;
+                selectedFolderRowIndex = 0;
+            }
+            else if (selectedFolder == node)
+            {
+                // 閉じる場合、そのフォルダが選択されている場合は選択をクリア
+                selectedFolder = null;
+                selectedFolderRowIndex = -1;
+            }
+            
             StateHasChanged();
         });
     }

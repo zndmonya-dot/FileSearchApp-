@@ -96,54 +96,87 @@
             });
         };
 
-        // ハイライト間ジャンプ用（戻り値: "行番号|現在番号|総数" または null）
-        var _highlightIndex = -1;
+        // ハイライト間ジャンプ用（行単位で移動、WinMerge風）。戻り値: "行番号|現在番号|総数" または null
+        var _highlightLineIndex = -1;
+        var _highlightLines = [];
+        
+        function _getHighlightLines() {
+            // すべてのmark要素を取得し、各行（tr.code-line）にグループ化
+            var marks = Array.from(document.querySelectorAll('.file-box mark'));
+            var lineMap = new Map();
+            marks.forEach(function(mark) {
+                var row = mark.closest('.code-line') || mark.closest('tr');
+                if (row && !lineMap.has(row)) {
+                    lineMap.set(row, mark);
+                }
+            });
+            return Array.from(lineMap.values());
+        }
+        
         window.resetHighlightNav = function() {
-            _highlightIndex = -1;
+            _highlightLineIndex = -1;
+            _highlightLines = [];
             document.querySelectorAll('.code-view tr.highlight-current').forEach(function(r) { r.classList.remove('highlight-current'); });
         };
-        /** 初回表示用: 最初のハイライトに即座に合わせる（アニメーションなし）。戻り値は scrollToNextHighlight と同じ形式。 */
+        
+        /** 初回表示用: 最初のハイライト行に即座に合わせる（アニメーションなし）。戻り値は scrollToNextHighlight と同じ形式。 */
         window.scrollToFirstHighlightInstant = function() {
-            var marks = Array.from(document.querySelectorAll('.file-box mark'));
-            if (marks.length === 0) return null;
-            _highlightIndex = 0;
-            var m = marks[0];
+            _highlightLines = _getHighlightLines();
+            if (_highlightLines.length === 0) return null;
+            _highlightLineIndex = 0;
+            var m = _highlightLines[0];
             _applyHighlightCurrent(m);
             m.scrollIntoView({ behavior: 'auto', block: 'center' });
-            return _getLineNum(m) + '|' + 1 + '|' + marks.length;
+            return _getLineNum(m) + '|' + 1 + '|' + _highlightLines.length;
         };
+        
         function _applyHighlightCurrent(mark) {
             document.querySelectorAll('.code-view tr.highlight-current').forEach(function(r) { r.classList.remove('highlight-current'); });
             var row = mark.closest('.code-line') || mark.closest('tr');
             if (row) row.classList.add('highlight-current');
         }
+        
         function _getLineNum(mark) {
             var row = mark.closest('.code-line') || mark.closest('tr');
             if (!row) return 0;
             var td = row.querySelector('.line-number');
             return td ? parseInt(td.textContent, 10) || 0 : 0;
         }
+        
         window.scrollToNextHighlight = function(wrap) {
             if (wrap === undefined) wrap = true;
-            var marks = Array.from(document.querySelectorAll('.file-box mark'));
-            if (marks.length === 0) return null;
-            if (!wrap && _highlightIndex >= marks.length - 1) return null;
-            _highlightIndex = wrap ? (_highlightIndex + 1) % marks.length : Math.min(_highlightIndex + 1, marks.length - 1);
-            var m = marks[_highlightIndex];
+            if (_highlightLines.length === 0) {
+                _highlightLines = _getHighlightLines();
+            }
+            if (_highlightLines.length === 0) return null;
+            if (_highlightLineIndex < 0) {
+                _highlightLineIndex = 0;
+            } else {
+                if (!wrap && _highlightLineIndex >= _highlightLines.length - 1) return null;
+                _highlightLineIndex = wrap ? (_highlightLineIndex + 1) % _highlightLines.length : Math.min(_highlightLineIndex + 1, _highlightLines.length - 1);
+            }
+            var m = _highlightLines[_highlightLineIndex];
             _applyHighlightCurrent(m);
             m.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            return _getLineNum(m) + '|' + (_highlightIndex + 1) + '|' + marks.length;
+            return _getLineNum(m) + '|' + (_highlightLineIndex + 1) + '|' + _highlightLines.length;
         };
+        
         window.scrollToPrevHighlight = function(wrap) {
             if (wrap === undefined) wrap = true;
-            var marks = Array.from(document.querySelectorAll('.file-box mark'));
-            if (marks.length === 0) return null;
-            if (!wrap && _highlightIndex <= 0) return null;
-            _highlightIndex = wrap ? (_highlightIndex <= 0 ? marks.length - 1 : _highlightIndex - 1) : Math.max(_highlightIndex - 1, 0);
-            var m = marks[_highlightIndex];
+            if (_highlightLines.length === 0) {
+                _highlightLines = _getHighlightLines();
+            }
+            if (_highlightLines.length === 0) return null;
+            if (_highlightLineIndex < 0) {
+                _highlightLineIndex = _highlightLines.length - 1;
+            } else {
+                if (!wrap && _highlightLineIndex <= 0) return null;
+                _highlightLineIndex = wrap ? (_highlightLineIndex <= 0 ? _highlightLines.length - 1 : _highlightLineIndex - 1) : Math.max(_highlightLineIndex - 1, 0);
+            }
+            var m = _highlightLines[_highlightLineIndex];
             _applyHighlightCurrent(m);
             m.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            return _getLineNum(m) + '|' + (_highlightIndex + 1) + '|' + marks.length;
+            return _getLineNum(m) + '|' + (_highlightLineIndex + 1) + '|' + _highlightLines.length;
         };
     </script>
 </body>
