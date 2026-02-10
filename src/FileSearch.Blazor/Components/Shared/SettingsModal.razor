@@ -70,31 +70,6 @@
                     }
                 </div>
                 <div class="settings-section">
-                    <h3>シンタックスハイライト用 拡張子→言語</h3>
-                    <p class="settings-desc">プレビュー時のコード強調用。追加分は組み込みマップを上書き。空の場合は組み込みのみ使用。</p>
-                    <div class="settings-chips">
-                        @if (State.ExtensionLanguageMap != null)
-                        {
-                            @foreach (var kv in State.ExtensionLanguageMap)
-                            {
-                                <span class="settings-chip">
-                                    @kv.Key → @kv.Value
-                                    <button type="button" class="settings-chip-remove" @onclick="() => RemoveExtensionLanguage(kv.Key)" aria-label="削除">×</button>
-                                </span>
-                            }
-                        }
-                    </div>
-                    <div class="settings-input-row">
-                        <input class="settings-input" @bind="State.NewExtensionLanguageExt" @oninput="() => State.ExtensionLanguageMessage = null" placeholder="例: .cs" />
-                        <input class="settings-input" @bind="State.NewExtensionLanguageLang" @oninput="() => State.ExtensionLanguageMessage = null" placeholder="例: csharp" />
-                        <button class="settings-btn-add" type="button" @onclick="HandleAddExtensionLanguage">追加</button>
-                    </div>
-                    @if (!string.IsNullOrEmpty(State.ExtensionLanguageMessage))
-                    {
-                        <p class="settings-msg settings-msg-warn">@State.ExtensionLanguageMessage</p>
-                    }
-                </div>
-                <div class="settings-section">
                     <h3>インデックス保存先</h3>
                     <p class="settings-desc">変更後はインデックスの再構築が必要です</p>
                     <div class="settings-input-row">
@@ -144,8 +119,6 @@
     [Parameter] public EventCallback<string> OnRemoveFolder { get; set; }
     [Parameter] public EventCallback OnAddTargetExtension { get; set; }
     [Parameter] public EventCallback<string> OnRemoveTargetExtension { get; set; }
-    [Parameter] public EventCallback OnAddExtensionLanguage { get; set; }
-    [Parameter] public EventCallback<string> OnRemoveExtensionLanguage { get; set; }
     [Parameter] public EventCallback OnOpenIndexFolder { get; set; }
 
     private async Task HandleAddFolder()
@@ -166,16 +139,6 @@
     private async Task RemoveTargetExtension(string ext)
     {
         await OnRemoveTargetExtension.InvokeAsync(ext);
-    }
-
-    private async Task HandleAddExtensionLanguage()
-    {
-        await OnAddExtensionLanguage.InvokeAsync();
-    }
-
-    private async Task RemoveExtensionLanguage(string ext)
-    {
-        await OnRemoveExtensionLanguage.InvokeAsync(ext);
     }
 
     private async Task HandleOpenIndexFolder()

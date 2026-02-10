@@ -37,11 +37,6 @@ public class AppSettings
     /// テーマ: "Dark" / "Light" / "System"（システムに従う）
     /// </summary>
     public string ThemeMode { get; set; } = "System";
-
-    /// <summary>
-    /// シンタックスハイライト用の拡張子→言語名マップ（設定で上書き・追加）。null または空の場合は PreviewHelper の組み込み LanguageMap を使用。
-    /// </summary>
-    public Dictionary<string, string>? ExtensionLanguageMap { get; set; }
 }
 
 

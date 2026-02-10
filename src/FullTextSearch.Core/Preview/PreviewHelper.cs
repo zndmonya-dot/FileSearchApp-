@@ -1,27 +1,10 @@
 namespace FullTextSearch.Core.Preview;
 
 /// <summary>
-/// プレビュー用の拡張子・言語マップなどの定数とヘルパー
+/// プレビュー用の拡張子ヘルパー。
 /// </summary>
 public static class PreviewHelper
 {
-    /// <summary>拡張子 → Highlight.js 用言語名のマップ（シンタックスハイライト用）</summary>
-    public static readonly IReadOnlyDictionary<string, string> LanguageMap = new Dictionary<string, string>
-    {
-        { ".cs", "csharp" }, { ".js", "javascript" }, { ".ts", "typescript" }, { ".py", "python" },
-        { ".java", "java" }, { ".cpp", "cpp" }, { ".c", "c" }, { ".h", "cpp" }, { ".go", "go" },
-        { ".rs", "rust" }, { ".rb", "ruby" }, { ".php", "php" }, { ".swift", "swift" }, { ".kt", "kotlin" },
-        { ".scala", "scala" }, { ".vb", "vb" }, { ".fs", "fsharp" }, { ".html", "html" }, { ".htm", "html" },
-        { ".css", "css" }, { ".scss", "scss" }, { ".less", "less" }, { ".xml", "xml" }, { ".json", "json" },
-        { ".yaml", "yaml" }, { ".yml", "yaml" }, { ".sql", "sql" }, { ".sh", "bash" }, { ".bat", "batch" },
-        { ".ps1", "powershell" }, { ".md", "markdown" }, { ".jsx", "jsx" }, { ".tsx", "tsx" },
-        { ".vue", "xml" }, { ".r", "r" }, { ".m", "objectivec" }, { ".lua", "lua" }, { ".pl", "perl" },
-        { ".pas", "delphi" }, { ".dpr", "delphi" }, { ".dpk", "delphi" }
-    };
-
-    /// <summary>シンタックスハイライト対象の拡張子一覧（LanguageMap のキー）</summary>
-    public static readonly HashSet<string> CodeExtensions = new(LanguageMap.Keys, StringComparer.OrdinalIgnoreCase);
-
     /// <summary>拡張子を「.」+ 小文字に正規化（パスまたは拡張子文字列を受け取る）</summary>
     public static string NormalizeExtension(string extensionOrPath)
     {

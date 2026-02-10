@@ -682,12 +682,6 @@ public partial class Home : IDisposable
         _settingsEdit.NewFolderPath = "";
         _settingsEdit.NewTargetExtension = "";
         _settingsEdit.ExtensionMessage = null;
-        _settingsEdit.ExtensionLanguageMap = SettingsService.Settings.ExtensionLanguageMap != null && SettingsService.Settings.ExtensionLanguageMap.Count > 0
-            ? new Dictionary<string, string>(SettingsService.Settings.ExtensionLanguageMap)
-            : new Dictionary<string, string>();
-        _settingsEdit.NewExtensionLanguageExt = "";
-        _settingsEdit.NewExtensionLanguageLang = "";
-        _settingsEdit.ExtensionLanguageMessage = null;
         showSettings = true;
     }
 
@@ -738,26 +732,6 @@ public partial class Home : IDisposable
         _settingsEdit.TargetExtensions.Remove(ext);
     }
 
-    private void HandleAddExtensionLanguage()
-    {
-        _settingsEdit.ExtensionLanguageMessage = null;
-        var ext = FullTextSearch.Core.Preview.PreviewHelper.NormalizeExtension(_settingsEdit.NewExtensionLanguageExt ?? "");
-        var lang = (_settingsEdit.NewExtensionLanguageLang ?? "").Trim();
-        if (string.IsNullOrEmpty(ext)) { _settingsEdit.ExtensionLanguageMessage = "拡張子を入力してください（例: .cs）"; return; }
-        if (string.IsNullOrEmpty(lang)) { _settingsEdit.ExtensionLanguageMessage = "言語名を入力してください（例: csharp）"; return; }
-        _settingsEdit.ExtensionLanguageMap ??= new Dictionary<string, string>();
-        _settingsEdit.ExtensionLanguageMap[ext] = lang;
-        _settingsEdit.NewExtensionLanguageExt = "";
-        _settingsEdit.NewExtensionLanguageLang = "";
-        StateHasChanged();
-    }
-
-    private void RemoveExtensionLanguage(string ext)
-    {
-        _settingsEdit.ExtensionLanguageMap?.Remove(ext);
-        StateHasChanged();
-    }
-
     private async Task SaveSettings()
     {
         SettingsService.Settings.TargetFolders = _settingsEdit.TargetFolders.ToList();
@@ -765,9 +739,6 @@ public partial class Home : IDisposable
         SettingsService.Settings.TargetExtensions = _settingsEdit.TargetExtensions.ToList();
         SettingsService.Settings.AutoRebuildIntervalMinutes = _settingsEdit.AutoRebuildIntervalMinutes;
         SettingsService.Settings.ThemeMode = _settingsEdit.ThemeMode ?? "System";
-        SettingsService.Settings.ExtensionLanguageMap = _settingsEdit.ExtensionLanguageMap != null && _settingsEdit.ExtensionLanguageMap.Count > 0
-            ? new Dictionary<string, string>(_settingsEdit.ExtensionLanguageMap)
-            : null;
         await SettingsService.SaveAsync();
         if (!string.IsNullOrWhiteSpace(SettingsService.Settings.IndexPath))
         {

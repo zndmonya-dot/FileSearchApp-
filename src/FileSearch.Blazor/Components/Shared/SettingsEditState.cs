@@ -23,16 +23,4 @@ public class SettingsEditState
     public int AutoRebuildIntervalMinutes { get; set; }
     /// <summary>テーマ: "Dark" / "Light" / "System"</summary>
     public string ThemeMode { get; set; } = "System";
-
-    /// <summary>シンタックスハイライト用 拡張子→言語名（上書き・追加用）。null のときは未使用。</summary>
-    public Dictionary<string, string>? ExtensionLanguageMap { get; set; }
-
-    /// <summary>拡張子→言語の追加入力：拡張子</summary>
-    public string NewExtensionLanguageExt { get; set; } = "";
-
-    /// <summary>拡張子→言語の追加入力：言語名（Highlight.js 用）</summary>
-    public string NewExtensionLanguageLang { get; set; } = "";
-
-    /// <summary>拡張子→言語追加時のメッセージ</summary>
-    public string? ExtensionLanguageMessage { get; set; }
 }
