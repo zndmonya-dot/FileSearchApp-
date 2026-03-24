@@ -1,4 +1,5 @@
 // Lucene.NET によるインデックス作成・更新・削除。Sudachi 形態素解析（モード C）でトークナイズ。
+using FullTextSearch.Core;
 using FullTextSearch.Core.Extractors;
 using FullTextSearch.Core.Index;
 using FullTextSearch.Core.Models;
@@ -29,6 +30,14 @@ public class LuceneIndexService : IIndexService, IDisposable
     private readonly object _lock = new();
     private bool _disposed;
     private IndexRebuildOptions? _currentRebuildOptions;
+    private readonly List<string> _skippedFiles = new();
+    private string? _lastSkippedLogPath;
+
+    /// <inheritdoc />
+    public IReadOnlyList<string> LastSkippedFiles => _skippedFiles;
+
+    /// <inheritdoc />
+    public string? LastSkippedLogPath => _lastSkippedLogPath;
 
     /// <summary>Lucene ドキュメントのフィールド名（変更すると既存インデックスと非互換）</summary>
     public const string FieldFilePath = "filepath";
@@ -149,18 +158,7 @@ public class LuceneIndexService : IIndexService, IDisposable
         {
             cancellationToken.ThrowIfCancellationRequested();
             var chunk = files.Skip(i).Take(ParallelExtractCount).ToList();
-            var tasks = chunk.Select(p => TryGetIndexedDocumentAsync(p, cancellationToken)).ToArray();
-            IndexedDocument?[] docs;
-            try
-            {
-                docs = await Task.WhenAll(tasks);
-            }
-            catch
-            {
-                errorCount += chunk.Count;
-                docs = new IndexedDocument?[chunk.Count];
-            }
-            errorCount += docs.Count(d => d == null);
+            errorCount += await ProcessChunkAsync(chunk, cancellationToken);
             foreach (var path in chunk)
             {
                 progress?.Report(new IndexProgress
@@ -172,11 +170,6 @@ public class LuceneIndexService : IIndexService, IDisposable
                 });
                 processedFiles++;
             }
-            var toAdd = new List<IndexedDocument>(docs.Length);
-            foreach (var d in docs)
-                if (d != null) toAdd.Add(d);
-            if (toAdd.Count > 0)
-                AddDocumentsToWriterWithoutCommit(toAdd);
         }
 
         progress?.Report(new IndexProgress
@@ -214,6 +207,8 @@ public class LuceneIndexService : IIndexService, IDisposable
         EnsureInitialized();
 
         _currentRebuildOptions = options;
+        _skippedFiles.Clear();
+        _lastSkippedLogPath = null;
 
         try
         {
@@ -251,6 +246,8 @@ public class LuceneIndexService : IIndexService, IDisposable
             {
                 _writer!.Commit();
             }
+
+            WriteSkippedLog();
         }
         finally
         {
@@ -265,6 +262,8 @@ public class LuceneIndexService : IIndexService, IDisposable
         if (folderList.Count == 0) return;
 
         _currentRebuildOptions = options;
+        _skippedFiles.Clear();
+        _lastSkippedLogPath = null;
         try
         {
             lock (_lock)
@@ -306,6 +305,7 @@ public class LuceneIndexService : IIndexService, IDisposable
 
             var total = toDelete.Count + toAddOrUpdate.Count;
             var processed = 0;
+            var errorCount = 0;
 
             lock (_lock)
             {
@@ -314,42 +314,29 @@ public class LuceneIndexService : IIndexService, IDisposable
                     cancellationToken.ThrowIfCancellationRequested();
                     _writer!.DeleteDocuments(new Term(FieldFilePath, path));
                     processed++;
-                    progress?.Report(new IndexProgress { ProcessedFiles = processed, TotalFiles = total, CurrentFile = path, ErrorCount = 0 });
+                    progress?.Report(new IndexProgress { ProcessedFiles = processed, TotalFiles = total, CurrentFile = path, ErrorCount = errorCount });
                 }
             }
 
-            // 追加・更新を並列チャンクで処理（IndexFolderAsync と同様）
             for (var i = 0; i < toAddOrUpdate.Count; i += ParallelExtractCount)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var chunk = toAddOrUpdate.Skip(i).Take(ParallelExtractCount).ToList();
-                IndexedDocument?[] docs;
-                try
-                {
-                    var tasks = chunk.Select(p => TryGetIndexedDocumentAsync(p, cancellationToken)).ToArray();
-                    docs = await Task.WhenAll(tasks);
-                }
-                catch
-                {
-                    docs = new IndexedDocument?[chunk.Count];
-                }
+                errorCount += await ProcessChunkAsync(chunk, cancellationToken);
                 foreach (var path in chunk)
                 {
                     processed++;
-                    progress?.Report(new IndexProgress { ProcessedFiles = processed, TotalFiles = total, CurrentFile = path, ErrorCount = 0 });
+                    progress?.Report(new IndexProgress { ProcessedFiles = processed, TotalFiles = total, CurrentFile = path, ErrorCount = errorCount });
                 }
-                var toAdd = new List<IndexedDocument>(docs.Length);
-                foreach (var d in docs)
-                    if (d != null) toAdd.Add(d);
-                if (toAdd.Count > 0)
-                    AddDocumentsToWriterWithoutCommit(toAdd);
             }
 
-            progress?.Report(new IndexProgress { ProcessedFiles = processed, TotalFiles = total, CurrentFile = null, ErrorCount = 0 });
+            progress?.Report(new IndexProgress { ProcessedFiles = processed, TotalFiles = total, CurrentFile = null, ErrorCount = errorCount });
             lock (_lock)
             {
                 _writer!.Commit();
             }
+
+            WriteSkippedLog();
         }
         finally
         {
@@ -445,21 +432,22 @@ public class LuceneIndexService : IIndexService, IDisposable
     }
 
     /// <summary>
-    /// ファイルからインデックス用ドキュメントを取得する。抽出器がない場合は空本文でインデックス（ファイル名・パス検索用）。エラー時は null を返し次のファイルへ。
+    /// ファイルからインデックス用ドキュメントを取得する。抽出器がない場合は空本文でインデックス（ファイル名・パス検索用）。
+    /// サイズ超過・抽出エラー時は null を返しスキップ対象とする。
     /// </summary>
     private async Task<IndexedDocument?> TryGetIndexedDocumentAsync(string filePath, CancellationToken cancellationToken)
     {
         try
         {
             var fileInfo = new FileInfo(filePath);
+            if (fileInfo.Length > ContentLimits.IndexMaxFileBytesForExtract)
+                return null;
+
             var extension = fileInfo.Extension.ToLowerInvariant();
             var extractor = _extractorFactory.GetExtractor(extension);
-
-            string content;
-            if (extractor != null)
-                content = await extractor.ExtractTextAsync(filePath, cancellationToken);
-            else
-                content = string.Empty; // 抽出器非対応拡張子は空本文でインデックス（ファイル名・パスで検索可能にする）
+            var content = extractor != null
+                ? await extractor.ExtractTextAsync(filePath, cancellationToken)
+                : string.Empty;
 
             return new IndexedDocument
             {
@@ -480,22 +468,11 @@ public class LuceneIndexService : IIndexService, IDisposable
     }
 
     /// <summary>
-    /// ライターにドキュメントを追加するのみ。Commit は呼ばない（単体用）。
+    /// ライターに複数ドキュメントを一括追加。Commit は呼ばない。エラー時はスキップして次へ進み、失敗件数を返す。
     /// </summary>
-    private void AddDocumentToWriterWithoutCommit(IndexedDocument document)
+    private int AddDocumentsToWriterWithoutCommit(IEnumerable<IndexedDocument> documents)
     {
-        var doc = CreateLuceneDocument(document);
-        lock (_lock)
-        {
-            _writer!.UpdateDocument(new Term(FieldFilePath, document.FilePath), doc);
-        }
-    }
-
-    /// <summary>
-    /// ライターに複数ドキュメントを一括追加。Commit は呼ばない。1件でもエラーならそのドキュメントを飛ばして次へ。
-    /// </summary>
-    private void AddDocumentsToWriterWithoutCommit(IEnumerable<IndexedDocument> documents)
-    {
+        var failCount = 0;
         foreach (var document in documents)
         {
             try
@@ -508,9 +485,46 @@ public class LuceneIndexService : IIndexService, IDisposable
             }
             catch
             {
-                // エラーになったらそのドキュメントを飛ばして次へ（Lucene 追加時の例外もスキップ）
+                _skippedFiles.Add(document.FilePath);
+                failCount++;
             }
         }
+        return failCount;
+    }
+
+    /// <summary>
+    /// チャンク内のファイルを並列抽出し、Lucene に追加する。スキップされたファイル数を返す。
+    /// </summary>
+    private async Task<int> ProcessChunkAsync(IReadOnlyList<string> chunk, CancellationToken cancellationToken)
+    {
+        var tasks = chunk.Select(p => TryGetIndexedDocumentAsync(p, cancellationToken)).ToArray();
+        IndexedDocument?[] docs;
+        try
+        {
+            docs = await Task.WhenAll(tasks);
+        }
+        catch
+        {
+            docs = new IndexedDocument?[chunk.Count];
+        }
+
+        var skippedCount = 0;
+        for (int j = 0; j < docs.Length && j < chunk.Count; j++)
+        {
+            if (docs[j] == null)
+            {
+                _skippedFiles.Add(chunk[j]);
+                skippedCount++;
+            }
+        }
+
+        var toAdd = new List<IndexedDocument>(docs.Length);
+        foreach (var d in docs)
+            if (d != null) toAdd.Add(d);
+        if (toAdd.Count > 0)
+            skippedCount += AddDocumentsToWriterWithoutCommit(toAdd);
+
+        return skippedCount;
     }
 
     private IEnumerable<string> GetTargetFiles(string folderPath)
@@ -613,12 +627,16 @@ public class LuceneIndexService : IIndexService, IDisposable
 
     private static Document CreateLuceneDocument(IndexedDocument doc)
     {
+        var content = doc.Content.Length > ContentLimits.IndexMaxContentChars
+            ? doc.Content.Substring(0, ContentLimits.IndexMaxContentChars)
+            : doc.Content;
+
         return new Document
         {
             new StringField(FieldFilePath, doc.FilePath, Field.Store.YES),
             new TextField(FieldFileName, doc.FileName, Field.Store.YES),
             new StringField(FieldFolderPath, doc.FolderPath, Field.Store.YES),
-            new TextField(FieldContent, doc.Content, Field.Store.YES),
+            new TextField(FieldContent, content, Field.Store.YES),
             new Int64Field(FieldFileSize, doc.FileSize, Field.Store.YES),
             new Int64Field(FieldLastModified, doc.LastModified.Ticks, Field.Store.YES),
             new StringField(FieldFileType, doc.FileType, Field.Store.YES),
@@ -651,6 +669,32 @@ public class LuceneIndexService : IIndexService, IDisposable
             ".pas" or ".dpr" or ".dpk" => "Pascal/Delphi",
             _ => "ファイル"
         };
+    }
+
+    private void WriteSkippedLog()
+    {
+        if (_skippedFiles.Count == 0 || _directory == null)
+        {
+            _lastSkippedLogPath = null;
+            return;
+        }
+        try
+        {
+            var logPath = Path.Combine(_directory.Directory.FullName, "skipped_files.log");
+            var lines = new List<string>(_skippedFiles.Count + 3)
+            {
+                $"スキップファイル一覧 - {DateTime.Now:yyyy-MM-dd HH:mm:ss}",
+                $"合計: {_skippedFiles.Count} 件",
+                ""
+            };
+            lines.AddRange(_skippedFiles);
+            File.WriteAllLines(logPath, lines, System.Text.Encoding.UTF8);
+            _lastSkippedLogPath = logPath;
+        }
+        catch
+        {
+            _lastSkippedLogPath = null;
+        }
     }
 
     private void EnsureInitialized()

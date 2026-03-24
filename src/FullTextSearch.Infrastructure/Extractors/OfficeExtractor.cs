@@ -3,6 +3,7 @@ using System.Text;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using DocumentFormat.OpenXml.Wordprocessing;
+using FullTextSearch.Core;
 using FullTextSearch.Core.Extractors;
 
 namespace FullTextSearch.Infrastructure.Extractors;
@@ -71,6 +72,8 @@ public class OfficeExtractor : ITextExtractor
             if (!string.IsNullOrWhiteSpace(text))
             {
                 sb.AppendLine(text);
+                if (sb.Length >= ContentLimits.ExtractMaxChars)
+                    break;
             }
         }
 
@@ -123,8 +126,13 @@ public class OfficeExtractor : ITextExtractor
                 if (rowTexts.Count > 0)
                 {
                     sb.AppendLine(string.Join("\t", rowTexts));
+                    if (sb.Length >= ContentLimits.ExtractMaxChars)
+                        break;
                 }
             }
+
+            if (sb.Length >= ContentLimits.ExtractMaxChars)
+                break;
 
             sb.AppendLine(); // シート間に空行
         }
@@ -184,8 +192,13 @@ public class OfficeExtractor : ITextExtractor
                 if (!string.IsNullOrWhiteSpace(text.Text))
                 {
                     sb.AppendLine(text.Text);
+                    if (sb.Length >= ContentLimits.ExtractMaxChars)
+                        break;
                 }
             }
+
+            if (sb.Length >= ContentLimits.ExtractMaxChars)
+                break;
 
             sb.AppendLine(); // スライド間に空行
             slideIndex++;

@@ -1,5 +1,6 @@
 // PDF からテキストを抽出する実装（PdfPig 使用）。
 using System.Text;
+using FullTextSearch.Core;
 using FullTextSearch.Core.Extractors;
 using UglyToad.PdfPig;
 
@@ -45,6 +46,9 @@ public class PdfExtractor : ITextExtractor
             {
                 sb.AppendLine(text);
             }
+
+            if (sb.Length >= ContentLimits.ExtractMaxChars)
+                break;
 
             sb.AppendLine(); // ページ間に空行
         }

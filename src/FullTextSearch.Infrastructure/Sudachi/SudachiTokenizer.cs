@@ -116,6 +116,15 @@ public sealed class SudachiTokenizer : Tokenizer
     /// <summary>バッチ時 1 ドキュメントあたりの最大文字数（ハイライト用なので先頭で十分）。</summary>
     private const int MaxCharsPerContentInBatch = 80_000;
 
+    /// <summary>ストリームモード 1 ドキュメントの読み取りタイムアウト（ミリ秒）。SudachiPy ハングを検知してプロセスを強制終了する。</summary>
+    private const int StreamTimeoutMs = 60_000;
+
+    /// <summary>バッチモードの全体タイムアウト（ミリ秒）。</summary>
+    private const int BatchTimeoutMs = 120_000;
+
+    /// <summary>ワンショットモードのタイムアウト（ミリ秒）。</summary>
+    private const int OneshotTimeoutMs = 60_000;
+
     /// <summary>長い文字列を Lucene の制限以内に分割する。</summary>
     private static List<string> SplitToMaxTermLength(string text)
     {
@@ -269,7 +278,12 @@ public sealed class SudachiTokenizer : Tokenizer
                     };
                     _sharedProcess = Process.Start(psi);
                     if (_sharedProcess == null) return null;
+                    _sharedProcess.ErrorDataReceived += (_, _) => { };
+                    _sharedProcess.BeginErrorReadLine();
                 }
+
+                var processRef = _sharedProcess;
+                using var watchdog = new Timer(_ => { try { processRef?.Kill(); } catch { } }, null, StreamTimeoutMs, Timeout.Infinite);
 
                 var stdin = _sharedProcess.StandardInput;
                 stdin.Write(text);
@@ -280,14 +294,24 @@ public sealed class SudachiTokenizer : Tokenizer
 
                 var list = new List<string>();
                 var stdout = _sharedProcess.StandardOutput;
+                bool completed = false;
                 string? line;
                 while ((line = stdout.ReadLine()) != null)
                 {
                     var t = line.Trim();
                     if (t == StreamDelim)
+                    {
+                        completed = true;
                         break;
+                    }
                     if (t.Length > 0)
                         list.Add(t);
+                }
+                watchdog.Change(Timeout.Infinite, Timeout.Infinite);
+                if (!completed)
+                {
+                    DisposeSharedProcess();
+                    return null;
                 }
                 return list;
             }
@@ -341,7 +365,12 @@ public sealed class SudachiTokenizer : Tokenizer
                     };
                     _sharedProcess = Process.Start(psi);
                     if (_sharedProcess == null) return null;
+                    _sharedProcess.ErrorDataReceived += (_, _) => { };
+                    _sharedProcess.BeginErrorReadLine();
                 }
+
+                var processRef = _sharedProcess;
+                using var watchdog = new Timer(_ => { try { processRef?.Kill(); } catch { } }, null, BatchTimeoutMs, Timeout.Infinite);
 
                 var stdin = _sharedProcess.StandardInput;
                 foreach (var text in toSend)
@@ -356,6 +385,7 @@ public sealed class SudachiTokenizer : Tokenizer
                 var result = new List<List<string>>();
                 var current = new List<string>();
                 var stdout = _sharedProcess.StandardOutput;
+                bool completed = false;
                 string? line;
                 while ((line = stdout.ReadLine()) != null)
                 {
@@ -365,16 +395,21 @@ public sealed class SudachiTokenizer : Tokenizer
                         result.Add(current);
                         current = new List<string>();
                         if (result.Count >= toSend.Count)
+                        {
+                            completed = true;
                             break;
+                        }
                         continue;
                     }
                     if (t.Length > 0)
                         current.Add(t);
                 }
-                if (current.Count > 0 || result.Count < toSend.Count)
-                    result.Add(current);
-                while (result.Count < toSend.Count)
-                    result.Add([]);
+                watchdog.Change(Timeout.Infinite, Timeout.Infinite);
+                if (!completed)
+                {
+                    DisposeSharedProcess();
+                    return null;
+                }
                 return result;
             }
             catch
@@ -422,6 +457,9 @@ public sealed class SudachiTokenizer : Tokenizer
         {
             if (process == null)
                 return [];
+            process.ErrorDataReceived += (_, _) => { };
+            process.BeginErrorReadLine();
+            using var watchdog = new Timer(_ => { try { process.Kill(); } catch { } }, null, OneshotTimeoutMs, Timeout.Infinite);
             using (var stdin = new StreamWriter(process.StandardInput.BaseStream, Encoding.UTF8) { AutoFlush = true })
             {
                 stdin.Write(text);
@@ -437,6 +475,7 @@ public sealed class SudachiTokenizer : Tokenizer
                         list.Add(t);
                 }
             }
+            watchdog.Change(Timeout.Infinite, Timeout.Infinite);
             process.WaitForExit(TimeSpan.FromSeconds(30));
         }
         return list;
