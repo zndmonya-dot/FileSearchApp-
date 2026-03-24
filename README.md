@@ -25,12 +25,13 @@ Windows向けの高速全文検索アプリケーションです。ファイル�
 ## 動作要件
 
 - **Windows 専用**（Windows 10/11）
-- .NET 8 SDK
-- **Python 3**（形態素解析用）
-- **SudachiPy** および辞書（`pip install sudachipy sudachidict_core`）
+- **開発・実行時**: .NET 8 SDK、Python 3、SudachiPy（下記セットアップ）
+- **配布版 MSIX の利用時**: 利用者 PC に Python は不要（[docs/社内配布手順.md](docs/社内配布手順.md) 参照）
 - （任意）Microsoft Office … 検索・プレビューはテキスト抽出のため不要。ファイルを開く際に利用
 
-## セットアップ
+**インストール（利用者）と環境構築（開発者）の違い**は [docs/インストールと環境構築.md](docs/インストールと環境構築.md) を参照。
+
+## セットアップ（開発者向け環境構築）
 
 ### 1. .NET 8 SDKのインストール
 
