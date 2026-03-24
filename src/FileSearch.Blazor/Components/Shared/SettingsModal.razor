@@ -41,6 +41,7 @@
                     <div class="settings-input-row">
                         <input class="settings-input" @bind="State.NewFolderPath" @oninput="() => State.FolderMessage = null" placeholder="C:\Users\..." />
                         <button class="settings-btn-add" type="button" @onclick="HandleAddFolder">追加</button>
+                        <button class="settings-btn-add" type="button" @onclick="HandleBrowseFolder">参照</button>
                     </div>
                     @if (!string.IsNullOrEmpty(State.FolderMessage))
                     {
@@ -116,6 +117,7 @@
     [Parameter] public EventCallback OnCloseRequested { get; set; }
     [Parameter] public EventCallback OnSaveRequested { get; set; }
     [Parameter] public EventCallback OnAddFolder { get; set; }
+    [Parameter] public EventCallback OnBrowseFolder { get; set; }
     [Parameter] public EventCallback<string> OnRemoveFolder { get; set; }
     [Parameter] public EventCallback OnAddTargetExtension { get; set; }
     [Parameter] public EventCallback<string> OnRemoveTargetExtension { get; set; }
@@ -124,6 +126,11 @@
     private async Task HandleAddFolder()
     {
         await OnAddFolder.InvokeAsync();
+    }
+
+    private async Task HandleBrowseFolder()
+    {
+        await OnBrowseFolder.InvokeAsync();
     }
 
     private async Task HandleAddTargetExtension()

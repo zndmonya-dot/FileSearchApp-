@@ -708,7 +708,8 @@ public partial class Home : IDisposable
             _settingsEdit.FolderMessage = "フォルダが見つかりません。パスを確認してください。";
             return;
         }
-        var normalizedExisting = _settingsEdit.TargetFolders.Select(f => f.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)).ToList();
+        var normalizedExisting = _settingsEdit.TargetFolders
+            .Select(f => f.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)).ToList();
         if (normalizedExisting.Contains(path, StringComparer.OrdinalIgnoreCase))
         {
             _settingsEdit.FolderMessage = "既に追加されています";
@@ -717,6 +718,56 @@ public partial class Home : IDisposable
         _settingsEdit.TargetFolders.Add(path);
         _settingsEdit.NewFolderPath = "";
     }
+
+    private async Task HandleBrowseFolder()
+    {
+        _settingsEdit.FolderMessage = null;
+        try
+        {
+            var path = await PickFolderAsync();
+            if (string.IsNullOrEmpty(path)) return;
+
+            path = path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var normalizedExisting = _settingsEdit.TargetFolders
+                .Select(f => f.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)).ToList();
+            if (normalizedExisting.Contains(path, StringComparer.OrdinalIgnoreCase))
+            {
+                _settingsEdit.FolderMessage = "既に追加されています";
+                return;
+            }
+            _settingsEdit.TargetFolders.Add(path);
+        }
+        catch (Exception ex)
+        {
+            _settingsEdit.FolderMessage = $"フォルダの選択に失敗しました: {ex.Message}";
+        }
+    }
+
+    private static async Task<string?> PickFolderAsync()
+    {
+#if WINDOWS
+        var picker = new Windows.Storage.Pickers.FolderPicker();
+        picker.SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.Desktop;
+        picker.FileTypeFilter.Add("*");
+        var hwnd = GetWindowHandle();
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
+        var folder = await picker.PickSingleFolderAsync();
+        return folder?.Path;
+#else
+        await Task.CompletedTask;
+        return null;
+#endif
+    }
+
+#if WINDOWS
+    private static nint GetWindowHandle()
+    {
+        var window = Application.Current?.Windows.FirstOrDefault();
+        if (window?.Handler?.PlatformView is Microsoft.UI.Xaml.Window winuiWindow)
+            return WinRT.Interop.WindowNative.GetWindowHandle(winuiWindow);
+        return nint.Zero;
+    }
+#endif
 
     private void RemoveFolder(string f)
     {
