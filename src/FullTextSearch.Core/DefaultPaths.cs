@@ -12,4 +12,7 @@ public static class DefaultPaths
     public static string IndexPath { get; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "FullTextSearch", "Index");
+
+    /// <summary>インデックスフォルダ内に出力するスキップ一覧ログのファイル名（LuceneIndexService / UI で共通）</summary>
+    public const string SkippedFilesLogFileName = "skipped_files.log";
 }

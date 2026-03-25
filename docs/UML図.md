@@ -109,7 +109,6 @@ classDiagram
         +GetStats() IndexStats
         +OptimizeAsync(ct)
         +LastSkippedFiles : IReadOnlyList~string~
-        +LastSkippedLogPath : string?
     }
 
     class ISearchService {
@@ -254,13 +253,11 @@ classDiagram
         -_writer : IndexWriter?
         -_analyzer : Analyzer?
         -_skippedFiles : List~string~
-        -_lastSkippedLogPath : string?
         +InitializeAsync()
         +RebuildIndexAsync()
         +UpdateIndexAsync()
         +GetStats() IndexStats
         +LastSkippedFiles : IReadOnlyList~string~
-        +LastSkippedLogPath : string?
         -ProcessChunkAsync(chunk, ct) Task~int~
         -TryGetIndexedDocumentAsync(path, ct) Task~IndexedDocument?~
         -AddDocumentsToWriterWithoutCommit(docs) int
@@ -354,7 +351,6 @@ classDiagram
         -isIndexing : bool
         -isSearching : bool
         -indexSkipCount : int
-        -indexSkipLogPath : string?
         +ExecuteSearch()
         +HandleBrowseFolder()
         +HandleAddFolder()
@@ -369,7 +365,7 @@ classDiagram
         +TreeNodes : IReadOnlyList~TreeNode~
         +IsIndexing : bool
         +IndexSkipCount : int
-    +IndexSkipLogPath : string?
+        +OnOpenSkippedLog : EventCallback
         +OnSearchKeyDown : EventCallback
         +OnRequestRebuildIndex : EventCallback
     }
@@ -498,7 +494,7 @@ sequenceDiagram
     Index->>Log: WriteSkippedLog()
     Index-->>Home: 完了
 
-    Home->>Home: indexSkipCount / indexSkipLogPath 設定
+    Home->>Home: indexSkipCount 更新（フッター）
     Home->>Home: StateHasChanged()
 ```
 

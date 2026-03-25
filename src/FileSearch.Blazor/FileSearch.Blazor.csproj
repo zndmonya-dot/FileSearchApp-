@@ -9,7 +9,9 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <EnableDefaultCssItems>false</EnableDefaultCssItems>
         <Nullable>enable</Nullable>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
 
+        <!-- 表示名。文言は UserMessages.AppTitle と揃えること -->
         <ApplicationTitle>全文検索システム</ApplicationTitle>
         <ApplicationId>com.fulltext.filesearch</ApplicationId>
         <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
@@ -50,6 +52,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\FileSearch.Messages\FileSearch.Messages.csproj" />
         <ProjectReference Include="..\FullTextSearch.Core\FullTextSearch.Core.csproj" />
         <ProjectReference Include="..\FullTextSearch.Infrastructure\FullTextSearch.Infrastructure.csproj" />
     </ItemGroup>

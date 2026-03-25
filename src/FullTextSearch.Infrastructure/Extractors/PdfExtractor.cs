@@ -16,10 +16,13 @@ public class PdfExtractor : ITextExtractor
         ".pdf"
     };
 
+    /// <inheritdoc />
     public IEnumerable<string> SupportedExtensions => SupportedExtensionSet;
 
+    /// <inheritdoc />
     public PreviewCategory PreviewCategory => PreviewCategory.Pdf;
 
+    /// <inheritdoc />
     public bool CanExtract(string extension)
     {
         return SupportedExtensionSet.Contains(extension);

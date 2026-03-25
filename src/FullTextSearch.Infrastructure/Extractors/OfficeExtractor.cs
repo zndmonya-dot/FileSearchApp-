@@ -18,15 +18,19 @@ public class OfficeExtractor : ITextExtractor
         ".docx", ".xlsx", ".pptx"
     };
 
+    /// <inheritdoc />
     public IEnumerable<string> SupportedExtensions => SupportedExtensionSet;
 
+    /// <inheritdoc />
     public PreviewCategory PreviewCategory => PreviewCategory.Text;
 
+    /// <inheritdoc />
     public bool CanExtract(string extension)
     {
         return SupportedExtensionSet.Contains(extension);
     }
 
+    /// <inheritdoc />
     public Task<string> ExtractTextAsync(string filePath, CancellationToken cancellationToken = default)
     {
         if (!File.Exists(filePath))

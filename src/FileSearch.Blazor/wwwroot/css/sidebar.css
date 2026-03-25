@@ -236,6 +236,51 @@
     min-width: 0;
 }
 
+/* アイドル時: 件数・更新＋再構築を1行、スキップはその下（枠・背景なし、余白のみ） */
+.footer-row-idle {
+    align-items: flex-start;
+}
+
+.footer-main-block {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.footer-line-with-action {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    min-width: 0;
+}
+
+.footer-headlines {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.footer-headlines .footer-primary {
+    letter-spacing: 0.01em;
+}
+
+.footer-line-with-action .footer-action {
+    flex-shrink: 0;
+}
+
+.footer-line-with-action .footer-action.footer-action-with-label {
+    border: 1px solid var(--color-border-muted);
+}
+
+.footer-line-with-action .footer-action.footer-action-with-label:hover {
+    border-color: var(--color-border-default);
+}
+
 .footer-icon {
     width: 32px;
     height: 32px;
@@ -245,6 +290,11 @@
     background: rgba(139, 148, 158, 0.1);
     border-radius: 50%;
     flex-shrink: 0;
+}
+
+/* アイドル時のみアクセントの薄いトーンで階層を付ける（枠・帯は付けない） */
+.footer-row-idle .footer-icon {
+    background: var(--color-accent-muted);
 }
 
 .footer-icon svg {
@@ -310,38 +360,47 @@
     color: #8b949e;
 }
 
-/* スキップ件数・ログパス（長いパスが横にはみ出さないよう折り返し） */
-.footer-skip-wrap {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    min-width: 0;
-    width: 100%;
-    margin-top: 2px;
+/* スキップ件数（footer-main-block 内は親の gap で区切る） */
+.footer-main-block .footer-skip-wrap {
+    margin-top: 0;
 }
 
-.footer-skip-summary {
+.footer-skip-wrap {
+    min-width: 0;
+    width: 100%;
+}
+
+/* 警告文そのものがクリックでスキップログを開く（枠・背景なし） */
+.footer-skip-line {
+    display: block;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    font: inherit;
     font-size: 11px;
     font-weight: 500;
     color: #e8a317;
-    line-height: 1.3;
+    line-height: 1.45;
+    text-align: left;
+    cursor: pointer;
+    text-decoration: none;
+    transition: opacity 0.15s ease;
 }
 
-.app.light .footer-skip-summary {
+.app.light .footer-skip-line {
     color: #9a6700;
 }
 
-.footer-skip-log {
-    font-size: 10px;
-    line-height: 1.4;
-    color: #a88b2a;
-    overflow-wrap: anywhere;
-    word-break: break-word;
-    max-width: 100%;
+.footer-skip-line:hover {
+    text-decoration: underline;
 }
 
-.app.light .footer-skip-log {
-    color: #7d5c00;
+.footer-skip-line:focus-visible {
+    outline: 2px solid var(--color-accent-fg);
+    outline-offset: 2px;
+    border-radius: 2px;
 }
 
 .footer-action {

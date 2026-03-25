@@ -26,6 +26,7 @@ public class AppSettingsService : IAppSettingsService
     private readonly object _lock = new();
     private readonly TextExtractorFactory _extractorFactory;
 
+    /// <summary>現在メモリ上の設定（<see cref="LoadAsync"/> / <see cref="SaveAsync"/> と同期）。</summary>
     public AppSettings Settings { get; private set; } = new();
 
     /// <summary>抽出器ファクトリは初回読み込み時に対象拡張子を初期化するために使用する。</summary>

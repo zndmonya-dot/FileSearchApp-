@@ -12,6 +12,11 @@ Write-Host "Building standalone exe for distribution..."
 if (Test-Path $publishDir) { Remove-Item $publishDir -Recurse -Force }
 New-Item -ItemType Directory -Path $publishDir -Force | Out-Null
 
+$checkScript = Join-Path $root "scripts\check-webview-strings.ps1"
+Write-Host "Checking wwwroot strings vs UserMessages..."
+& $checkScript
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
 dotnet publish $project -f net8.0-windows10.0.19041.0 -c Release -p:RuntimeIdentifierOverride=win-x64 -p:WindowsPackageType=None --self-contained true -o $publishDir
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 

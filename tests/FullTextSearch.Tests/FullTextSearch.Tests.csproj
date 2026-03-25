@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\FileSearch.Messages\FileSearch.Messages.csproj" />
     <ProjectReference Include="..\..\src\FullTextSearch.Core\FullTextSearch.Core.csproj" />
     <ProjectReference Include="..\..\src\FullTextSearch.Infrastructure\FullTextSearch.Infrastructure.csproj" />
   </ItemGroup>

@@ -1,3 +1,4 @@
+// 事前トークン列を Lucene の TokenStream として流す（ハイライト用）。
 using Lucene.Net.Analysis;
 using Lucene.Net.Analysis.TokenAttributes;
 using Lucene.Net.Util;
@@ -21,6 +22,7 @@ public sealed class ListTokenStream : TokenStream
         _tokens = tokens ?? [];
     }
 
+    /// <inheritdoc />
     public override bool IncrementToken()
     {
         ClearAttributes();
@@ -33,6 +35,7 @@ public sealed class ListTokenStream : TokenStream
         return true;
     }
 
+    /// <inheritdoc />
     public override void Reset()
     {
         base.Reset();

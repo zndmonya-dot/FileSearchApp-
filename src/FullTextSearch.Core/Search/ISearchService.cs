@@ -1,3 +1,4 @@
+// 全文検索のインターフェースと検索オプション・結果型。
 using FullTextSearch.Core.Models;
 
 namespace FullTextSearch.Core.Search;

@@ -10,6 +10,10 @@ echo Building standalone exe for distribution...
 if exist "%PUBLISH_DIR%" rmdir /s /q "%PUBLISH_DIR%"
 mkdir "%PUBLISH_DIR%"
 
+echo Checking wwwroot strings vs UserMessages...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%\scripts\check-webview-strings.ps1"
+if errorlevel 1 exit /b 1
+
 dotnet publish "%ROOT%\src\FileSearch.Blazor\FileSearch.Blazor.csproj" -f net8.0-windows10.0.19041.0 -c Release -p:RuntimeIdentifierOverride=win-x64 -p:WindowsPackageType=None --self-contained true -o "%PUBLISH_DIR%"
 if errorlevel 1 exit /b 1
 

@@ -182,6 +182,7 @@ public static class TreeBuilder
         return count;
     }
 
+    /// <summary>ツリーを再帰走査し、ファイルノードのみ <paramref name="acc"/> に追加する。</summary>
     private static void CollectFilesRec(TreeNode node, List<TreeNode> acc)
     {
         if (!node.IsFolder && node.FileData != null)

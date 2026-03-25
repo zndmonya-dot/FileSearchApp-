@@ -1,3 +1,4 @@
+// Sudachi トークナイザと小文字フィルタを組み合わせた Lucene アナライザ。
 using Lucene.Net.Analysis;
 using Lucene.Net.Analysis.Core;
 using Lucene.Net.Util;
@@ -13,6 +14,7 @@ public sealed class SudachiAnalyzer : Analyzer
 {
     private const LuceneVersion MatchVersion = LuceneVersion.LUCENE_48;
 
+    /// <inheritdoc />
     protected override TokenStreamComponents CreateComponents(string fieldName, TextReader reader)
     {
         var tokenizer = new SudachiTokenizer(reader);

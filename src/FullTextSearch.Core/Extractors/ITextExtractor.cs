@@ -1,3 +1,4 @@
+// ファイルからテキストを抽出する契約と抽出器ファクトリ。
 namespace FullTextSearch.Core.Extractors;
 
 /// <summary>

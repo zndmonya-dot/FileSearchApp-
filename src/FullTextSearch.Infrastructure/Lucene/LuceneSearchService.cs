@@ -251,6 +251,7 @@ public class LuceneSearchService : ISearchService, IDisposable
         return result;
     }
 
+    /// <summary>設定のインデックスパスをフルパスに正規化する。</summary>
     private string GetIndexPath()
     {
         var path = _settingsService.Settings.IndexPath;
@@ -260,6 +261,7 @@ public class LuceneSearchService : ISearchService, IDisposable
 
     private const int ReaderOpenRetryMs = 150;
 
+    /// <summary>ディレクトリリーダーと検索器を、現在のインデックスパスに合わせて開く（ロック時はリトライ）。</summary>
     private void EnsureSearcherReady()
     {
         lock (_lock)
@@ -344,13 +346,11 @@ public class LuceneSearchService : ISearchService, IDisposable
         }
     }
 
-    /// <summary>
-    /// 部分一致検索用のクエリを構築。
-    /// コンテンツとファイル名の両方を検索し、ファイル名一致はスコアをブーストする。
-    /// Sudachi C モードで検索。
-    /// </summary>
+    /// <summary>ファイル名一致時のスコアブースト係数。</summary>
     private const float FilenameBoost = 2.5f;
+    /// <summary>クエリに分解する語の最大数。</summary>
     private const int MaxQueryTerms = 64;
+    /// <summary>BooleanQuery に積む句の最大数。</summary>
     private const int MaxQueryClauses = 256;
 
     /// <summary>
@@ -394,6 +394,9 @@ public class LuceneSearchService : ISearchService, IDisposable
         return s;
     }
 
+    /// <summary>
+    /// 部分一致検索用のクエリを構築する。コンテンツとファイル名の両方を検索し、ファイル名一致はスコアをブーストする。
+    /// </summary>
     private Query BuildPartialMatchQuery(string query, Analyzer analyzer)
     {
         var normalized = NormalizeQueryString(query);
@@ -492,9 +495,7 @@ public class LuceneSearchService : ISearchService, IDisposable
         return query;
     }
 
-    /// <summary>
-    /// インデックスキャッシュを破棄し、次回検索で最新のインデックスを読み直す（設定でパス変更したときなどに呼ぶ）。
-    /// </summary>
+    /// <inheritdoc />
     public void RefreshIndex()
     {
         lock (_lock)
@@ -513,6 +514,7 @@ public class LuceneSearchService : ISearchService, IDisposable
         EnsureSearcherReady();
     }
 
+    /// <summary>DirectoryReader・Analyzer・FSDirectory を解放する。</summary>
     public void Dispose()
     {
         if (_disposed)

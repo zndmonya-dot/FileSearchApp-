@@ -1,3 +1,4 @@
+// プレビュー・設定で共有する拡張子の正規化。
 namespace FullTextSearch.Core.Preview;
 
 /// <summary>

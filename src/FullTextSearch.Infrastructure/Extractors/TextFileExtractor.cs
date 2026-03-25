@@ -25,10 +25,13 @@ public class TextFileExtractor : ITextExtractor
         ".gitignore", ".env"
     };
 
+    /// <inheritdoc />
     public IEnumerable<string> SupportedExtensions => SupportedExtensionSet;
 
+    /// <inheritdoc />
     public PreviewCategory PreviewCategory => PreviewCategory.Text;
 
+    /// <inheritdoc />
     public bool CanExtract(string extension)
     {
         return SupportedExtensionSet.Contains(extension);

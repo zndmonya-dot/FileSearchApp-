@@ -3,6 +3,7 @@ using Xunit;
 
 namespace FullTextSearch.Tests;
 
+/// <summary><see cref="PreviewHelper.NormalizeExtension"/> の正規化仕様。</summary>
 public class PreviewHelperTests
 {
     [Theory]

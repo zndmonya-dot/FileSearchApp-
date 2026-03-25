@@ -1,10 +1,16 @@
-// ファイルパスからプレビュー用の行テキストを取得。抽出器でテキスト抽出し、検索語だけを <mark> で強調する。
+// =============================================================================
+// PreviewService.cs
+// =============================================================================
+// 役割: ファイルからテキスト抽出し、検索語を <mark> で強調した行リストを返す（構文色分けはしない）。
+// 文言: FileSearch.Messages.UserMessages（プレースホルダ・省略・エラー行）。UI 側 Home.Preview と二重にならないよう注意。
+// =============================================================================
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
 using FullTextSearch.Core.Extractors;
 using FullTextSearch.Core.Models;
 using FullTextSearch.Core.Preview;
+using FileSearch.Messages;
 using FullTextSearch.Infrastructure.Extractors;
 using Microsoft.Extensions.Logging;
 
@@ -32,7 +38,7 @@ public class PreviewService : IPreviewService
     public async Task<PreviewResult> GetPreviewAsync(string path, string? searchQuery, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrEmpty(path))
-            return CreateErrorResult("ファイルパスが指定されていません");
+            return CreateErrorResult(UserMessages.PreviewPathRequired);
 
         var ext = Path.GetExtension(path);
         var extractor = _extractorFactory.GetExtractor(ext);
@@ -43,23 +49,23 @@ public class PreviewService : IPreviewService
             if (extractor != null)
                 content = await extractor.ExtractTextAsync(path, cancellationToken);
             else
-                content = "[プレビュー不可]";
+                content = UserMessages.PreviewNotAvailable;
         }
         catch (OperationCanceledException)
         {
-            return CreateErrorResult("[キャンセル]");
+            return CreateErrorResult(UserMessages.PreviewCancelledBracket);
         }
         catch (Exception ex)
         {
             _logger?.LogError(ex, "Preview extraction failed: {Path}", path);
-            return CreateErrorResult($"[エラー] {ex.Message}");
+            return CreateErrorResult(UserMessages.PreviewErrorLine(ex.Message));
         }
 
         if (cancellationToken.IsCancellationRequested)
-            return CreateErrorResult("[キャンセル]");
+            return CreateErrorResult(UserMessages.PreviewCancelledBracket);
 
         if (content.Length > PreviewMaxChars)
-            content = content.Substring(0, PreviewMaxChars) + "\n... (省略)";
+            content = content.Substring(0, PreviewMaxChars) + UserMessages.PreviewTruncatedEllipsis;
 
         // 検索語と本文を NFC 正規化して、合成／分解の違いでハイライトが外れるのを防ぐ
         content = content.IsNormalized(NormalizationForm.FormC) ? content : content.Normalize(NormalizationForm.FormC);

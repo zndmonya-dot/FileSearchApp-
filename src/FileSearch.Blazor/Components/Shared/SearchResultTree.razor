@@ -1,4 +1,7 @@
 @namespace FileSearch.Blazor.Components.Shared
+@*
+  検索結果ツリーを再帰レンダリング。フォルダ展開・ファイル選択・現在プレビュー/フォルダの強調。
+*@
 @using FullTextSearch.Core.Models
 @using Microsoft.AspNetCore.Components.Rendering
 @foreach (var node in Nodes)
@@ -7,16 +10,25 @@
 }
 
 @code {
+    /// <summary>ルートからのツリーノード一覧。</summary>
     [Parameter] public IReadOnlyList<TreeNode> Nodes { get; set; } = Array.Empty<TreeNode>();
+    /// <summary>プレビュー中のファイルパス（行の current-preview）。</summary>
     [Parameter] public string? CurrentPreviewFilePath { get; set; }
+    /// <summary>右ペインで選択中のフォルダパス（行の current-folder）。</summary>
     [Parameter] public string? CurrentFolderPath { get; set; }
+    /// <summary>フォルダ行クリックで展開トグル。</summary>
     [Parameter] public EventCallback<TreeNode> OnToggleNode { get; set; }
+    /// <summary>ファイル行クリックで選択。</summary>
     [Parameter] public EventCallback<TreeNode> OnSelectFile { get; set; }
+    /// <summary>ファイル名からアイコン CSS クラス（word / text 等）。</summary>
     [Parameter] public Func<string, string>? GetFileIconClass { get; set; }
 
+    /// <summary>このノードが現在プレビュー中のファイルか。</summary>
     private bool IsCurrentPreview(TreeNode node) => !node.IsFolder && !string.IsNullOrEmpty(CurrentPreviewFilePath) && string.Equals(node.FilePath, CurrentPreviewFilePath, StringComparison.OrdinalIgnoreCase);
+    /// <summary>このノードが右ペイン選択フォルダか。</summary>
     private bool IsCurrentFolder(TreeNode node) => node.IsFolder && !string.IsNullOrEmpty(CurrentFolderPath) && string.Equals(node.FullPath, CurrentFolderPath, StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>1 ノードを再帰的に描画する <see cref="RenderFragment"/>。</summary>
     private RenderFragment RenderNode(TreeNode node, int depth) => __builder =>
     {
         var indent = depth * 16;

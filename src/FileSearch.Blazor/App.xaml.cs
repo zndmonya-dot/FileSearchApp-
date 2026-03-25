@@ -1,4 +1,6 @@
 // MAUI アプリケーションのエントリ。MainPage（Blazor WebView）をルートに設定する。
+using FileSearch.Messages;
+
 namespace FileSearch.Blazor;
 
 /// <summary>
@@ -6,6 +8,7 @@ namespace FileSearch.Blazor;
 /// </summary>
 public partial class App : Application
 {
+	/// <summary>XAML を初期化し、ルートに <see cref="MainPage"/> を設定する。</summary>
 	public App()
 	{
 		InitializeComponent();
@@ -16,7 +19,7 @@ public partial class App : Application
 	protected override Window CreateWindow(IActivationState? activationState)
 	{
 		var window = base.CreateWindow(activationState);
-		window.Title = "全文検索システム";
+		window.Title = UserMessages.AppTitle;
 		return window;
 	}
 }

@@ -51,9 +51,6 @@ public interface IIndexService
 
     /// <summary>直近のインデックス操作でスキップされたファイルパスのリスト。</summary>
     IReadOnlyList<string> LastSkippedFiles { get; }
-
-    /// <summary>直近のスキップログファイルのパス（スキップがなければ null）。</summary>
-    string? LastSkippedLogPath { get; }
 }
 
 /// <summary>

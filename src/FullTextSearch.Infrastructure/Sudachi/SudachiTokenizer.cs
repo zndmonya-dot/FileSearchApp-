@@ -8,6 +8,7 @@ using Lucene.Net.Util;
 
 namespace FullTextSearch.Infrastructure.Sudachi;
 
+// SudachiPy（モード C）をサブプロセスで呼び出す Lucene Tokenizer。インデックス構築と検索ハイライトのトークン化に使用。
 // === 根本調査メモ（インデックス構築・差分更新の不具合） ===
 // 1. コンポーネント再利用: Analyzer が TokenStreamComponents を再利用するため、2件目以降は
 //    基底 Tokenizer の reader が SetReader で差し替わる。コンストラクタの _input は古いままなので、
@@ -27,11 +28,16 @@ namespace FullTextSearch.Infrastructure.Sudachi;
 /// </summary>
 public sealed class SudachiTokenizer : Tokenizer
 {
+    /// <summary>Lucene の語（トークン）属性。</summary>
     private readonly ICharTermAttribute _termAttr;
+    /// <summary>コンストラクタで渡された初期リーダー（<see cref="Reset"/> では基底の現在リーダーを優先）。</summary>
     private readonly TextReader _input;
+    /// <summary><see cref="Reset"/> で Sudachi（またはフォールバック）が生成したトークン列。</summary>
     private List<string> _tokens = [];
+    /// <summary><see cref="IncrementToken"/> が返す次のトークンのインデックス。</summary>
     private int _index;
 
+    /// <summary>カスタム属性ファクトリと入力リーダーを指定して初期化する。</summary>
     public SudachiTokenizer(AttributeFactory factory, TextReader input)
         : base(factory, input)
     {
@@ -39,6 +45,7 @@ public sealed class SudachiTokenizer : Tokenizer
         _input = input;
     }
 
+    /// <summary>既定の属性ファクトリで初期化する。</summary>
     public SudachiTokenizer(TextReader input)
         : base(AttributeFactory.DEFAULT_ATTRIBUTE_FACTORY, input)
     {
@@ -46,6 +53,7 @@ public sealed class SudachiTokenizer : Tokenizer
         _input = input;
     }
 
+    /// <inheritdoc />
     public override sealed bool IncrementToken()
     {
         ClearAttributes();
@@ -70,6 +78,7 @@ public sealed class SudachiTokenizer : Tokenizer
         return true;
     }
 
+    /// <inheritdoc />
     public override void Reset()
     {
         base.Reset();
@@ -115,6 +124,21 @@ public sealed class SudachiTokenizer : Tokenizer
 
     /// <summary>バッチ時 1 ドキュメントあたりの最大文字数（ハイライト用なので先頭で十分）。</summary>
     private const int MaxCharsPerContentInBatch = 80_000;
+
+    /// <summary>ストリーム／バッチで共有する Python プロセスへのアクセスを直列化する。</summary>
+    private static readonly object SharedProcessLock = new();
+    /// <summary>ストリームモード用の常駐 <see cref="Process"/>（<c>--stream</c>）。</summary>
+    private static Process? _sharedProcess;
+
+    /// <summary><see cref="ResolveScriptPath"/> の結果キャッシュ用ロック。</summary>
+    private static readonly object ScriptPathLock = new();
+    /// <summary>検出済みの <c>sudachi_tokenize.py</c> パス（存在確認の繰り返しを避ける）。</summary>
+    private static string? _cachedScriptPath;
+
+    /// <summary><see cref="FindPython"/> の結果キャッシュ用ロック。</summary>
+    private static readonly object PythonCacheLock = new();
+    /// <summary>利用する Python コマンド名（<c>python</c> / <c>py</c> 等）。</summary>
+    private static string? _cachedPython;
 
     /// <summary>ストリームモード 1 ドキュメントの読み取りタイムアウト（ミリ秒）。SudachiPy ハングを検知してプロセスを強制終了する。</summary>
     private const int StreamTimeoutMs = 60_000;
@@ -167,6 +191,7 @@ public sealed class SudachiTokenizer : Tokenizer
         return (first, rest);
     }
 
+    /// <summary>リフレクション用: <see cref="Tokenizer"/> の内部入力フィールド（<see cref="GetCurrentReader"/> でキャッシュ）。</summary>
     private static FieldInfo? _inputFieldInfo;
 
     /// <summary>
@@ -181,6 +206,7 @@ public sealed class SudachiTokenizer : Tokenizer
         return field?.GetValue(this) as TextReader;
     }
 
+    /// <summary>リーダーから残りをすべて読み、1 文字列に連結する。</summary>
     private static string ReadAll(TextReader reader)
     {
         var sb = new StringBuilder();
@@ -193,12 +219,6 @@ public sealed class SudachiTokenizer : Tokenizer
 
     /// <summary>ストリームモード時のドキュメント区切り（Python と一致）</summary>
     private const string StreamDelim = "---SUDACHI_DOC_END---";
-
-    private static readonly object SharedProcessLock = new();
-    private static Process? _sharedProcess;
-
-    private static string? _cachedScriptPath;
-    private static readonly object ScriptPathLock = new();
 
     /// <summary>スクリプトパスを解決。結果は static キャッシュし、ドキュメントごとの File.Exists を避ける。</summary>
     private static string? ResolveScriptPath()
@@ -480,9 +500,6 @@ public sealed class SudachiTokenizer : Tokenizer
         }
         return list;
     }
-
-    private static string? _cachedPython;
-    private static readonly object PythonCacheLock = new();
 
     /// <summary>Python 実行ファイル名を検出。結果は static キャッシュし、フォールバック時の重複検出を避ける。</summary>
     private static string? FindPython()

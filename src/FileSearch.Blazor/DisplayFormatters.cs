@@ -1,7 +1,10 @@
+using FileSearch.Messages;
+
 namespace FileSearch.Blazor;
 
 /// <summary>
 /// 日付・サイズ・ファイル種別・アイコン分類の表示用フォーマット。他コンポーネントから再利用する。
+/// インデックス「最終更新」の相対表示（たった今／分前…）は <see cref="FileSearch.Messages.UserMessages"/> の文言に依存する。
 /// </summary>
 public static class DisplayFormatters
 {
@@ -16,12 +19,12 @@ public static class DisplayFormatters
     /// <summary>インデックス最終更新の短い表示（未実行／たった今／分前／時間前／日前／日時）</summary>
     public static string FormatLastIndexUpdate(DateTime? lastUpdate)
     {
-        if (!lastUpdate.HasValue) return "未実行";
+        if (!lastUpdate.HasValue) return UserMessages.LastIndexNeverRun;
         var diff = DateTime.Now - lastUpdate.Value;
-        if (diff.TotalMinutes < 1) return "たった今";
-        if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes}分前";
-        if (diff.TotalHours < 24) return $"{(int)diff.TotalHours}時間前";
-        if (diff.TotalDays < 7) return $"{(int)diff.TotalDays}日前";
+        if (diff.TotalMinutes < 1) return UserMessages.LastIndexJustNow;
+        if (diff.TotalMinutes < 60) return UserMessages.FormatMinutesAgo((int)diff.TotalMinutes);
+        if (diff.TotalHours < 24) return UserMessages.FormatHoursAgo((int)diff.TotalHours);
+        if (diff.TotalDays < 7) return UserMessages.FormatDaysAgo((int)diff.TotalDays);
         return lastUpdate.Value.ToString("MM/dd HH:mm");
     }
 

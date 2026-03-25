@@ -3,6 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- 文言は UserMessages.AppTitle / PreviewLoading / WebViewLoadError / WebViewReload と揃える -->
     <title>全文検索システム</title>
     <base href="/" />
     <script>
@@ -31,14 +32,14 @@
         <div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#666;">
             <div style="text-align:center;">
                 <div style="width:40px;height:40px;border:3px solid #e0e0e0;border-top-color:#2563eb;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto;"></div>
-                <p style="margin-top:16px;">読み込み中...</p>
+                <p style="margin-top:16px;">読み込み中...</p><!-- UserMessages.PreviewLoading と同文言 -->
             </div>
         </div>
         <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
     </div>
 
     <div id="blazor-error-ui">
-        エラーが発生しました。<a href="" style="color:white;margin-left:8px;">再読み込み</a>
+        エラーが発生しました。<a href="" style="color:white;margin-left:8px;">再読み込み</a><!-- UserMessages.WebViewLoadError / WebViewReload と同文言 -->
     </div>
 
     <script src="_framework/blazor.webview.js"></script>
