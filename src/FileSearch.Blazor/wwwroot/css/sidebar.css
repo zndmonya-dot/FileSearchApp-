@@ -231,8 +231,9 @@
 
 .footer-row {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 12px;
+    min-width: 0;
 }
 
 .footer-icon {
@@ -262,6 +263,10 @@
 @keyframes spin {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
+}
+
+.footer-status.building .footer-row {
+    align-items: center;
 }
 
 .footer-status.building .footer-icon {
@@ -303,6 +308,40 @@
 .footer-secondary {
     font-size: 11px;
     color: #8b949e;
+}
+
+/* スキップ件数・ログパス（長いパスが横にはみ出さないよう折り返し） */
+.footer-skip-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    width: 100%;
+    margin-top: 2px;
+}
+
+.footer-skip-summary {
+    font-size: 11px;
+    font-weight: 500;
+    color: #e8a317;
+    line-height: 1.3;
+}
+
+.app.light .footer-skip-summary {
+    color: #9a6700;
+}
+
+.footer-skip-log {
+    font-size: 10px;
+    line-height: 1.4;
+    color: #a88b2a;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    max-width: 100%;
+}
+
+.app.light .footer-skip-log {
+    color: #7d5c00;
 }
 
 .footer-action {

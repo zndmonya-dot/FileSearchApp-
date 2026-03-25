@@ -63,7 +63,8 @@ public partial class Home : IDisposable
     private string indexProgressText = "";
     private string? searchErrorMessage = null;
     private string? indexErrorMessage = null;
-    private string? indexSkipMessage = null;
+    private int indexSkipCount;
+    private string? indexSkipLogPath;
     private string? SearchErrorMessage => searchErrorMessage;
     private string? IndexErrorMessage => indexErrorMessage;
     private string? _lastHighlightNavFilePath;
@@ -562,7 +563,8 @@ public partial class Home : IDisposable
             return;
         }
         indexErrorMessage = null;
-        indexSkipMessage = null;
+        indexSkipCount = 0;
+        indexSkipLogPath = null;
         isIndexing = true;
         indexProgressPercent = 0;
         indexProgressText = initialMessage;
@@ -583,9 +585,15 @@ public partial class Home : IDisposable
             indexErrorMessage = null;
             var skipped = IndexService.LastSkippedFiles;
             if (skipped.Count > 0)
-                indexSkipMessage = $"{skipped.Count} 件のファイルをスキップ（ログ: {IndexService.LastSkippedLogPath}）";
+            {
+                indexSkipCount = skipped.Count;
+                indexSkipLogPath = IndexService.LastSkippedLogPath;
+            }
             else
-                indexSkipMessage = null;
+            {
+                indexSkipCount = 0;
+                indexSkipLogPath = null;
+            }
         }
         catch (OperationCanceledException)
         {

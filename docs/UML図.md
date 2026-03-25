@@ -353,7 +353,8 @@ classDiagram
         -selectedFolder : TreeNode?
         -isIndexing : bool
         -isSearching : bool
-        -indexSkipMessage : string?
+        -indexSkipCount : int
+        -indexSkipLogPath : string?
         +ExecuteSearch()
         +HandleBrowseFolder()
         +HandleAddFolder()
@@ -367,7 +368,8 @@ classDiagram
         +SearchQuery : string
         +TreeNodes : IReadOnlyList~TreeNode~
         +IsIndexing : bool
-        +IndexSkipMessage : string?
+        +IndexSkipCount : int
+    +IndexSkipLogPath : string?
         +OnSearchKeyDown : EventCallback
         +OnRequestRebuildIndex : EventCallback
     }
@@ -496,7 +498,7 @@ sequenceDiagram
     Index->>Log: WriteSkippedLog()
     Index-->>Home: 完了
 
-    Home->>Home: indexSkipMessage 設定
+    Home->>Home: indexSkipCount / indexSkipLogPath 設定
     Home->>Home: StateHasChanged()
 ```
 

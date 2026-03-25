@@ -92,9 +92,15 @@
                     <div class="footer-text">
                         <span class="footer-primary">@IndexCount.ToString("N0") 件登録済み</span>
                         <span class="footer-secondary">@GetLastUpdateText() に更新</span>
-                        @if (!string.IsNullOrEmpty(IndexSkipMessage))
+                        @if (IndexSkipCount > 0)
                         {
-                            <span class="footer-secondary" style="color: #e8a317;" title="@IndexSkipMessage">@IndexSkipMessage</span>
+                            <div class="footer-skip-wrap" title="@SkipTooltip">
+                                <span class="footer-skip-summary">@IndexSkipCount.ToString("N0") 件のファイルをスキップ</span>
+                                @if (!string.IsNullOrEmpty(IndexSkipLogPath))
+                                {
+                                    <span class="footer-skip-log">ログ: @IndexSkipLogPath</span>
+                                }
+                            </div>
                         }
                     </div>
                     <button class="footer-action footer-action-with-label" @onclick="OnRequestRebuildIndex" title="インデックスを最初から作り直す（全件再スキャン）">
@@ -121,7 +127,14 @@
     [Parameter] public string IndexProgressText { get; set; } = "";
     [Parameter] public int IndexCount { get; set; }
     [Parameter] public string? IndexErrorMessage { get; set; }
-    [Parameter] public string? IndexSkipMessage { get; set; }
+    [Parameter] public int IndexSkipCount { get; set; }
+    [Parameter] public string? IndexSkipLogPath { get; set; }
+
+    private string? SkipTooltip =>
+        IndexSkipCount <= 0 ? null
+        : string.IsNullOrEmpty(IndexSkipLogPath)
+            ? $"{IndexSkipCount} 件のファイルをスキップ"
+            : $"{IndexSkipCount} 件のファイルをスキップ — {IndexSkipLogPath}";
     [Parameter] public EventCallback<KeyboardEventArgs> OnSearchKeyDown { get; set; }
     [Parameter] public EventCallback OnSearchInputChanged { get; set; }
     [Parameter] public string? CurrentPreviewFilePath { get; set; }
