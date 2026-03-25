@@ -17,7 +17,6 @@ graph LR
         UC3[ファイルプレビュー]
         UC4[ファイルを開く]
         UC5[フォルダを開く]
-        UC6[パスをコピー]
         UC7[インデックス再構築]
         UC8[インデックス差分更新]
         UC9[インデックス構築キャンセル]
@@ -30,7 +29,6 @@ graph LR
     User --> UC3
     User --> UC4
     User --> UC5
-    User --> UC6
     User --> UC7
     User --> UC8
     User --> UC9
@@ -52,7 +50,7 @@ graph TB
         direction TB
         Pages["Components/Pages<br/>Home"]
         Shared["Components/Shared<br/>SearchSidebar, SearchResultTree,<br/>FilePreviewView, FolderListView,<br/>SettingsModal, IndexUpdateDialog,<br/>AppHeader"]
-        BlazerSvc["Services<br/>PreviewService, TreeBuilder,<br/>DisplayFormatters"]
+        BlazorSvc["Services<br/>PreviewService, TreeBuilder,<br/>DisplayFormatters"]
         MAUI["App, MainPage, MauiProgram"]
     end
 
@@ -171,7 +169,7 @@ classDiagram
     class SearchOptions {
         <<record>>
         +MaxResults : int
-        +FileTypeFilter : string?
+        +FileTypeFilter : List~string~?
         +DateFrom : DateTime?
         +DateTo : DateTime?
         +FolderFilter : string?
@@ -429,6 +427,7 @@ sequenceDiagram
     actor User as 利用者
     participant Home as Home.razor
     participant Search as ISearchService<br/>(LuceneSearchService)
+    participant Analyzer as SudachiAnalyzer
     participant Sudachi as SudachiTokenizer
     participant Lucene as Lucene.NET
     participant Tree as TreeBuilder
@@ -436,12 +435,15 @@ sequenceDiagram
     User->>Home: キーワード入力 + Enter
     Home->>Home: ExecuteSearch()
     Home->>Search: SearchAsync(query, options, ct)
-    Search->>Sudachi: InvokeSudachiBatch(query)
-    Sudachi->>Sudachi: Python サブプロセスで形態素解析
-    Sudachi-->>Search: トークンリスト
+    Search->>Search: BuildPartialMatchQuery（部分一致・ファイル名ブースト）
+    Search->>Analyzer: GetTokenStream 等でクエリ語をトークン化
+    Note over Analyzer,Sudachi: 日本語は Sudachi（Python）経由の Analyzer
     Search->>Lucene: BooleanQuery で検索
     Lucene-->>Search: TopDocs（ヒット一覧）
-    Search->>Search: ハイライト抽出
+    opt ハイライト有効（SkipHighlights でない）
+        Search->>Sudachi: InvokeSudachiBatch(ヒット文書の本文)
+        Search->>Search: ハイライト抜粋（Lucene Highlighter）
+    end
     Search-->>Home: SearchResult
     Home->>Tree: BuildTree(folders, items)
     Tree-->>Home: List<TreeNode>

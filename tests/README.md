@@ -1,3 +1,3 @@
 # tests
 
-- **FullTextSearch.Tests**: 現時点ではテストコード (.cs) は未追加の空プロジェクト。Core / Infrastructure の単体テストを追加する場合はこのプロジェクトに配置する。
+- **FullTextSearch.Tests**: Core のメッセージ・`PreviewHelper` などを対象とした単体テストを配置する。追加の Infrastructure テストもこのプロジェクトに置く。

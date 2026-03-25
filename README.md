@@ -88,7 +88,7 @@ dotnet run --project src\FileSearch.Blazor
 ## プロジェクト構成
 
 ```
-FullTextSearch/
+（リポジトリルート）/
 ├── src/
 │   ├── FileSearch.Blazor/            # Blazor Hybrid (MAUI) アプリ（メインUI）
 │   ├── FullTextSearch.Core/           # コアロジック（インターフェース、モデル）
