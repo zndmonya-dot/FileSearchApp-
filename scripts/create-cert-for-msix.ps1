@@ -39,4 +39,8 @@ Write-Host "  Open: src\FileSearch.Blazor\FileSearch.Blazor.csproj"
 Write-Host "  Find: <PackageCertificateThumbprint>...</PackageCertificateThumbprint>"
 Write-Host "  Replace with: <PackageCertificateThumbprint>$thumbprint</PackageCertificateThumbprint>"
 Write-Host ""
-Write-Host "Then run: dotnet build FullTextSearch.sln -c Release"
+Write-Host "Then run (MSIX を生成):" -ForegroundColor Yellow
+Write-Host "  dotnet publish src\FileSearch.Blazor\FileSearch.Blazor.csproj -f net8.0-windows10.0.19041.0 -c Release"
+Write-Host ""
+Write-Host "Optional: backup as PFX + CER files:" -ForegroundColor Yellow
+Write-Host "  .\scripts\export-cert-pfx-cer.ps1 -Thumbprint $thumbprint"

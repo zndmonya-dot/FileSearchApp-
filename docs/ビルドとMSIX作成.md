@@ -36,7 +36,8 @@ dotnet run --project src\FileSearch.Blazor\FileSearch.Blazor.csproj -c Release
 ### 手順の流れ
 
 1. **署名用証明書**を用意し、`FileSearch.Blazor.csproj` の `PackageCertificateThumbprint` と一致させる（新規なら `scripts\create-cert-for-msix.ps1`）。  
-   → 詳細は [社内配布手順.md](社内配布手順.md) の「配布者向け → A. 証明書を用意する」
+   → **PFX / CER の意味・ゼロからの流れ・別 PC でのインポート**は [社内配布手順.md](社内配布手順.md) の「**証明書ファイル（PFX / CER）とストアの関係**」を参照。  
+   → 拇印の csproj 反映は同ドキュメントの「配布者向け → A. 証明書を用意する」
 2. リポジトリのルートで次を実行する。
 
 ```powershell
