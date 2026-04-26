@@ -8,6 +8,7 @@
         <div class="settings-dialog" @onclick:stopPropagation="true">
             <div class="settings-header">
                 <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8.2 8.2 0 0 1 .701.031C9.444.095 9.99.645 10.16 1.29l.288 1.107c.018.066.079.158.212.224.231.114.454.243.668.386.123.082.233.09.299.071l1.103-.303c.644-.176 1.392.021 1.82.63.27.385.506.792.704 1.218.315.675.111 1.422-.364 1.891l-.814.806c-.049.048-.098.147-.088.294.016.257.016.515 0 .772-.01.147.039.246.088.294l.814.806c.475.469.679 1.216.364 1.891a7.977 7.977 0 0 1-.704 1.217c-.428.61-1.176.807-1.82.63l-1.102-.302c-.067-.019-.177-.011-.3.071a5.909 5.909 0 0 1-.668.386c-.133.066-.194.158-.211.224l-.29 1.106c-.168.646-.715 1.196-1.458 1.26a8.006 8.006 0 0 1-1.402 0c-.743-.064-1.289-.614-1.458-1.26l-.289-1.106c-.018-.066-.079-.158-.212-.224a5.738 5.738 0 0 1-.668-.386c-.123-.082-.233-.09-.299-.071l-1.103.303c-.644.176-1.392-.021-1.82-.63a8.12 8.12 0 0 1-.704-1.218c-.315-.675-.111-1.422.363-1.891l.815-.806c.049-.048.098-.147.088-.294a6.214 6.214 0 0 1 0-.772c.01-.147-.039-.246-.088-.294l-.815-.806C.635 6.045.431 5.298.746 4.623a7.92 7.92 0 0 1 .704-1.217c.428-.61 1.176-.807 1.82-.63l1.102.302c.067.019.177.011.3-.071.214-.143.437-.272.668-.386.133-.066.194-.158.211-.224l.29-1.106C6.009.645 6.556.095 7.299.03 7.53.01 7.764 0 8 0Zm-.571 1.525c-.036.003-.108.036-.137.146l-.289 1.105c-.147.561-.549.967-.998 1.189-.173.086-.34.183-.5.29-.417.278-.97.423-1.529.27l-1.103-.303c-.109-.03-.175.016-.195.045-.22.312-.412.644-.573.99-.014.031-.021.11.059.19l.815.806c.411.406.562.957.53 1.456a4.709 4.709 0 0 0 0 .582c.032.499-.119 1.05-.53 1.456l-.815.806c-.081.08-.073.159-.059.19.162.346.353.677.573.989.02.03.085.076.195.046l1.102-.303c.56-.153 1.113-.008 1.53.27.161.107.328.204.501.29.447.222.85.629.997 1.189l.289 1.105c.029.109.101.143.137.146a6.6 6.6 0 0 0 1.142 0c.036-.003.108-.036.137-.146l.289-1.105c.147-.561.549-.967.998-1.189.173-.086.34-.183.5-.29.417-.278.97-.423 1.529-.27l1.103.303c.109.029.175-.016.195-.045.22-.313.411-.644.573-.99.014-.031.021-.11-.059-.19l-.815-.806c-.411-.406-.562-.957-.53-1.456a4.709 4.709 0 0 0 0-.582c-.032-.499.119-1.05.53-1.456l-.815-.806c.081-.08.073-.159.059-.19a6.464 6.464 0 0 0-.573-.989c-.02-.03-.085-.076-.195-.046l-1.102.303c-.56.153-1.113.008-1.53-.27a4.44 4.44 0 0 0-.501-.29c-.447-.222-.85-.629-.997-1.189l-.289-1.105c-.029-.11-.101-.143-.137-.146a6.6 6.6 0 0 0-1.142 0ZM11 8a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM9.5 8a1.5 1.5 0 1 0-3.001.001A1.5 1.5 0 0 0 9.5 8Z"/></svg>
+                @* S-01 モーダルタイトル *@
                 <h2>@UserMessages.SettingsTitle</h2>
                 <button class="settings-close" @onclick="OnCloseRequested" type="button">
                     <svg viewBox="0 0 16 16" fill="currentColor"><path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l3.22 3.22a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-3.22 3.22a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/></svg>
@@ -17,6 +18,7 @@
                 <div class="settings-section settings-section-first">
                     <h3>@UserMessages.SettingsSectionDisplay</h3>
                     <p class="settings-desc">@UserMessages.SettingsDescriptionDisplay</p>
+                    @* S-02 表示テーマ（ダークモード／ライトモード／システムに従う） *@
                     <div class="settings-field settings-field-inline">
                         <label>@UserMessages.ThemeLabel</label>
                         <select class="settings-select" @bind="State.ThemeMode">
@@ -29,12 +31,14 @@
                 <div class="settings-section">
                     <h3>@UserMessages.SettingsSectionTargetFolders</h3>
                     <p class="settings-desc">@UserMessages.SettingsDescriptionTargetFolders</p>
+                    @* S-03 検索対象フォルダ一覧（登録済みのフォルダ表示／ S-07 削除ボタン） *@
                     <div class="settings-folders">
                         @foreach (var folder in State.TargetFolders)
                         {
                             <div class="settings-folder-item">
                                 <svg viewBox="0 0 16 16" fill="currentColor"><path d="M1.75 1A1.75 1.75 0 0 0 0 2.75v10.5C0 14.216.784 15 1.75 15h12.5A1.75 1.75 0 0 0 16 13.25v-8.5A1.75 1.75 0 0 0 14.25 3H7.5a.25.25 0 0 1-.2-.1l-.9-1.2C6.07 1.26 5.55 1 5 1H1.75Z"/></svg>
                                 <span class="folder-path" title="@folder">@folder</span>
+                                @* S-07 削除（検索対象フォルダ） *@
                                 <button class="folder-remove" type="button" @onclick="() => RemoveFolder(folder)">
                                     <svg viewBox="0 0 16 16" fill="currentColor"><path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l3.22 3.22a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-3.22 3.22a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/></svg>
                                 </button>
@@ -42,8 +46,11 @@
                         }
                     </div>
                     <div class="settings-input-row">
+                        @* S-04 フォルダパス入力欄 *@
                         <input class="settings-input" @bind="State.NewFolderPath" @oninput="() => State.FolderMessage = null" placeholder="@UserMessages.SettingsPlaceholderFolderPath" />
+                        @* S-05 追加（検索対象フォルダ） *@
                         <button class="settings-btn-add" type="button" @onclick="HandleAddFolder">@UserMessages.Add</button>
+                        @* S-06 参照（OS のフォルダ選択ダイアログ） *@
                         <button class="settings-btn-add" type="button" @onclick="HandleBrowseFolder">@UserMessages.Browse</button>
                     </div>
                     @if (!string.IsNullOrEmpty(State.FolderMessage))
@@ -55,17 +62,21 @@
                     <h3>@UserMessages.SettingsSectionExtensions</h3>
                     <p class="settings-desc">@UserMessages.SettingsDescriptionExtensions</p>
                     <p class="settings-desc settings-desc-note">@UserMessages.SettingsNoteAfterExtensionChange</p>
+                    @* S-08 検索対象のファイル拡張子一覧 / S-11 削除（拡張子） *@
                     <div class="settings-chips">
                         @foreach (var ext in State.TargetExtensions)
                         {
                             <span class="settings-chip">
                                 @ext
+                                @* S-11 削除（拡張子） *@
                                 <button type="button" class="settings-chip-remove" @onclick="() => RemoveTargetExtension(ext)" aria-label="@UserMessages.AriaRemove">×</button>
                             </span>
                         }
                     </div>
                     <div class="settings-input-row">
+                        @* S-09 拡張子入力欄 *@
                         <input class="settings-input" @bind="State.NewTargetExtension" @oninput="() => State.ExtensionMessage = null" placeholder="@UserMessages.SettingsPlaceholderExtensionExample" />
+                        @* S-10 追加（拡張子） *@
                         <button class="settings-btn-add" type="button" @onclick="HandleAddTargetExtension">@UserMessages.Add</button>
                     </div>
                     @if (!string.IsNullOrEmpty(State.ExtensionMessage))
@@ -77,18 +88,26 @@
                     <h3>@UserMessages.SettingsSectionIndexPath</h3>
                     <p class="settings-desc">@UserMessages.SettingsDescriptionIndexPath</p>
                     <div class="settings-input-row">
-                        <input class="settings-input full" @bind="State.IndexPath" />
+                        @* S-12 インデックスの保存先 *@
+                        <input class="settings-input full" @bind="State.IndexPath" @oninput="() => State.IndexPathMessage = null" />
+                        @* S-13 フォルダを開く（インデックス保存先をエクスプローラーで開く） *@
                         <button class="settings-btn-add" type="button" @onclick="HandleOpenIndexFolder" title="@UserMessages.OpenIndexFolderTitle">@UserMessages.OpenIndexFolder</button>
                     </div>
+                    @if (!string.IsNullOrEmpty(State.IndexPathMessage))
+                    {
+                        <p class="settings-msg settings-msg-warn">@State.IndexPathMessage</p>
+                    }
                 </div>
                 <div class="settings-section settings-section-last">
                     <h3>@UserMessages.SettingsSectionIndex</h3>
                     <p class="settings-desc">@UserMessages.SettingsDescriptionIndex</p>
                     <div class="settings-grid">
+                        @* S-14 最終更新（インデックスの最終更新日時表示） *@
                         <div class="settings-field">
                             <label>@UserMessages.LabelLastIndexUpdate</label>
                             <div class="settings-stat">@(LastIndexUpdate.HasValue ? LastIndexUpdate.Value.ToString("yyyy/MM/dd HH:mm:ss") : UserMessages.LastIndexNeverRun)</div>
                         </div>
+                        @* S-15 定期再構築間隔（無効/30分/1時間/2時間/6時間/12時間/24時間/1週間） *@
                         <div class="settings-field">
                             <label>@UserMessages.LabelAutoRebuild</label>
                             <select class="settings-select" @bind="State.AutoRebuildIntervalMinutes">
@@ -106,7 +125,9 @@
                 </div>
             </div>
             <div class="settings-footer">
+                @* S-17 キャンセル *@
                 <button class="settings-btn-cancel" type="button" @onclick="OnCloseRequested">@UserMessages.Cancel</button>
+                @* S-16 保存 *@
                 <button class="settings-btn-save" type="button" @onclick="OnSaveRequested">@UserMessages.Save</button>
             </div>
         </div>

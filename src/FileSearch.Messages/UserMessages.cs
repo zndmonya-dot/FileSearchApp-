@@ -36,6 +36,10 @@ public static class UserMessages
     public const string FolderNotFound = "フォルダが見つかりません。パスを確認してください。";
     /// <summary>重複追加。</summary>
     public const string AlreadyAdded = "既に追加されています";
+    /// <summary>インデックス保存先が未指定（W-07）。</summary>
+    public const string IndexPathRequired = "インデックス保存先を指定してください";
+    /// <summary>インデックス保存先が存在しない（W-08）。</summary>
+    public const string IndexPathNotFoundSaveError = "インデックス保存先のフォルダが見つかりません。パスを確認してください。";
     /// <summary>インデックス処理キャンセル完了。</summary>
     public const string IndexCancelled = "キャンセルしました";
     /// <summary>差分検出中表示。</summary>

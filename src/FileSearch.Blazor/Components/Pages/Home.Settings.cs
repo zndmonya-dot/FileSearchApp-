@@ -140,17 +140,27 @@ public partial class Home
     /// <summary>編集内容を永続化し、インデックス再初期化・検索サービス更新・テーマ反映後にモーダルを閉じる。</summary>
     private async Task SaveSettings()
     {
+        _settingsEdit.IndexPathMessage = null;
+        var indexPath = (_settingsEdit.IndexPath ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(indexPath))
+        {
+            _settingsEdit.IndexPathMessage = UserMessages.IndexPathRequired;
+            return;
+        }
+        if (!Directory.Exists(indexPath))
+        {
+            _settingsEdit.IndexPathMessage = UserMessages.IndexPathNotFoundSaveError;
+            return;
+        }
+
         SettingsService.Settings.TargetFolders = _settingsEdit.TargetFolders.ToList();
-        if (!string.IsNullOrWhiteSpace(_settingsEdit.IndexPath)) SettingsService.Settings.IndexPath = _settingsEdit.IndexPath;
+        SettingsService.Settings.IndexPath = indexPath;
         SettingsService.Settings.TargetExtensions = _settingsEdit.TargetExtensions.ToList();
         SettingsService.Settings.AutoRebuildIntervalMinutes = _settingsEdit.AutoRebuildIntervalMinutes;
         SettingsService.Settings.ThemeMode = _settingsEdit.ThemeMode ?? "System";
         await SettingsService.SaveAsync();
-        if (!string.IsNullOrWhiteSpace(SettingsService.Settings.IndexPath))
-        {
-            await IndexService.InitializeAsync(SettingsService.Settings.IndexPath);
-            indexCount = IndexService.GetStats().DocumentCount;
-        }
+        await IndexService.InitializeAsync(SettingsService.Settings.IndexPath);
+        indexCount = IndexService.GetStats().DocumentCount;
         SearchService.RefreshIndex();
         if (string.Equals(SettingsService.Settings.ThemeMode, "System", StringComparison.OrdinalIgnoreCase))
         {

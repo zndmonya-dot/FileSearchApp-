@@ -40,10 +40,12 @@
                 </div>
             }
             <div class="btn-group">
+                @* M-11 開く（関連付けアプリで選択中のファイルを開く） *@
                 <button class="action-btn" @onclick="OnOpenFile" title="@UserMessages.OpenFileTitle">
                     <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Zm4.879-2.773 4.264 2.559a.25.25 0 0 1 0 .428l-4.264 2.559A.25.25 0 0 1 6 10.559V5.442a.25.25 0 0 1 .379-.215Z"/></svg>
                     <span>@UserMessages.OpenFile</span>
                 </button>
+                @* M-12 フォルダ（選択中ファイルの親フォルダをエクスプローラーで開く） *@
                 <button class="action-btn" @onclick="OnOpenFolder" title="@UserMessages.OpenFolderTitle">
                     <svg viewBox="0 0 16 16" fill="currentColor"><path d="M.513 1.513A1.75 1.75 0 0 1 1.75 1h3.5c.55 0 1.07.26 1.4.7l.9 1.2a.25.25 0 0 0 .2.1H13a1 1 0 0 1 1 1v.5H2.75a.75.75 0 0 0 0 1.5h11.978a1 1 0 0 1 .994 1.117L15 13.25A1.75 1.75 0 0 1 13.25 15H1.75A1.75 1.75 0 0 1 0 13.25V2.75c0-.464.184-.91.513-1.237Z"/></svg>
                     <span>@UserMessages.OpenFolderShort</span>
@@ -63,6 +65,7 @@
     else
     {
         var lines = PreviewLines ?? Array.Empty<PreviewLineDisplay>();
+        @* M-09 プレビュー表示（抽出テキストを行単位で表示。検索語は <mark> でハイライト） *@
         <div class="code-view">
             <table class="code-table">
                 <tbody>

@@ -13,6 +13,8 @@ public class SettingsEditState
     public string? FolderMessage { get; set; }
     /// <summary>インデックス保存先パス</summary>
     public string IndexPath { get; set; } = "";
+    /// <summary>インデックス保存先のエラー・注意メッセージ（W-07/W-08）</summary>
+    public string? IndexPathMessage { get; set; }
     /// <summary>対象拡張子の一覧</summary>
     public List<string> TargetExtensions { get; set; } = new();
     /// <summary>追加入力欄の拡張子</summary>
