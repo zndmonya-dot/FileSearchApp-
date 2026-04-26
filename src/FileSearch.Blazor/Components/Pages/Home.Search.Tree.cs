@@ -19,13 +19,20 @@ namespace FileSearch.Blazor.Components.Pages;
 
 public partial class Home
 {
-    /// <summary>1 分ごと。間隔経過かつインデックス非実行中なら差分更新を起動。</summary>
+    /// <summary>
+    /// 1 分ごと。間隔経過かつインデックス非実行中で、ユーザーが検索操作をしていない（アイドル）場合に差分更新を起動。
+    /// 検索中・直近の検索操作からアイドル秒数未満であれば見送り、次回 tick で再判定する。
+    /// </summary>
     private void OnAutoRebuildTick(object? _)
     {
         try
         {
             var interval = SettingsService.Settings.AutoRebuildIntervalMinutes;
             if (interval <= 0 || isIndexing) return;
+            // 検索中、もしくは直近で検索操作（入力・キー操作・検索実行）があった直後は見送る。
+            // 1 分後の次 tick で再判定するので、ユーザー操作が落ち着いた段階で実行される。
+            if (isSearching) return;
+            if ((DateTime.UtcNow - _lastSearchActivityUtc).TotalSeconds < AutoRebuildIdleSeconds) return;
             var last = SettingsService.Settings.LastIndexUpdate;
             if (!last.HasValue || (DateTime.Now - last.Value).TotalMinutes >= interval)
                 _ = InvokeAsync(UpdateIndex);
@@ -36,6 +43,7 @@ public partial class Home
     /// <summary>Enter で検索、Esc でクエリとエラーをクリア。</summary>
     private async Task HandleKeyDown(KeyboardEventArgs e)
     {
+        _lastSearchActivityUtc = DateTime.UtcNow;
         if (e.Key == "Enter" && !isIndexing)
             await ExecuteSearch();
         if (e.Key == "Escape") { searchQuery = string.Empty; searchErrorMessage = null; await InvokeAsync(StateHasChanged); }
@@ -45,16 +53,21 @@ public partial class Home
     private void OnSearchQueryChangedAsync(string v)
     {
         searchQuery = v;
+        _lastSearchActivityUtc = DateTime.UtcNow;
     }
 
-    /// <summary>入力イベント用フック（現状は空）。</summary>
-    private void OnSearchInputChanged() { }
+    /// <summary>入力イベント用フック（検索操作の活動時刻を記録）。</summary>
+    private void OnSearchInputChanged()
+    {
+        _lastSearchActivityUtc = DateTime.UtcNow;
+    }
 
     /// <summary>検索実行。結果からツリーを構築し件数を設定。</summary>
     private async Task ExecuteSearch()
     {
         var query = searchQuery?.Trim() ?? "";
         if (isIndexing || string.IsNullOrWhiteSpace(query)) return;
+        _lastSearchActivityUtc = DateTime.UtcNow;
         _lastExecutedSearchQuery = query;
         _searchCts?.Cancel();
         _searchCts?.Dispose();

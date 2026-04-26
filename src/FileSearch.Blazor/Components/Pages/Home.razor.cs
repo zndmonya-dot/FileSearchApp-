@@ -83,6 +83,14 @@ public partial class Home : IDisposable
     private int _lastReportedProgressCount = -1;
     private DateTime _lastReportedProgressTime;
 
+    /// <summary>
+    /// 検索関連の最終操作時刻（UTC）。検索入力・キー入力・検索実行のたびに更新する。
+    /// 定期再構築（自動更新）は、この時刻から <see cref="AutoRebuildIdleSeconds"/> 秒以内であれば見送る。
+    /// </summary>
+    private DateTime _lastSearchActivityUtc = DateTime.MinValue;
+    /// <summary>定期再構築を見送るアイドル判定（秒）。検索操作からこの秒数だけ静かであれば自動更新を許可する。</summary>
+    private const int AutoRebuildIdleSeconds = 30;
+
     // --- フォルダ一覧（ソート・フィルター・選択行） ---
     private string sortColumn = "name";
     private bool sortAscending = true;

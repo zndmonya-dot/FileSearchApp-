@@ -221,8 +221,10 @@ public class LuceneIndexService : IIndexService, IDisposable
 
         try
         {
+            // キャンセル時の Rollback で確実に直前の安定状態へ戻すため、開始前にコミットしておく。
             lock (_lock)
             {
+                _writer!.Commit();
                 _writer!.DeleteAll();
             }
 
@@ -258,6 +260,12 @@ public class LuceneIndexService : IIndexService, IDisposable
 
             WriteSkippedLog();
         }
+        catch (OperationCanceledException)
+        {
+            // 中断時は未コミットの変更（DeleteAll 直後の状態など）を破棄して、直前のコミット状態へ戻す。
+            await RollbackAndReopenAsync().ConfigureAwait(false);
+            throw;
+        }
         finally
         {
             _currentRebuildOptions = null;
@@ -288,7 +296,10 @@ public class LuceneIndexService : IIndexService, IDisposable
                 return;
             }
 
-            var indexedMap = GetIndexedPathsAndLastModified(normalizedFolders);
+            // インデックス済みの全ファイルを取得（フォルダフィルタなし）。
+            // 以前は対象フォルダ配下のみを取得していたため、設定から外されたフォルダ配下の
+            // インデックス済みファイルが削除対象として検出されず、古い情報が残り続けていた。
+            var indexedMap = GetAllIndexedPathsAndLastModified();
             var diskFiles = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
             foreach (var folder in normalizedFolders)
             {
@@ -305,8 +316,11 @@ public class LuceneIndexService : IIndexService, IDisposable
                 }
             }
 
+            // 削除対象: (1) 現在の対象フォルダ配下に無いインデックス済みファイル
+            //            （= 設定からフォルダが外された／対象拡張子が変更された等で対象外になったもの）
+            //          (2) 対象フォルダ配下にあるが、ディスク上に存在しないファイル
             var toDelete = indexedMap.Keys
-                .Where(path => IsPathUnderAnyFolder(path, normalizedFolders) && !diskFiles.ContainsKey(path))
+                .Where(path => !IsPathUnderAnyFolder(path, normalizedFolders) || !diskFiles.ContainsKey(path))
                 .ToList();
             var toAddOrUpdate = diskFiles.Keys
                 .Where(path => !indexedMap.TryGetValue(path, out var ticks) || ticks != diskFiles[path])
@@ -347,6 +361,14 @@ public class LuceneIndexService : IIndexService, IDisposable
 
             WriteSkippedLog();
         }
+        catch (OperationCanceledException)
+        {
+            // 中断時は未コミットの変更を破棄して、開始時のコミット済み状態へ戻す。
+            // これにより、差分更新を途中でキャンセルしてもインデックスファイルが
+            // 中途半端な状態にならず、改めて差分更新を実行すれば再開できる。
+            await RollbackAndReopenAsync().ConfigureAwait(false);
+            throw;
+        }
         finally
         {
             _currentRebuildOptions = null;
@@ -354,10 +376,10 @@ public class LuceneIndexService : IIndexService, IDisposable
     }
 
     /// <summary>
-    /// インデックス内のパスと最終更新日時（Ticks）を取得。指定フォルダ配下のみ。
+    /// インデックス内の全ファイルのパスと最終更新日時（Ticks）を取得する。
     /// Writer が開いたままのため DirectoryReader.Open(writer) を使用（Open(directory) はロック競合で失敗する場合がある）。
     /// </summary>
-    private Dictionary<string, long> GetIndexedPathsAndLastModified(List<string> normalizedFolderPaths)
+    private Dictionary<string, long> GetAllIndexedPathsAndLastModified()
     {
         var result = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
         if (_writer == null) return result;
@@ -383,7 +405,6 @@ public class LuceneIndexService : IIndexService, IDisposable
                 var path = doc.Get(FieldFilePath);
                 var lastModStr = doc.Get(FieldLastModified);
                 if (string.IsNullOrEmpty(path)) continue;
-                if (!IsPathUnderAnyFolder(path, normalizedFolderPaths)) continue;
                 if (long.TryParse(lastModStr, out var ticks))
                     result[path] = ticks;
             }
@@ -393,6 +414,35 @@ public class LuceneIndexService : IIndexService, IDisposable
             reader?.Dispose();
         }
         return result;
+    }
+
+    /// <summary>
+    /// 未コミットの変更を破棄して IndexWriter を再オープンする。
+    /// インデックス更新（差分・全体）の途中でキャンセルされた場合に、直前のコミット済み状態へ戻すために使用する。
+    /// IndexWriter.Rollback はライターを閉じるため、その後 Initialize で再構築する。
+    /// </summary>
+    private async Task RollbackAndReopenAsync()
+    {
+        string? indexPath;
+        lock (_lock)
+        {
+            indexPath = _directory?.Directory?.FullName;
+            if (_writer != null)
+            {
+                try { _writer.Rollback(); }
+                catch { /* Rollback 失敗時もリソースは解放する */ }
+                try { _writer.Dispose(); } catch { /* Rollback 後は既に閉じている */ }
+                _writer = null;
+            }
+            _analyzer?.Dispose();
+            _analyzer = null;
+            _directory?.Dispose();
+            _directory = null;
+        }
+        if (!string.IsNullOrWhiteSpace(indexPath))
+        {
+            await InitializeAsync(indexPath!, CancellationToken.None).ConfigureAwait(false);
+        }
     }
 
     /// <summary>ファイルパスが、正規化済みフォルダ一覧のいずれかの配下（または同一）か。</summary>
@@ -473,6 +523,11 @@ public class LuceneIndexService : IIndexService, IDisposable
                 IndexedAt = DateTime.UtcNow
             };
         }
+        catch (OperationCanceledException)
+        {
+            // キャンセルはスキップではなく上位へ伝播させ、即座に処理を打ち切る。
+            throw;
+        }
         catch
         {
             return null; // エラーになったらそのファイルを飛ばして次へ
@@ -481,12 +536,14 @@ public class LuceneIndexService : IIndexService, IDisposable
 
     /// <summary>
     /// ライターに複数ドキュメントを一括追加。Commit は呼ばない。エラー時はスキップして次へ進み、失敗件数を返す。
+    /// 1 件追加するごとにキャンセルを確認するため、キャンセル要求から即座に処理を打ち切れる。
     /// </summary>
-    private int AddDocumentsToWriterWithoutCommit(IEnumerable<IndexedDocument> documents)
+    private int AddDocumentsToWriterWithoutCommit(IEnumerable<IndexedDocument> documents, CancellationToken cancellationToken)
     {
         var failCount = 0;
         foreach (var document in documents)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             try
             {
                 var doc = CreateLuceneDocument(document);
@@ -494,6 +551,10 @@ public class LuceneIndexService : IIndexService, IDisposable
                 {
                     _writer!.UpdateDocument(new Term(FieldFilePath, document.FilePath), doc);
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch
             {
@@ -506,6 +567,7 @@ public class LuceneIndexService : IIndexService, IDisposable
 
     /// <summary>
     /// チャンク内のファイルを並列抽出し、Lucene に追加する。スキップされたファイル数を返す。
+    /// キャンセル要求があれば、抽出完了後すぐに <see cref="OperationCanceledException"/> を投げて呼び出し元へ抜ける。
     /// </summary>
     private async Task<int> ProcessChunkAsync(IReadOnlyList<string> chunk, CancellationToken cancellationToken)
     {
@@ -515,10 +577,17 @@ public class LuceneIndexService : IIndexService, IDisposable
         {
             docs = await Task.WhenAll(tasks);
         }
+        catch (OperationCanceledException)
+        {
+            // 抽出器側でキャンセル例外を握りつぶしていたため遅延していた。即座に上位へ伝播させる。
+            throw;
+        }
         catch
         {
             docs = new IndexedDocument?[chunk.Count];
         }
+
+        cancellationToken.ThrowIfCancellationRequested();
 
         var skippedCount = 0;
         for (int j = 0; j < docs.Length && j < chunk.Count; j++)
@@ -534,7 +603,7 @@ public class LuceneIndexService : IIndexService, IDisposable
         foreach (var d in docs)
             if (d != null) toAdd.Add(d);
         if (toAdd.Count > 0)
-            skippedCount += AddDocumentsToWriterWithoutCommit(toAdd);
+            skippedCount += AddDocumentsToWriterWithoutCommit(toAdd, cancellationToken);
 
         return skippedCount;
     }
