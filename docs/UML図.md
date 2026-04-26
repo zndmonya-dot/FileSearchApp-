@@ -478,13 +478,13 @@ sequenceDiagram
             Index->>Factory: GetExtractor(extension)
             Factory-->>Index: ITextExtractor
             Index->>Ext: ExtractTextAsync(filePath, ct)
-            Ext-->>Index: テキスト（500,000文字で打ち切り）
+            Ext-->>Index: テキスト（100,000文字で打ち切り）
         end
 
         alt 50MB超 or 抽出エラー
             Index->>Index: _skippedFiles に記録
         else 正常
-            Index->>Index: CreateLuceneDocument（500,000文字で打ち切り）
+            Index->>Index: CreateLuceneDocument（100,000文字で打ち切り）
             Index->>Lucene: UpdateDocument
         end
 

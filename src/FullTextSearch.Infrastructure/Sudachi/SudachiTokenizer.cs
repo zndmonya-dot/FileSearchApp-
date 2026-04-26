@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
@@ -125,10 +126,38 @@ public sealed class SudachiTokenizer : Tokenizer
     /// <summary>バッチ時 1 ドキュメントあたりの最大文字数（ハイライト用なので先頭で十分）。</summary>
     private const int MaxCharsPerContentInBatch = 80_000;
 
-    /// <summary>ストリーム／バッチで共有する Python プロセスへのアクセスを直列化する。</summary>
-    private static readonly object SharedProcessLock = new();
-    /// <summary>ストリームモード用の常駐 <see cref="Process"/>（<c>--stream</c>）。</summary>
-    private static Process? _sharedProcess;
+    /// <summary>
+    /// SudachiPy 常駐プロセスのプール上限（同時並列数）。
+    /// 上限を <c>min(ProcessorCount, 4)</c> としているのは、SudachiPy のトークン化は CPU バウンドで
+    /// 4 並列前後で頭打ちになるため、過剰な常駐プロセスのメモリ消費を避ける狙い。
+    /// </summary>
+    public static readonly int PoolSize = Math.Max(2, Math.Min(Environment.ProcessorCount, 4));
+
+    /// <summary>SudachiPy 常駐プロセスのプール（Borrow/Return）。<see cref="EnsurePool"/> 後に有効。</summary>
+    private static BlockingCollection<SudachiProcessHandle>? _processPool;
+    /// <summary><see cref="EnsurePool"/> の遅延初期化用ロック。</summary>
+    private static readonly object PoolInitLock = new();
+
+    /// <summary>1 つの常駐 SudachiPy プロセスとその専用ストリームをまとめるハンドル。</summary>
+    private sealed class SudachiProcessHandle : IDisposable
+    {
+        public Process Process { get; }
+        public StreamWriter StdIn => Process.StandardInput;
+        public StreamReader StdOut => Process.StandardOutput;
+        public bool IsAlive
+        {
+            get
+            {
+                try { return !Process.HasExited; } catch { return false; }
+            }
+        }
+        public SudachiProcessHandle(Process p) { Process = p; }
+        public void Dispose()
+        {
+            try { if (!Process.HasExited) Process.Kill(); } catch { /* ignore */ }
+            try { Process.Dispose(); } catch { /* ignore */ }
+        }
+    }
 
     /// <summary><see cref="ResolveScriptPath"/> の結果キャッシュ用ロック。</summary>
     private static readonly object ScriptPathLock = new();
@@ -254,93 +283,154 @@ public sealed class SudachiTokenizer : Tokenizer
         return !string.IsNullOrEmpty(ResolveScriptPath());
     }
 
-    /// <summary>高速化: インデックス初期化時に呼び、共有 Python プロセスを事前起動する。最初のドキュメントからストリームモードが使える。</summary>
+    /// <summary>高速化: インデックス初期化時に呼び、SudachiPy 常駐プロセスを事前起動する（プールを満たす）。最初のドキュメントからストリームモードが使える。</summary>
     public static void Warmup()
     {
-        var scriptPath = ResolveScriptPath();
-        if (string.IsNullOrEmpty(scriptPath)) return;
-        _ = InvokeSudachiStream(scriptPath, " ");
+        EnsurePool();
     }
 
-    /// <summary>共有プロセスを破棄（エラー時・終了検知時）。ロック内で呼ぶ。</summary>
-    private static void DisposeSharedProcess()
+    /// <summary>
+    /// SudachiPy プロセスを 1 つ起動して <see cref="SudachiProcessHandle"/> として返す。失敗時は null。
+    /// プール充填と障害時の補充の双方で使用する。
+    /// </summary>
+    private static SudachiProcessHandle? StartProcess(string scriptPath, string python)
     {
-        try { _sharedProcess?.Dispose(); }
-        catch { /* ignore */ }
-        _sharedProcess = null;
-    }
-
-    /// <summary>ストリームモードの共有プロセスで 1 ドキュメント分トークン化。失敗時は null を返し呼び出し側でワンショットにフォールバックする。</summary>
-    private static List<string>? InvokeSudachiStream(string scriptPath, string text)
-    {
-        var python = FindPython();
-        if (string.IsNullOrEmpty(python)) return null;
-
-        lock (SharedProcessLock)
+        try
         {
+            var psi = new ProcessStartInfo
+            {
+                FileName = python,
+                ArgumentList = { scriptPath, "--stream" },
+                RedirectStandardInput = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                StandardInputEncoding = Encoding.UTF8,
+                StandardOutputEncoding = Encoding.UTF8,
+                StandardErrorEncoding = Encoding.UTF8
+            };
+            var p = Process.Start(psi);
+            if (p == null) return null;
+            p.ErrorDataReceived += (_, _) => { };
+            p.BeginErrorReadLine();
+            return new SudachiProcessHandle(p);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// プールを遅延初期化する。スクリプト／Python を解決できなければ <see cref="_processPool"/> は null のまま（呼び出し側でワンショットにフォールバック）。
+    /// 二重初期化を避けるため二重チェックロックで保護する。
+    /// </summary>
+    private static void EnsurePool()
+    {
+        if (_processPool != null) return;
+        lock (PoolInitLock)
+        {
+            if (_processPool != null) return;
+            var scriptPath = ResolveScriptPath();
+            var python = FindPython();
+            if (string.IsNullOrEmpty(scriptPath) || string.IsNullOrEmpty(python)) return;
+            var pool = new BlockingCollection<SudachiProcessHandle>(PoolSize);
+            for (int i = 0; i < PoolSize; i++)
+            {
+                var h = StartProcess(scriptPath!, python!);
+                if (h != null) pool.Add(h);
+            }
+            if (pool.Count == 0) { pool.Dispose(); return; }
+            _processPool = pool;
+        }
+    }
+
+    /// <summary>
+    /// プールから 1 つ Borrow し、使い終えたら Return する。失敗ハンドル（プロセス死／タイムアウト）は破棄して新規プロセスで補充する。
+    /// </summary>
+    private static List<string>? UseProcess(Func<SudachiProcessHandle, List<string>?> work)
+    {
+        EnsurePool();
+        if (_processPool == null) return null;
+
+        SudachiProcessHandle? handle = null;
+        bool replace = false;
+        try
+        {
+            // 取得タイムアウトはストリーム側のタイムアウトと同等。詰まったプロセスがあっても補充ロジックで自然回復する。
+            if (!_processPool.TryTake(out handle, StreamTimeoutMs)) return null;
+            if (handle == null) return null;
+
+            if (!handle.IsAlive)
+            {
+                replace = true;
+                return null;
+            }
+
             try
             {
-                if (_sharedProcess == null || _sharedProcess.HasExited)
-                {
-                    DisposeSharedProcess();
-                    var psi = new ProcessStartInfo
-                    {
-                        FileName = python,
-                        ArgumentList = { scriptPath, "--stream" },
-                        RedirectStandardInput = true,
-                        RedirectStandardOutput = true,
-                        RedirectStandardError = true,
-                        UseShellExecute = false,
-                        CreateNoWindow = true,
-                        StandardInputEncoding = Encoding.UTF8,
-                        StandardOutputEncoding = Encoding.UTF8,
-                        StandardErrorEncoding = Encoding.UTF8
-                    };
-                    _sharedProcess = Process.Start(psi);
-                    if (_sharedProcess == null) return null;
-                    _sharedProcess.ErrorDataReceived += (_, _) => { };
-                    _sharedProcess.BeginErrorReadLine();
-                }
-
-                var processRef = _sharedProcess;
-                using var watchdog = new Timer(_ => { try { processRef?.Kill(); } catch { } }, null, StreamTimeoutMs, Timeout.Infinite);
-
-                var stdin = _sharedProcess.StandardInput;
-                stdin.Write(text);
-                stdin.Write('\n');
-                stdin.Write(StreamDelim);
-                stdin.Write('\n');
-                stdin.Flush();
-
-                var list = new List<string>();
-                var stdout = _sharedProcess.StandardOutput;
-                bool completed = false;
-                string? line;
-                while ((line = stdout.ReadLine()) != null)
-                {
-                    var t = line.Trim();
-                    if (t == StreamDelim)
-                    {
-                        completed = true;
-                        break;
-                    }
-                    if (t.Length > 0)
-                        list.Add(t);
-                }
-                watchdog.Change(Timeout.Infinite, Timeout.Infinite);
-                if (!completed)
-                {
-                    DisposeSharedProcess();
-                    return null;
-                }
-                return list;
+                return work(handle);
             }
             catch
             {
-                DisposeSharedProcess();
+                replace = true;
                 return null;
             }
         }
+        finally
+        {
+            if (handle != null)
+            {
+                if (replace || !handle.IsAlive)
+                {
+                    handle.Dispose();
+                    var scriptPath = ResolveScriptPath();
+                    var python = FindPython();
+                    if (!string.IsNullOrEmpty(scriptPath) && !string.IsNullOrEmpty(python))
+                    {
+                        var fresh = StartProcess(scriptPath!, python!);
+                        if (fresh != null && _processPool != null)
+                        {
+                            try { _processPool.Add(fresh); } catch { fresh.Dispose(); }
+                        }
+                    }
+                }
+                else
+                {
+                    try { _processPool?.Add(handle); } catch { handle.Dispose(); }
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// プール内の 1 プロセスを使ってストリームモードで 1 ドキュメントをトークン化。失敗時は null（呼び出し側でワンショットにフォールバック）。
+    /// 並列インデックス追加時、複数スレッドが別プロセスで並行実行できる。
+    /// </summary>
+    private static List<string>? InvokeSudachiStream(string scriptPath, string text)
+    {
+        return UseProcess(handle =>
+        {
+            using var watchdog = new Timer(_ => { try { handle.Process.Kill(); } catch { /* ignore */ } }, null, StreamTimeoutMs, Timeout.Infinite);
+            handle.StdIn.Write(text);
+            handle.StdIn.Write('\n');
+            handle.StdIn.Write(StreamDelim);
+            handle.StdIn.Write('\n');
+            handle.StdIn.Flush();
+
+            var list = new List<string>();
+            bool completed = false;
+            string? line;
+            while ((line = handle.StdOut.ReadLine()) != null)
+            {
+                var t = line.Trim();
+                if (t == StreamDelim) { completed = true; break; }
+                if (t.Length > 0) list.Add(t);
+            }
+            watchdog.Change(Timeout.Infinite, Timeout.Infinite);
+            return completed ? list : null;
+        });
     }
 
     /// <summary>検索ハイライト用: 複数ドキュメントの content を 1 回で Python に送り、ドキュメントごとのトークン列を返す。失敗時は null。件数・長さ制限でオーバーを防ぐ。</summary>
@@ -348,10 +438,8 @@ public sealed class SudachiTokenizer : Tokenizer
     {
         if (contents == null || contents.Count == 0)
             return [];
-        var scriptPath = ResolveScriptPath();
-        if (string.IsNullOrEmpty(scriptPath)) return null;
-        var python = FindPython();
-        if (string.IsNullOrEmpty(python)) return null;
+        EnsurePool();
+        if (_processPool == null) return null;
 
         var n = Math.Min(contents.Count, MaxBatchDocuments);
         var toSend = new List<string>(n);
@@ -363,79 +451,75 @@ public sealed class SudachiTokenizer : Tokenizer
             toSend.Add(s);
         }
 
-        lock (SharedProcessLock)
+        SudachiProcessHandle? handle = null;
+        bool replace = false;
+        try
         {
+            if (!_processPool.TryTake(out handle, BatchTimeoutMs)) return null;
+            if (handle == null) return null;
+            if (!handle.IsAlive) { replace = true; return null; }
+
             try
             {
-                if (_sharedProcess == null || _sharedProcess.HasExited)
-                {
-                    DisposeSharedProcess();
-                    var psi = new ProcessStartInfo
-                    {
-                        FileName = python,
-                        ArgumentList = { scriptPath, "--stream" },
-                        RedirectStandardInput = true,
-                        RedirectStandardOutput = true,
-                        RedirectStandardError = true,
-                        UseShellExecute = false,
-                        CreateNoWindow = true,
-                        StandardInputEncoding = Encoding.UTF8,
-                        StandardOutputEncoding = Encoding.UTF8,
-                        StandardErrorEncoding = Encoding.UTF8
-                    };
-                    _sharedProcess = Process.Start(psi);
-                    if (_sharedProcess == null) return null;
-                    _sharedProcess.ErrorDataReceived += (_, _) => { };
-                    _sharedProcess.BeginErrorReadLine();
-                }
+                using var watchdog = new Timer(_ => { try { handle!.Process.Kill(); } catch { /* ignore */ } }, null, BatchTimeoutMs, Timeout.Infinite);
 
-                var processRef = _sharedProcess;
-                using var watchdog = new Timer(_ => { try { processRef?.Kill(); } catch { } }, null, BatchTimeoutMs, Timeout.Infinite);
-
-                var stdin = _sharedProcess.StandardInput;
                 foreach (var text in toSend)
                 {
-                    stdin.Write(text);
-                    stdin.Write('\n');
-                    stdin.Write(StreamDelim);
-                    stdin.Write('\n');
+                    handle.StdIn.Write(text);
+                    handle.StdIn.Write('\n');
+                    handle.StdIn.Write(StreamDelim);
+                    handle.StdIn.Write('\n');
                 }
-                stdin.Flush();
+                handle.StdIn.Flush();
 
                 var result = new List<List<string>>();
                 var current = new List<string>();
-                var stdout = _sharedProcess.StandardOutput;
                 bool completed = false;
                 string? line;
-                while ((line = stdout.ReadLine()) != null)
+                while ((line = handle.StdOut.ReadLine()) != null)
                 {
                     var t = line.Trim();
                     if (t == StreamDelim)
                     {
                         result.Add(current);
                         current = new List<string>();
-                        if (result.Count >= toSend.Count)
-                        {
-                            completed = true;
-                            break;
-                        }
+                        if (result.Count >= toSend.Count) { completed = true; break; }
                         continue;
                     }
-                    if (t.Length > 0)
-                        current.Add(t);
+                    if (t.Length > 0) current.Add(t);
                 }
                 watchdog.Change(Timeout.Infinite, Timeout.Infinite);
-                if (!completed)
-                {
-                    DisposeSharedProcess();
-                    return null;
-                }
+                if (!completed) { replace = true; return null; }
                 return result;
             }
             catch
             {
-                DisposeSharedProcess();
+                replace = true;
                 return null;
+            }
+        }
+        finally
+        {
+            if (handle != null)
+            {
+                if (replace || !handle.IsAlive)
+                {
+                    handle.Dispose();
+                    var scriptPath = ResolveScriptPath();
+                    var python = FindPython();
+                    if (!string.IsNullOrEmpty(scriptPath) && !string.IsNullOrEmpty(python))
+                    {
+                        var fresh = StartProcess(scriptPath!, python!);
+                        if (fresh != null && _processPool != null)
+                        {
+                            try { _processPool.Add(fresh); } catch { fresh.Dispose(); }
+                        }
+                    }
+                }
+                else
+                {
+                    try { _processPool?.Add(handle); } catch { handle.Dispose(); }
+                }
             }
         }
     }

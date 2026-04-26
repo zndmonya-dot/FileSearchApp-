@@ -1,4 +1,5 @@
 // Lucene.NET によるインデックス作成・更新・削除。Sudachi 形態素解析（モード C）でトークナイズ。
+using System.Collections.Concurrent;
 using FullTextSearch.Core;
 using FullTextSearch.Core.Extractors;
 using FullTextSearch.Core.Index;
@@ -22,15 +23,29 @@ public class LuceneIndexService : IIndexService, IDisposable
     private const LuceneVersion AppLuceneVersion = LuceneVersion.LUCENE_48;
     /// <summary>並列テキスト抽出数（I/O 飽和を狙った値）</summary>
     private const int ParallelExtractCount = 48;
+    /// <summary>
+    /// IndexWriter への並列追加数（並列トークン化数）。<see cref="SudachiTokenizer.PoolSize"/> と一致させ、
+    /// 各書込スレッドが SudachiPy プロセスプールから 1 つずつ取得して並列にトークン化できるようにする。
+    /// </summary>
+    private static readonly int IndexerParallelism = SudachiTokenizer.PoolSize;
 
     private readonly TextExtractorFactory _extractorFactory;
     private FSDirectory? _directory;
     private IndexWriter? _writer;
     private Analyzer? _analyzer;
+    /// <summary>初期化／破棄／ロールバック等のライフサイクル境界を保護するロック。書込（UpdateDocument 等）はスレッドセーフな IndexWriter に任せて取らない。</summary>
     private readonly object _lock = new();
+    /// <summary><see cref="_skippedFiles"/> への並列追加を保護する。</summary>
+    private readonly object _skippedLock = new();
     private bool _disposed;
     private IndexRebuildOptions? _currentRebuildOptions;
     private readonly List<string> _skippedFiles = new();
+
+    /// <summary>並列処理から安全にスキップ一覧へ追加する。</summary>
+    private void AddSkipped(string path)
+    {
+        lock (_skippedLock) _skippedFiles.Add(path);
+    }
 
     /// <inheritdoc />
     public IReadOnlyList<string> LastSkippedFiles => _skippedFiles;
@@ -99,6 +114,14 @@ public class LuceneIndexService : IIndexService, IDisposable
                 OpenMode = OpenMode.CREATE_OR_APPEND,
                 RAMBufferSizeMB = 512  // 高速化: メモリに溜めてからフラッシュ
             };
+            // 並列インデックス追加にあわせてマージも並列化する。
+            // - maxThreadCount: 同時に走るマージスレッド数（CPU の半分まで、上限 4）
+            // - maxMergeCount : 待機キューに積めるマージ最大数（threads + 余裕）
+            // 既定（threads=1）は大量追加時にマージが詰まり書込スループットが頭打ちになるため明示する。
+            var cms = new ConcurrentMergeScheduler();
+            var mergeThreads = Math.Max(1, Math.Min(Environment.ProcessorCount / 2, 4));
+            cms.SetMaxMergesAndThreads(mergeThreads + 2, mergeThreads);
+            config.MergeScheduler = cms;
 
             _writer = new IndexWriter(_directory, config);
         }
@@ -535,32 +558,47 @@ public class LuceneIndexService : IIndexService, IDisposable
     }
 
     /// <summary>
-    /// ライターに複数ドキュメントを一括追加。Commit は呼ばない。エラー時はスキップして次へ進み、失敗件数を返す。
-    /// 1 件追加するごとにキャンセルを確認するため、キャンセル要求から即座に処理を打ち切れる。
+    /// ライターに複数ドキュメントを並列で一括追加。Commit は呼ばない。エラー時はスキップして次へ進み、失敗件数を返す。
+    /// IndexWriter はスレッドセーフのため <c>_lock</c> は取らない。各スレッドがそれぞれ
+    /// SudachiPy プロセスプールから 1 つ取得して並列にトークン化することで、トークン化が直列だった
+    /// 旧実装のボトルネックを解消する。並列度は <see cref="IndexerParallelism"/>。
     /// </summary>
-    private int AddDocumentsToWriterWithoutCommit(IEnumerable<IndexedDocument> documents, CancellationToken cancellationToken)
+    private int AddDocumentsToWriterWithoutCommit(IReadOnlyList<IndexedDocument> documents, CancellationToken cancellationToken)
     {
+        if (documents.Count == 0) return 0;
         var failCount = 0;
-        foreach (var document in documents)
+        var po = new ParallelOptions
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            try
+            CancellationToken = cancellationToken,
+            MaxDegreeOfParallelism = IndexerParallelism
+        };
+        try
+        {
+            Parallel.ForEach(documents, po, document =>
             {
-                var doc = CreateLuceneDocument(document);
-                lock (_lock)
+                try
                 {
+                    var doc = CreateLuceneDocument(document);
                     _writer!.UpdateDocument(new Term(FieldFilePath, document.FilePath), doc);
                 }
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch
-            {
-                _skippedFiles.Add(document.FilePath);
-                failCount++;
-            }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch
+                {
+                    AddSkipped(document.FilePath);
+                    Interlocked.Increment(ref failCount);
+                }
+            });
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (AggregateException ae) when (ae.InnerExceptions.All(e => e is OperationCanceledException))
+        {
+            throw new OperationCanceledException(cancellationToken);
         }
         return failCount;
     }
@@ -594,7 +632,7 @@ public class LuceneIndexService : IIndexService, IDisposable
         {
             if (docs[j] == null)
             {
-                _skippedFiles.Add(chunk[j]);
+                AddSkipped(chunk[j]);
                 skippedCount++;
             }
         }

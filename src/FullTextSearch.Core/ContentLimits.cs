@@ -13,13 +13,13 @@ public static class ContentLimits
     public const int LuceneMaxTermUtf8Bytes = 32765;
 
     /// <summary>1 ドキュメントあたりインデックスに格納する最大文字数。超えた分は打ち切り。</summary>
-    public const int IndexMaxContentChars = 500_000;
+    public const int IndexMaxContentChars = 100_000;
 
     /// <summary>このサイズ（バイト）を超えるファイルは本文抽出せず、パス・ファイル名等のメタデータのみインデックスする。</summary>
     public static readonly long IndexMaxFileBytesForExtract = 50L * 1024 * 1024; // 50MB
 
     /// <summary>抽出器が返す最大文字数（Office/PDF）。これ以上は打ち切る。</summary>
-    public const int ExtractMaxChars = 500_000;
+    public const int ExtractMaxChars = 100_000;
 
     /// <summary>プレビューを試みる最大ファイルサイズ（バイト）。超える場合は抽出せずエラー表示。</summary>
     public static readonly long PreviewMaxFileBytes = 10L * 1024 * 1024; // 10MB
