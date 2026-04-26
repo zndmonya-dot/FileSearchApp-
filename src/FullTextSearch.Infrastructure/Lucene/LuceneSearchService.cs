@@ -25,9 +25,16 @@ namespace FullTextSearch.Infrastructure.Lucene;
 public class LuceneSearchService : ISearchService, IDisposable
 {
     private const LuceneVersion AppLuceneVersion = LuceneVersion.LUCENE_48;
-    /// <summary>ハイライト抜粋の最大文字数</summary>
+    /// <summary>
+    /// ハイライト抜粋 1 件あたりの最大文字数。
+    /// 短すぎると一致語の文脈が読み取れず、長すぎるとプレビュー UI を圧迫するため、
+    /// 業務文書の 1 文〜2 文程度を想定して 100 に設定。
+    /// </summary>
     private const int HighlightFragmentSize = 100;
-    /// <summary>1 ドキュメントあたりのハイライト箇所の最大数</summary>
+    /// <summary>
+    /// 1 ドキュメントあたりに表示するハイライト断片の最大数。
+    /// プレビューの可読性とハイライト計算コスト（Highlighter は本文を再走査するため重い）の両立のため 5 件に制限。
+    /// </summary>
     private const int MaxHighlights = 5;
 
     private readonly IAppSettingsService _settingsService;
@@ -346,11 +353,23 @@ public class LuceneSearchService : ISearchService, IDisposable
         }
     }
 
-    /// <summary>ファイル名一致時のスコアブースト係数。</summary>
+    /// <summary>
+    /// ファイル名一致時のスコアブースト係数。
+    /// ファイル名は本文より語数が圧倒的に少なくスコアが沈みやすいので、本文側より大きく重み付けする。
+    /// 「本文の通常一致を上回り、かつ本文一致を完全に隠さない」バランスとして 2.5 を採用。
+    /// </summary>
     private const float FilenameBoost = 2.5f;
-    /// <summary>クエリに分解する語の最大数。</summary>
+    /// <summary>
+    /// 1 検索クエリで分解処理する単語の最大数。
+    /// ユーザがスペース区切りで大量の語を貼り付けた場合の DoS 的な負荷（Sudachi 呼び出し・Wildcard 展開）を抑えるための上限。
+    /// 64 語あれば通常の AND 検索には十分。
+    /// </summary>
     private const int MaxQueryTerms = 64;
-    /// <summary>BooleanQuery に積む句の最大数。</summary>
+    /// <summary>
+    /// 最終的に組み立てる BooleanQuery の節数の上限。
+    /// Lucene.NET の既定上限（1024）を大きく下回る安全値。1 語あたり「本文一致 ＋ ファイル名一致」で最大 2 節を消費するため
+    /// MaxQueryTerms の 4 倍程度を確保している。
+    /// </summary>
     private const int MaxQueryClauses = 256;
 
     /// <summary>
@@ -409,7 +428,11 @@ public class LuceneSearchService : ISearchService, IDisposable
         if (userTerms.Length == 0)
             return new MatchAllDocsQuery();
 
-        // 各ユーザー入力語について: トークン化して「一続きの語」として PhraseQuery で検索する
+        // 各ユーザー入力語について: アナライザでトークン化し、
+        //   1 トークン   → 部分一致できる WildcardQuery("*token*")
+        //   複数トークン → 一続きの語として PhraseQuery（語間の揺れに備えて Slop=1）
+        // を組み立てる。SudachiAnalyzer は ASCII を小文字化してパススルーするため、
+        // ASCII / 日本語で分岐を分ける必要はない（フォールバックは生入力の小文字版でワイルドカード）。
         var queryList = new List<Query>(Math.Min(userTerms.Length, MaxQueryClauses));
         foreach (var userTerm in userTerms)
         {
@@ -417,45 +440,17 @@ public class LuceneSearchService : ISearchService, IDisposable
             if (string.IsNullOrWhiteSpace(userTerm)) continue;
 
             var trimmed = userTerm.Trim();
-            var isAsciiWord = trimmed.Length > 0 && trimmed.All(c => char.IsLetterOrDigit(c) || c == '_');
-            var termForWildcard = isAsciiWord ? trimmed.ToLowerInvariant() : trimmed;
+            // フォールバック / ファイル名検索用: アナライザを通さない素の小文字キー
+            var rawWildcard = trimmed.ToLowerInvariant();
 
-            Query? contentQuery;
-            if (isAsciiWord)
-            {
-                contentQuery = !string.IsNullOrEmpty(termForWildcard)
-                    ? new WildcardQuery(new Term(LuceneIndexService.FieldContent, $"*{termForWildcard}*"))
-                    : null;
-            }
-            else
-            {
-                var tokens = GetTokensFromAnalyzer(analyzer, userTerm);
-                if (tokens.Count == 0)
-                    contentQuery = !string.IsNullOrEmpty(termForWildcard) ? new WildcardQuery(new Term(LuceneIndexService.FieldContent, $"*{termForWildcard}*")) : null;
-                else if (tokens.Count == 1)
-                    contentQuery = new WildcardQuery(new Term(LuceneIndexService.FieldContent, $"*{tokens[0].ToLowerInvariant()}*"));
-                else
-                {
-                    var phraseQuery = new PhraseQuery { Slop = 1 };
-                    foreach (var token in tokens)
-                    {
-                        if (string.IsNullOrEmpty(token)) continue;
-                        phraseQuery.Add(new Term(LuceneIndexService.FieldContent, token));
-                    }
-                    var phraseTerms = phraseQuery.GetTerms();
-                    contentQuery = phraseTerms.Length == 0 ? null
-                        : phraseTerms.Length == 1 ? new WildcardQuery(new Term(LuceneIndexService.FieldContent, $"*{phraseTerms[0].Text.ToLowerInvariant()}*"))
-                        : phraseQuery;
-                }
-            }
-
+            var contentQuery = BuildContentQueryForTerm(analyzer, userTerm, rawWildcard);
             if (contentQuery == null) continue;
 
             // ファイル名も検索し、一致時はスコアをブースト
             Query? filenameQuery = null;
-            if (termForWildcard.Length > 0)
+            if (rawWildcard.Length > 0)
             {
-                var fq = new WildcardQuery(new Term(LuceneIndexService.FieldFileName, $"*{termForWildcard}*"));
+                var fq = new WildcardQuery(new Term(LuceneIndexService.FieldFileName, $"*{rawWildcard}*"));
                 fq.Boost = FilenameBoost;
                 filenameQuery = fq;
             }
@@ -480,19 +475,38 @@ public class LuceneSearchService : ISearchService, IDisposable
     }
 
     /// <summary>
-    /// 特殊文字をエスケープ
+    /// 1 ユーザー入力語に対する本文側クエリを生成する。
+    /// アナライザでトークン化し、1 トークンならワイルドカード、複数トークンなら PhraseQuery を返す。
+    /// トークン化に失敗 / 0 件の場合は <paramref name="rawWildcard"/> を素のワイルドカードとしてフォールバック。
     /// </summary>
-    private static string EscapeQuery(string query)
+    private static Query? BuildContentQueryForTerm(Analyzer analyzer, string userTerm, string rawWildcard)
     {
-        // Luceneの特殊文字をエスケープ
-        var specialChars = new[] { '+', '-', '&', '|', '!', '(', ')', '{', '}', '[', ']', '^', '"', '~', '*', '?', ':', '\\', '/' };
-
-        foreach (var c in specialChars)
+        var tokens = GetTokensFromAnalyzer(analyzer, userTerm);
+        if (tokens.Count == 0)
         {
-            query = query.Replace(c.ToString(), $"\\{c}");
+            return string.IsNullOrEmpty(rawWildcard)
+                ? null
+                : new WildcardQuery(new Term(LuceneIndexService.FieldContent, $"*{rawWildcard}*"));
         }
 
-        return query;
+        if (tokens.Count == 1)
+        {
+            return new WildcardQuery(new Term(LuceneIndexService.FieldContent, $"*{tokens[0]}*"));
+        }
+
+        var phraseQuery = new PhraseQuery { Slop = 1 };
+        foreach (var token in tokens)
+        {
+            if (string.IsNullOrEmpty(token)) continue;
+            phraseQuery.Add(new Term(LuceneIndexService.FieldContent, token));
+        }
+        var phraseTerms = phraseQuery.GetTerms();
+        return phraseTerms.Length switch
+        {
+            0 => null,
+            1 => new WildcardQuery(new Term(LuceneIndexService.FieldContent, $"*{phraseTerms[0].Text}*")),
+            _ => phraseQuery,
+        };
     }
 
     /// <inheritdoc />
