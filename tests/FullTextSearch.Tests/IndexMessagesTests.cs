@@ -25,6 +25,11 @@ public class IndexMessagesTests
     [InlineData(".docx", "Word文書")]
     [InlineData(".PDF", "PDFファイル")]
     [InlineData(".unknown", "ファイル")]
+    [InlineData(".xlsx", "Excelブック")]
     public void GetFileTypeDisplayName_maps_extension(string ext, string expected) =>
         Assert.Equal(expected, IndexMessages.GetFileTypeDisplayName(ext));
+
+    [Fact]
+    public void GetFileTypeDisplayName_mixed_case_with_dot_uses_type_map() =>
+        Assert.Equal("PDFファイル", IndexMessages.GetFileTypeDisplayName(".Pdf"));
 }

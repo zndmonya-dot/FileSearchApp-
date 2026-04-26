@@ -16,6 +16,9 @@ public class PreviewHelperTests
     [InlineData("C:\\path\\to\\file.cs", ".cs")]
     [InlineData("/path/to/file.js", ".js")]
     [InlineData("  .md  ", ".md")]
+    [InlineData(@"C:\z\a.c", ".c")]
+    [InlineData(@"C:\z\y.double.ext", ".ext")]
+    [InlineData(@"C:\z\子\file.日本語", ".日本語")]
     public void NormalizeExtension_ReturnsNormalized(string? input, string expected)
     {
         var result = PreviewHelper.NormalizeExtension(input ?? "");

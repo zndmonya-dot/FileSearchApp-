@@ -1,11 +1,11 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    50MB 超ファイルによるインデックス「スキップ」の再現用フォルダを作成する。
+    10MB 超ファイルによるインデックス「スキップ」の再現用フォルダを作成する。
 
 .DESCRIPTION
     - small_searchable.txt … 検索できる小さなテキスト
-    - oversize_51mb.bin    … 約 51MB（ContentLimits.IndexMaxFileBytesForExtract 超過でスキップ対象）
+    - oversize_11mb.bin   … 約 11MB（ContentLimits.IndexMaxFileBytesForExtract=10MB 超過でスキップ対象）
 
 .PARAMETER OutputPath
     作成先ディレクトリ。未指定時は %TEMP%\FullTextSearch_SkipRepro_<日時>
@@ -16,8 +16,8 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-# 50MB 超（Core の IndexMaxFileBytesForExtract と一致させるなら 50*1024*1024 より大きいこと）
-$oversizeBytes = 51L * 1024L * 1024L
+# 10MB 超（IndexMaxFileBytesForExtract=10*1024*1024 より大きいこと。再現用に 11MB）
+$oversizeBytes = 11L * 1024L * 1024L
 
 if ([string]::IsNullOrWhiteSpace($OutputPath)) {
     $stamp = Get-Date -Format "yyyyMMdd_HHmmss"
@@ -36,7 +36,7 @@ $utf8NoBom = New-Object System.Text.UTF8Encoding $false
 検索語サンプル: 再現用
 "@, $utf8NoBom)
 
-$big = Join-Path $OutputPath "oversize_51mb.bin"
+$big = Join-Path $OutputPath "oversize_11mb.bin"
 Write-Host "作成中: $big （約 $([math]::Round($oversizeBytes / 1MB, 0)) MB）…"
 
 $bufferSize = 1MB
@@ -63,4 +63,4 @@ Write-Host "完了。テスト用フォルダ:" -ForegroundColor Green
 Write-Host "  $OutputPath"
 Write-Host ""
 Write-Host "アプリの「検索対象フォルダ」に上記パスを追加し、全体を再構築してください。" -ForegroundColor Cyan
-Write-Host "oversize_51mb.bin がスキップされ、small_searchable.txt はインデックスされます。" -ForegroundColor Cyan
+Write-Host "oversize_11mb.bin がスキップされ、small_searchable.txt はインデックスされます。" -ForegroundColor Cyan

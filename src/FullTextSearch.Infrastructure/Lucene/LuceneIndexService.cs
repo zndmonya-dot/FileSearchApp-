@@ -525,7 +525,7 @@ public class LuceneIndexService : IIndexService, IDisposable
         try
         {
             var fileInfo = new FileInfo(filePath);
-            if (fileInfo.Length > ContentLimits.IndexMaxFileBytesForExtract)
+            if (ContentLimits.ExceedsIndexTextExtractionFileSizeLimit(fileInfo.Length))
                 return null;
 
             var extension = fileInfo.Extension.ToLowerInvariant();

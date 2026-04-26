@@ -15,8 +15,15 @@ public static class ContentLimits
     /// <summary>1 ドキュメントあたりインデックスに格納する最大文字数。超えた分は打ち切り。</summary>
     public const int IndexMaxContentChars = 100_000;
 
-    /// <summary>このサイズ（バイト）を超えるファイルは本文抽出せず、パス・ファイル名等のメタデータのみインデックスする。</summary>
-    public static readonly long IndexMaxFileBytesForExtract = 50L * 1024 * 1024; // 50MB
+    /// <summary>このサイズ（バイト）を超えるファイルは本文抽出せず、パス・ファイル名等のメタデータのみインデックスする。プレビュー・テキスト読み込み上限（各 10MB）と同じしきい値に揃えている。</summary>
+    public static readonly long IndexMaxFileBytesForExtract = 10L * 1024 * 1024; // 10MB
+
+    /// <summary>
+    /// 本文抽出（全文読込）に対象にしないサイズとみなすか。要件 REQ-2.5。判定は厳密に <b>閾値より大きい</b>場合のみ true
+    /// （ちょうど 10,485,760 バイト＝ 10MB のファイルは本文抽出の対象。インデックスのスキップロジックと同じ式）。
+    /// </summary>
+    public static bool ExceedsIndexTextExtractionFileSizeLimit(long fileSizeBytes) =>
+        fileSizeBytes > IndexMaxFileBytesForExtract;
 
     /// <summary>抽出器が返す最大文字数（Office/PDF）。これ以上は打ち切る。</summary>
     public const int ExtractMaxChars = 100_000;

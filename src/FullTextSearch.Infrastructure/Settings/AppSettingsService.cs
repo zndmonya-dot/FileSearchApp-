@@ -11,8 +11,8 @@ namespace FullTextSearch.Infrastructure.Settings;
 /// </summary>
 public class AppSettingsService : IAppSettingsService
 {
-    /// <summary>設定ファイルのパス（LocalApplicationData/FullTextSearch/settings.json）</summary>
-    private static readonly string SettingsPath = Path.Combine(
+    /// <summary>設定ファイルのパス（LocalApplicationData/FullTextSearch/settings.json）。<see cref="AppSettingsService(TextExtractorFactory, string?)"/> の <c>settingsFilePath</c> で上書き可能（単体テスト用）。</summary>
+    private static readonly string DefaultSettingsPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "FullTextSearch",
         "settings.json");
@@ -25,14 +25,18 @@ public class AppSettingsService : IAppSettingsService
 
     private readonly object _lock = new();
     private readonly TextExtractorFactory _extractorFactory;
+    private readonly string _settingsPath;
 
     /// <summary>現在メモリ上の設定（<see cref="LoadAsync"/> / <see cref="SaveAsync"/> と同期）。</summary>
     public AppSettings Settings { get; private set; } = new();
 
-    /// <summary>抽出器ファクトリは初回読み込み時に対象拡張子を初期化するために使用する。</summary>
-    public AppSettingsService(TextExtractorFactory extractorFactory)
+    /// <summary>抽出器ファクトリを指定してサービスを初期化する。</summary>
+    /// <param name="extractorFactory">抽出器ファクトリ。初回読み込み時の対象拡張子初期化に使う。</param>
+    /// <param name="settingsFilePath">設定 JSON のパス。未指定のとき <c>LocalApplicationData/FullTextSearch/settings.json</c>（単体テストでは一時パスを渡せる）。</param>
+    public AppSettingsService(TextExtractorFactory extractorFactory, string? settingsFilePath = null)
     {
         _extractorFactory = extractorFactory;
+        _settingsPath = string.IsNullOrWhiteSpace(settingsFilePath) ? DefaultSettingsPath : settingsFilePath;
     }
 
     /// <summary>設定ファイルを読み込む。存在しない場合は初回用に拡張子を設定して保存する。</summary>
@@ -40,7 +44,7 @@ public class AppSettingsService : IAppSettingsService
     {
         try
         {
-            if (!File.Exists(SettingsPath))
+            if (!File.Exists(_settingsPath))
             {
                 // 初回: 対象拡張子は抽出器が対応する全拡張子を動的に設定
                 lock (_lock)
@@ -52,7 +56,7 @@ public class AppSettingsService : IAppSettingsService
                 return;
             }
 
-            var json = await File.ReadAllTextAsync(SettingsPath, cancellationToken);
+            var json = await File.ReadAllTextAsync(_settingsPath, cancellationToken);
             var settings = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions);
 
             if (settings != null)
@@ -76,7 +80,7 @@ public class AppSettingsService : IAppSettingsService
     {
         try
         {
-            var directory = Path.GetDirectoryName(SettingsPath);
+            var directory = Path.GetDirectoryName(_settingsPath);
             if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
             {
                 Directory.CreateDirectory(directory);
@@ -88,7 +92,7 @@ public class AppSettingsService : IAppSettingsService
                 json = JsonSerializer.Serialize(Settings, JsonOptions);
             }
 
-            await File.WriteAllTextAsync(SettingsPath, json, cancellationToken);
+            await File.WriteAllTextAsync(_settingsPath, json, cancellationToken);
         }
         catch (Exception)
         {

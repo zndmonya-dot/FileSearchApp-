@@ -138,9 +138,9 @@ classDiagram
     class ContentLimits {
         <<static>>
         +LuceneMaxTermUtf8Bytes : int = 32765
-        +IndexMaxContentChars : int = 500000
-        +IndexMaxFileBytesForExtract : long = 50MB
-        +ExtractMaxChars : int = 500000
+        +IndexMaxContentChars : int = 100000
+        +IndexMaxFileBytesForExtract : long = 10MB
+        +ExtractMaxChars : int = 100000
         +PreviewMaxFileBytes : long = 10MB
         +MaxTextFileBytesToRead : long = 10MB
         +PreviewMaxChars : int = 50000
@@ -481,7 +481,7 @@ sequenceDiagram
             Ext-->>Index: テキスト（100,000文字で打ち切り）
         end
 
-        alt 50MB超 or 抽出エラー
+        alt 10MB超 or 抽出エラー
             Index->>Index: _skippedFiles に記録
         else 正常
             Index->>Index: CreateLuceneDocument（100,000文字で打ち切り）
