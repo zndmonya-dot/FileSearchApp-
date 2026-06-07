@@ -66,6 +66,8 @@ public class LuceneIndexService : IIndexService, IDisposable
     public const string FieldFileType = "filetype";
     /// <summary>インデックス登録日時（Ticks）。</summary>
     public const string FieldIndexedAt = "indexedat";
+    /// <summary>完全一致検索の候補絞り込み用の文字バイグラム索引（本文＋ファイル名、非格納）。<see cref="ContentNGram"/> 参照。</summary>
+    public const string FieldContentNGram = "content_ngram";
 
     /// <summary>テキスト抽出に使うファクトリを注入する。</summary>
     public LuceneIndexService(TextExtractorFactory extractorFactory)
@@ -755,6 +757,8 @@ public class LuceneIndexService : IIndexService, IDisposable
             new TextField(FieldFileName, doc.FileName, Field.Store.YES),
             new StringField(FieldFolderPath, doc.FolderPath, Field.Store.YES),
             new TextField(FieldContent, content, Field.Store.YES),
+            // 完全一致検索の候補絞り込み用バイグラム（事前生成したトークン列をそのまま索引、本文の Sudachi 解析とは独立）
+            new TextField(FieldContentNGram, new ListTokenStream(ContentNGram.BuildIndexTokens(content, doc.FileName))),
             new Int64Field(FieldFileSize, doc.FileSize, Field.Store.YES),
             new Int64Field(FieldLastModified, doc.LastModified.Ticks, Field.Store.YES),
             new StringField(FieldFileType, doc.FileType, Field.Store.YES),

@@ -62,6 +62,11 @@ public record SearchOptions
     /// ハイライトをスキップする（一覧のみでプレビュー不要な場合の高速化）
     /// </summary>
     public bool SkipHighlights { get; init; }
+
+    /// <summary>
+    /// 検索モード（キーワード AND / 語句 / いずれか OR）
+    /// </summary>
+    public SearchMode SearchMode { get; init; } = SearchMode.Keyword;
 }
 
 /// <summary>

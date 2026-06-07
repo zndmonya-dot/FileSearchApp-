@@ -56,6 +56,15 @@ public partial class Home
         _lastSearchActivityUtc = DateTime.UtcNow;
     }
 
+    /// <summary>検索モード変更。直前に検索済みの語句があれば同条件で再検索する。</summary>
+    private async Task OnSearchModeChangedAsync(SearchMode mode)
+    {
+        searchMode = mode;
+        _lastSearchActivityUtc = DateTime.UtcNow;
+        if (!string.IsNullOrWhiteSpace(_lastExecutedSearchQuery))
+            await ExecuteSearch();
+    }
+
     /// <summary>入力イベント用フック（検索操作の活動時刻を記録）。</summary>
     private void OnSearchInputChanged()
     {
@@ -79,7 +88,11 @@ public partial class Home
         try
         {
             const int searchLimit = 100_000; // 検索結果の最大件数
-            var result = await SearchService.SearchAsync(query, new SearchOptions { MaxResults = searchLimit }, token);
+            var result = await SearchService.SearchAsync(query, new SearchOptions
+            {
+                MaxResults = searchLimit,
+                SearchMode = searchMode,
+            }, token);
             if (token.IsCancellationRequested) return;
             treeNodes = TreeBuilder.BuildTree(SettingsService.Settings.TargetFolders, result.Items);
             totalFileCount = result.Items.Count;

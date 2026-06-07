@@ -9,7 +9,6 @@ using FullTextSearch.Core.Search;
 using FullTextSearch.Infrastructure.Settings;
 using FullTextSearch.Infrastructure.Sudachi;
 using Lucene.Net.Analysis;
-using Lucene.Net.Analysis.TokenAttributes;
 using Lucene.Net.Index;
 using Lucene.Net.QueryParsers.Classic;
 using Lucene.Net.Search;
@@ -104,59 +103,79 @@ public class LuceneSearchService : ISearchService, IDisposable
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
-                    var luceneQuery = BuildPartialMatchQuery(query, analyzer);
-                    var boolQuery = new BooleanQuery { { luceneQuery, Occur.MUST } };
-
-                    if (options.FileTypeFilter != null && options.FileTypeFilter.Count > 0)
-                    {
-                        var typeQuery = new BooleanQuery();
-                        foreach (var fileType in options.FileTypeFilter)
-                            typeQuery.Add(new TermQuery(new Term(LuceneIndexService.FieldFileType, fileType)), Occur.SHOULD);
-                        boolQuery.Add(typeQuery, Occur.MUST);
-                    }
-
-                    if (options.DateFrom.HasValue || options.DateTo.HasValue)
-                    {
-                        var from = options.DateFrom?.Ticks ?? long.MinValue;
-                        var to = options.DateTo?.Ticks ?? long.MaxValue;
-                        boolQuery.Add(NumericRangeQuery.NewInt64Range(LuceneIndexService.FieldLastModified, from, to, true, true), Occur.MUST);
-                    }
-
-                    if (!string.IsNullOrEmpty(options.FolderFilter))
-                        boolQuery.Add(new PrefixQuery(new Term(LuceneIndexService.FieldFolderPath, options.FolderFilter)), Occur.MUST);
+                    var normalizedQuery = SearchQueryParser.NormalizeQueryString(query);
+                    var isExactMatchMode = options.SearchMode == SearchMode.Phrase;
+                    var luceneQuery = isExactMatchMode
+                        ? BuildExactCandidateQuery(normalizedQuery, searcher.IndexReader)
+                        : SearchQueryParser.BuildQuery(
+                            query,
+                            analyzer,
+                            options.SearchMode,
+                            MaxQueryTerms,
+                            MaxQueryClauses,
+                            FilenameBoost);
+                    var boolQuery = AppendSearchFilters(new BooleanQuery { { luceneQuery, Occur.MUST } }, options);
 
                     cancellationToken.ThrowIfCancellationRequested();
-                    var topDocs = searcher.Search(boolQuery, options.MaxResults);
-                    var totalHits = topDocs.TotalHits;
-                    var hitCount = topDocs.ScoreDocs.Length;
+
+                    // 完全一致: バイグラム候補（旧インデックスでは全件）を走査し、保存本文への連続一致で確定。
+                    //           ヒット doc を MaxResults まで収集して打ち切るため、巨大な優先度キューを作らない。
+                    // 通常検索: スコア順に上位 MaxResults 件を取得。
+                    IReadOnlyList<int> exactDocIds = Array.Empty<int>();
+                    TopDocs? topDocs = null;
+                    int totalHits;
+                    if (isExactMatchMode)
+                    {
+                        var collector = new ExactMatchCollector(normalizedQuery, options.MaxResults);
+                        try { searcher.Search(boolQuery, collector); }
+                        catch (CollectionTerminatedException) { /* MaxResults 到達で打ち切り */ }
+                        exactDocIds = collector.MatchedGlobalDocIds;
+                        totalHits = exactDocIds.Count;
+                    }
+                    else
+                    {
+                        topDocs = searcher.Search(boolQuery, options.MaxResults);
+                        totalHits = topDocs.TotalHits;
+                    }
 
                     var skipHighlights = options.SkipHighlights;
                     Highlighter? highlighter = null;
-                    if (!skipHighlights)
+                    if (!skipHighlights && !isExactMatchMode)
                     {
                         var formatter = new SimpleHTMLFormatter("[", "]");
                         var scorer = new QueryScorer(luceneQuery);
                         highlighter = new Highlighter(formatter, scorer) { TextFragmenter = new SimpleFragmenter(HighlightFragmentSize) };
                     }
 
-                    var contentsForBatch = new List<string?>(hitCount);
-                    var docInfos = new List<(string filePath, string fileName, string folderPath, long fileSize, long lastMod, string fileType, float score)>(hitCount);
-                    foreach (var scoreDoc in topDocs.ScoreDocs)
+                    // 完全一致は収集済み doc 群（既に連続一致確定済み）、通常検索はスコア順 doc を共通処理する。
+                    var hits = isExactMatchMode
+                        ? exactDocIds.Select(id => (DocId: id, Score: 0f))
+                        : topDocs!.ScoreDocs.Select(sd => (DocId: sd.Doc, Score: sd.Score));
+
+                    var contentsForBatch = new List<string?>();
+                    var docInfos = new List<(string filePath, string fileName, string folderPath, long fileSize, long lastMod, string fileType, float score)>();
+                    foreach (var (docId, score) in hits)
                     {
                         cancellationToken.ThrowIfCancellationRequested();
-                        var doc = searcher.Doc(scoreDoc.Doc);
-                        var content = !skipHighlights && highlighter != null ? doc.Get(LuceneIndexService.FieldContent) : null;
+
+                        var doc = searcher.Doc(docId);
+                        var storedContent = doc.Get(LuceneIndexService.FieldContent) ?? "";
+                        var fileName = doc.Get(LuceneIndexService.FieldFileName) ?? "";
+
+                        var content = !skipHighlights && (highlighter != null || isExactMatchMode) ? storedContent : null;
                         contentsForBatch.Add(content);
                         docInfos.Add((
                             doc.Get(LuceneIndexService.FieldFilePath) ?? "",
-                            doc.Get(LuceneIndexService.FieldFileName) ?? "",
+                            fileName,
                             doc.Get(LuceneIndexService.FieldFolderPath) ?? "",
                             long.TryParse(doc.Get(LuceneIndexService.FieldFileSize), out var sz) ? sz : 0,
                             long.TryParse(doc.Get(LuceneIndexService.FieldLastModified), out var ticks) ? ticks : 0,
                             doc.Get(LuceneIndexService.FieldFileType) ?? "",
-                            scoreDoc.Score
+                            score
                         ));
                     }
+
+                    var filteredHitCount = docInfos.Count;
 
                     List<List<string>>? batchTokenLists = null;
                     if (!skipHighlights && highlighter != null && contentsForBatch.Count > 0)
@@ -165,14 +184,18 @@ public class LuceneSearchService : ISearchService, IDisposable
                         batchTokenLists = SudachiTokenizer.InvokeSudachiBatch(nonNullContents);
                     }
 
-                    var results = new List<SearchResultItem>(hitCount);
-                    for (var i = 0; i < hitCount; i++)
+                    var results = new List<SearchResultItem>(filteredHitCount);
+                    for (var i = 0; i < filteredHitCount; i++)
                     {
                         cancellationToken.ThrowIfCancellationRequested();
                         var info = docInfos[i];
                         var content = contentsForBatch[i];
                         var highlights = new List<MatchHighlight>(MaxHighlights);
-                        if (!skipHighlights && highlighter != null && !string.IsNullOrEmpty(content))
+                        if (!skipHighlights && isExactMatchMode && !string.IsNullOrEmpty(content))
+                        {
+                            highlights.AddRange(ExactMatchHelper.BuildHighlights(content, normalizedQuery, HighlightFragmentSize, MaxHighlights));
+                        }
+                        else if (!skipHighlights && highlighter != null && !string.IsNullOrEmpty(content))
                         {
                             try
                             {
@@ -222,7 +245,7 @@ public class LuceneSearchService : ISearchService, IDisposable
                     {
                         Query = query,
                         Items = results,
-                        TotalHits = totalHits,
+                        TotalHits = isExactMatchMode ? results.Count : totalHits,
                         ElapsedMilliseconds = stopwatch.ElapsedMilliseconds
                     };
                 }
@@ -373,140 +396,121 @@ public class LuceneSearchService : ISearchService, IDisposable
     private const int MaxQueryClauses = 256;
 
     /// <summary>
-    /// アナライザで文字列をトークン化してトークン文字列のリストを返す。失敗時は空リスト（検索はワイルドカードにフォールバック）。
+    /// 1 つの完全一致クエリで MUST にできるバイグラム数の上限。
+    /// バイグラムは多いほど候補が絞れるが、Lucene の BooleanQuery 節数上限（既定 1024）に達しないよう抑える。
+    /// MUST 節を減らしても候補集合は広がるだけで取りこぼしは起きない（完全性は保たれる）ため、上限で打ち切ってよい。
     /// </summary>
-    private static List<string> GetTokensFromAnalyzer(Analyzer analyzer, string text)
+    private const int ExactNGramMaxClauses = 64;
+
+    /// <summary>
+    /// 完全一致検索の候補絞り込みクエリを作る。
+    /// 検索語の文字バイグラムをすべて含む文書（＝連続一致の上位集合）に候補を限定する。
+    /// 1 文字以下、またはバイグラム索引を持たない旧インデックスでは全件走査（<see cref="MatchAllDocsQuery"/>）へフォールバックする。
+    /// 最終的な連続一致の確定は <see cref="ExactMatchCollector"/>（<see cref="ExactMatchHelper"/>）が行う。
+    /// </summary>
+    private static Query BuildExactCandidateQuery(string normalizedQuery, IndexReader reader)
     {
-        if (string.IsNullOrWhiteSpace(text)) return [];
+        var grams = ContentNGram.BuildQueryGrams(normalizedQuery);
+        if (grams.Count == 0)
+            return new MatchAllDocsQuery();
+
+        // 旧インデックス（バイグラム未収録）では候補を作れないため全件走査にフォールバック。
         try
         {
-            var list = new List<string>();
-            using var reader = new StringReader(text);
-            using var tokenStream = analyzer.GetTokenStream(LuceneIndexService.FieldContent, reader);
-            var termAttr = tokenStream.GetAttribute<ICharTermAttribute>();
-            if (termAttr == null) return list;
-            tokenStream.Reset();
-            while (tokenStream.IncrementToken())
-            {
-                var term = termAttr.ToString();
-                if (!string.IsNullOrEmpty(term)) list.Add(term);
-            }
-            tokenStream.End();
-            return list;
+            if (reader.GetDocCount(LuceneIndexService.FieldContentNGram) <= 0)
+                return new MatchAllDocsQuery();
         }
         catch
         {
-            return [];
-        }
-    }
-
-    /// <summary>
-    /// 検索クエリ文字列を正規化（前後空白・全角スペースの統一など）
-    /// </summary>
-    private static string NormalizeQueryString(string? input)
-    {
-        if (string.IsNullOrWhiteSpace(input)) return "";
-        var s = input.Trim();
-        // 全角スペースを半角に統一してトークン分割の一貫性を保つ
-        if (s.Contains('\u3000'))
-            s = s.Replace('\u3000', ' ');
-        return s;
-    }
-
-    /// <summary>
-    /// 部分一致検索用のクエリを構築する。コンテンツとファイル名の両方を検索し、ファイル名一致はスコアをブーストする。
-    /// </summary>
-    private Query BuildPartialMatchQuery(string query, Analyzer analyzer)
-    {
-        var normalized = NormalizeQueryString(query);
-        var userTerms = normalized.Split(new[] { ' ', '　' }, StringSplitOptions.RemoveEmptyEntries)
-            .Select(t => t.Trim())
-            .Where(t => t.Length > 0)
-            .Take(MaxQueryTerms)
-            .ToArray();
-
-        if (userTerms.Length == 0)
             return new MatchAllDocsQuery();
-
-        // 各ユーザー入力語について: アナライザでトークン化し、
-        //   1 トークン   → 部分一致できる WildcardQuery("*token*")
-        //   複数トークン → 一続きの語として PhraseQuery（語間の揺れに備えて Slop=1）
-        // を組み立てる。SudachiAnalyzer は ASCII を小文字化してパススルーするため、
-        // ASCII / 日本語で分岐を分ける必要はない（フォールバックは生入力の小文字版でワイルドカード）。
-        var queryList = new List<Query>(Math.Min(userTerms.Length, MaxQueryClauses));
-        foreach (var userTerm in userTerms)
-        {
-            if (queryList.Count >= MaxQueryClauses) break;
-            if (string.IsNullOrWhiteSpace(userTerm)) continue;
-
-            var trimmed = userTerm.Trim();
-            // フォールバック / ファイル名検索用: アナライザを通さない素の小文字キー
-            var rawWildcard = trimmed.ToLowerInvariant();
-
-            var contentQuery = BuildContentQueryForTerm(analyzer, userTerm, rawWildcard);
-            if (contentQuery == null) continue;
-
-            // ファイル名も検索し、一致時はスコアをブースト
-            Query? filenameQuery = null;
-            if (rawWildcard.Length > 0)
-            {
-                var fq = new WildcardQuery(new Term(LuceneIndexService.FieldFileName, $"*{rawWildcard}*"));
-                fq.Boost = FilenameBoost;
-                filenameQuery = fq;
-            }
-            var termQuery = filenameQuery != null
-                ? new BooleanQuery
-                {
-                    { contentQuery, Occur.SHOULD },
-                    { filenameQuery, Occur.SHOULD }
-                }
-                : contentQuery;
-            queryList.Add(termQuery);
         }
 
-        if (queryList.Count == 0)
-            return new MatchAllDocsQuery();
-        if (queryList.Count == 1)
-            return queryList[0];
-        var boolQuery = new BooleanQuery();
-        foreach (var q in queryList)
-            boolQuery.Add(q, Occur.MUST);
-        return boolQuery;
+        var bq = new BooleanQuery();
+        var added = 0;
+        foreach (var gram in grams)
+        {
+            if (added >= ExactNGramMaxClauses) break;
+            bq.Add(new TermQuery(new Term(LuceneIndexService.FieldContentNGram, gram)), Occur.MUST);
+            added++;
+        }
+        return bq;
     }
 
     /// <summary>
-    /// 1 ユーザー入力語に対する本文側クエリを生成する。
-    /// アナライザでトークン化し、1 トークンならワイルドカード、複数トークンなら PhraseQuery を返す。
-    /// トークン化に失敗 / 0 件の場合は <paramref name="rawWildcard"/> を素のワイルドカードとしてフォールバック。
+    /// 完全一致検索の候補を走査し、保存本文・ファイル名への連続一致（<see cref="ExactMatchHelper"/>）で確定した
+    /// グローバル doc ID を収集する。MaxResults に達したら <see cref="CollectionTerminatedException"/> で走査を打ち切る。
+    /// スコアリング・優先度キューを使わず、確定に必要な本文・ファイル名のみを読み出す。
     /// </summary>
-    private static Query? BuildContentQueryForTerm(Analyzer analyzer, string userTerm, string rawWildcard)
+    private sealed class ExactMatchCollector : ICollector
     {
-        var tokens = GetTokensFromAnalyzer(analyzer, userTerm);
-        if (tokens.Count == 0)
+        private static readonly ISet<string> ScanFields = new HashSet<string>
         {
-            return string.IsNullOrEmpty(rawWildcard)
-                ? null
-                : new WildcardQuery(new Term(LuceneIndexService.FieldContent, $"*{rawWildcard}*"));
-        }
-
-        if (tokens.Count == 1)
-        {
-            return new WildcardQuery(new Term(LuceneIndexService.FieldContent, $"*{tokens[0]}*"));
-        }
-
-        var phraseQuery = new PhraseQuery { Slop = 1 };
-        foreach (var token in tokens)
-        {
-            if (string.IsNullOrEmpty(token)) continue;
-            phraseQuery.Add(new Term(LuceneIndexService.FieldContent, token));
-        }
-        var phraseTerms = phraseQuery.GetTerms();
-        return phraseTerms.Length switch
-        {
-            0 => null,
-            1 => new WildcardQuery(new Term(LuceneIndexService.FieldContent, $"*{phraseTerms[0].Text}*")),
-            _ => phraseQuery,
+            LuceneIndexService.FieldContent,
+            LuceneIndexService.FieldFileName
         };
+
+        private readonly string _normalizedQuery;
+        private readonly int _maxResults;
+        private AtomicReader? _reader;
+        private int _docBase;
+
+        public List<int> MatchedGlobalDocIds { get; } = new();
+
+        public ExactMatchCollector(string normalizedQuery, int maxResults)
+        {
+            _normalizedQuery = normalizedQuery;
+            _maxResults = Math.Max(maxResults, 0);
+        }
+
+        public bool AcceptsDocsOutOfOrder => true;
+
+        public void SetScorer(Scorer scorer) { /* スコア不要 */ }
+
+        public void SetNextReader(AtomicReaderContext context)
+        {
+            _reader = context.AtomicReader;
+            _docBase = context.DocBase;
+        }
+
+        public void Collect(int doc)
+        {
+            if (_reader == null) return;
+            if (MatchedGlobalDocIds.Count >= _maxResults)
+                throw new CollectionTerminatedException();
+
+            var stored = _reader.Document(doc, ScanFields);
+            var content = stored.Get(LuceneIndexService.FieldContent) ?? "";
+            var fileName = stored.Get(LuceneIndexService.FieldFileName) ?? "";
+            if (!ExactMatchHelper.MatchesContentOrFileName(content, fileName, _normalizedQuery))
+                return;
+
+            MatchedGlobalDocIds.Add(_docBase + doc);
+            if (MatchedGlobalDocIds.Count >= _maxResults)
+                throw new CollectionTerminatedException();
+        }
+    }
+
+    private static BooleanQuery AppendSearchFilters(BooleanQuery boolQuery, SearchOptions options)
+    {
+        if (options.FileTypeFilter != null && options.FileTypeFilter.Count > 0)
+        {
+            var typeQuery = new BooleanQuery();
+            foreach (var fileType in options.FileTypeFilter)
+                typeQuery.Add(new TermQuery(new Term(LuceneIndexService.FieldFileType, fileType)), Occur.SHOULD);
+            boolQuery.Add(typeQuery, Occur.MUST);
+        }
+
+        if (options.DateFrom.HasValue || options.DateTo.HasValue)
+        {
+            var from = options.DateFrom?.Ticks ?? long.MinValue;
+            var to = options.DateTo?.Ticks ?? long.MaxValue;
+            boolQuery.Add(NumericRangeQuery.NewInt64Range(LuceneIndexService.FieldLastModified, from, to, true, true), Occur.MUST);
+        }
+
+        if (!string.IsNullOrEmpty(options.FolderFilter))
+            boolQuery.Add(new PrefixQuery(new Term(LuceneIndexService.FieldFolderPath, options.FolderFilter)), Occur.MUST);
+
+        return boolQuery;
     }
 
     /// <inheritdoc />

@@ -23,6 +23,8 @@
         <SearchSidebar SidebarWidth="sidebarWidth"
                       SearchQuery="@searchQuery"
                       SearchQueryChanged="OnSearchQueryChangedAsync"
+                      SearchMode="searchMode"
+                      SearchModeChanged="OnSearchModeChangedAsync"
                       TotalFileCount="totalFileCount"
                       TreeNodes="treeNodes"
                       CurrentPreviewFilePath="@(selectedFile?.FilePath)"

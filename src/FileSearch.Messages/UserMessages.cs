@@ -54,7 +54,21 @@ public static class UserMessages
     /// <summary>サイドバー・ツリー（メッセージ一覧 I-01〜I-05 相当）</summary>
     public const string SidebarTitleSearchResults = "検索結果";
     /// <summary>検索ボックスのプレースホルダ。</summary>
-    public const string SearchInputPlaceholder = "キーワードで検索（Enter）";
+    public const string SearchInputPlaceholder = "検索語を入力（Enter）";
+    /// <summary>検索モード: AND検索（部分一致）。</summary>
+    public const string SearchModeKeyword = "AND検索";
+    /// <summary>検索モード: 完全一致検索（スペース含む語句）。</summary>
+    public const string SearchModePhrase = "完全一致検索";
+    /// <summary>検索モード: OR検索（部分一致）。</summary>
+    public const string SearchModeAny = "OR検索";
+    /// <summary>検索モード「AND検索」のツールチップ。</summary>
+    public const string SearchModeKeywordTitle = "入力全体の語すべてを部分一致（例: import sys → import と sys の両方を含む）";
+    /// <summary>検索モード「完全一致検索」のツールチップ。</summary>
+    public const string SearchModePhraseTitle = "入力文字列がそのまま連続して含まれる（例: import sys のみ。import だけ・sys だけでは不可）";
+    /// <summary>検索モード「OR検索」のツールチップ。</summary>
+    public const string SearchModeAnyTitle = "スペース区切りの語のどれか1つを含む（例: 契約 見積）";
+    /// <summary>検索モード選択の aria-label。</summary>
+    public const string SearchModeGroupLabel = "検索方法";
     /// <summary>インデックス構築中は検索不可（W-01）。</summary>
     public const string CannotSearchWhileIndexing = "再構築中は検索できません。";
     /// <summary>検索実行中表示。</summary>

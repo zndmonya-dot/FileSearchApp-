@@ -10,6 +10,7 @@ using System.Text.RegularExpressions;
 using FullTextSearch.Core.Extractors;
 using FullTextSearch.Core.Models;
 using FullTextSearch.Core.Preview;
+using FullTextSearch.Core.Search;
 using FileSearch.Messages;
 using FullTextSearch.Infrastructure.Extractors;
 using Microsoft.Extensions.Logging;
@@ -35,7 +36,11 @@ public class PreviewService : IPreviewService
     }
 
     /// <summary>指定パスのファイルをテキスト抽出し、検索語でハイライトした行リストを返す。構文色分けは行わない。</summary>
-    public async Task<PreviewResult> GetPreviewAsync(string path, string? searchQuery, CancellationToken cancellationToken = default)
+    public async Task<PreviewResult> GetPreviewAsync(
+        string path,
+        string? searchQuery,
+        CancellationToken cancellationToken = default,
+        SearchMode searchMode = SearchMode.Keyword)
     {
         if (string.IsNullOrEmpty(path))
             return CreateErrorResult(UserMessages.PreviewPathRequired);
@@ -70,12 +75,26 @@ public class PreviewService : IPreviewService
         // 検索語と本文を NFC 正規化して、合成／分解の違いでハイライトが外れるのを防ぐ
         content = content.IsNormalized(NormalizationForm.FormC) ? content : content.Normalize(NormalizationForm.FormC);
 
-        var searchTerms = string.IsNullOrWhiteSpace(searchQuery)
+        var normalizedQuery = searchQuery?.Trim() ?? "";
+        if (normalizedQuery.Length > 0 && !normalizedQuery.IsNormalized(NormalizationForm.FormC))
+            normalizedQuery = normalizedQuery.Normalize(NormalizationForm.FormC);
+
+        var searchTerms = string.IsNullOrWhiteSpace(normalizedQuery)
             ? Array.Empty<string>()
-            : searchQuery.Split(' ', '　')
-                .Where(t => !string.IsNullOrWhiteSpace(t))
-                .Select(t => t.IsNormalized(NormalizationForm.FormC) ? t : t.Normalize(NormalizationForm.FormC))
-                .ToArray();
+            : searchMode switch
+            {
+                SearchMode.Phrase => [normalizedQuery],
+                SearchMode.Any => normalizedQuery.Split(' ', '　')
+                    .Where(t => !string.IsNullOrWhiteSpace(t))
+                    .Select(t => t.IsNormalized(NormalizationForm.FormC) ? t : t.Normalize(NormalizationForm.FormC))
+                    .ToArray(),
+                _ => normalizedQuery.Split(' ', '　')
+                    .Where(t => !string.IsNullOrWhiteSpace(t))
+                    .Select(t => t.IsNormalized(NormalizationForm.FormC) ? t : t.Normalize(NormalizationForm.FormC))
+                    .ToArray() is { Length: > 0 } parts
+                    ? parts
+                    : [normalizedQuery],
+            };
 
         // 検索語ごとにパターンとエンコード済み文字列をループ外で1回だけ用意（行×語の重複計算を避ける）
         var escapedPatterns = new string[searchTerms.Length];

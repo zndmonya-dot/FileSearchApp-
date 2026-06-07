@@ -4,6 +4,7 @@
   親は Home。文言は UserMessages。
 *@
 @using FileSearch.Blazor.Components.Shared
+@using FullTextSearch.Core.Search
 @using Microsoft.AspNetCore.Components.Web
 @using Microsoft.AspNetCore.Components
 <aside class="sidebar" style="width: @(SidebarWidth)px">
@@ -19,9 +20,25 @@
     </div>
 
     @* M-03 検索入力欄（Enter で検索／Esc でクリア） *@
-    <div class="sidebar-search">
-        <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M10.68 11.74a6 6 0 0 1-7.922-8.982 6 6 0 0 1 8.982 7.922l3.04 3.04a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215ZM11.5 7a4.499 4.499 0 1 0-8.997 0A4.499 4.499 0 0 0 11.5 7Z"/></svg>
-        <input id="search-input" type="text" placeholder="@UserMessages.SearchInputPlaceholder" value="@SearchQuery" @oninput="HandleSearchInput" @onkeydown="OnSearchKeyDown" disabled="@IsIndexing" tabindex="0" autofocus />
+    <div class="sidebar-search-wrap">
+        <div class="search-mode-group" role="radiogroup" aria-label="@UserMessages.SearchModeGroupLabel">
+            <label class="search-mode-option" title="@UserMessages.SearchModeKeywordTitle" @onclick="@SelectKeywordMode">
+                <input type="radio" name="search-mode" checked="@(SearchMode == SearchMode.Keyword)" disabled="@IsIndexing" @onchange="@SelectKeywordMode" />
+                <span>@UserMessages.SearchModeKeyword</span>
+            </label>
+            <label class="search-mode-option" title="@UserMessages.SearchModeAnyTitle" @onclick="@SelectAnyMode">
+                <input type="radio" name="search-mode" checked="@(SearchMode == SearchMode.Any)" disabled="@IsIndexing" @onchange="@SelectAnyMode" />
+                <span>@UserMessages.SearchModeAny</span>
+            </label>
+            <label class="search-mode-option" title="@UserMessages.SearchModePhraseTitle" @onclick="@SelectPhraseMode">
+                <input type="radio" name="search-mode" checked="@(SearchMode == SearchMode.Phrase)" disabled="@IsIndexing" @onchange="@SelectPhraseMode" />
+                <span>@UserMessages.SearchModePhrase</span>
+            </label>
+        </div>
+        <div class="sidebar-search">
+            <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M10.68 11.74a6 6 0 0 1-7.922-8.982 6 6 0 0 1 8.982 7.922l3.04 3.04a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215ZM11.5 7a4.499 4.499 0 1 0-8.997 0A4.499 4.499 0 0 0 11.5 7Z"/></svg>
+            <input id="search-input" type="text" placeholder="@UserMessages.SearchInputPlaceholder" value="@SearchQuery" @oninput="HandleSearchInput" @onkeydown="OnSearchKeyDown" disabled="@IsIndexing" tabindex="0" autofocus />
+        </div>
     </div>
     @if (IsIndexing)
     {
@@ -141,6 +158,10 @@
     [Parameter] public string SearchQuery { get; set; } = "";
     /// <summary>検索文字列の双方向バインド用。</summary>
     [Parameter] public EventCallback<string> SearchQueryChanged { get; set; }
+    /// <summary>検索モード。</summary>
+    [Parameter] public SearchMode SearchMode { get; set; } = SearchMode.Keyword;
+    /// <summary>検索モード変更。</summary>
+    [Parameter] public EventCallback<SearchMode> SearchModeChanged { get; set; }
     /// <summary>ヒット件数（バッジ表示）。</summary>
     [Parameter] public int TotalFileCount { get; set; }
     /// <summary>ツリーに渡すルートノード一覧。</summary>
@@ -195,6 +216,14 @@
         await SearchQueryChanged.InvokeAsync(v);
         await OnSearchInputChanged.InvokeAsync();
     }
+
+    /// <summary>検索モードを親に伝える。</summary>
+    private Task SetSearchMode(SearchMode mode)
+        => SearchModeChanged.InvokeAsync(mode);
+
+    private Task SelectKeywordMode() => SetSearchMode(SearchMode.Keyword);
+    private Task SelectAnyMode() => SetSearchMode(SearchMode.Any);
+    private Task SelectPhraseMode() => SetSearchMode(SearchMode.Phrase);
 
     /// <summary>ツリーが空のときの案内（キーワード未入力／未検索／0 件）。</summary>
     private string GetEmptyTreeMessage()

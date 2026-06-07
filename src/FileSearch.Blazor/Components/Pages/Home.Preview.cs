@@ -48,7 +48,7 @@ public partial class Home
         if (token.IsCancellationRequested) return;
         try
         {
-            var result = await PreviewService.GetPreviewAsync(path, searchQuery?.Trim(), token);
+            var result = await PreviewService.GetPreviewAsync(path, searchQuery?.Trim(), token, searchMode);
             if (token.IsCancellationRequested) return;
             var lines = result.Lines ?? Array.Empty<PreviewLineResult>();
             _previewLines = lines;

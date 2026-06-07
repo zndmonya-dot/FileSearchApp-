@@ -35,6 +35,7 @@ public partial class Home : IDisposable
 
     // --- 検索入力・結果ツリー ---
     private string searchQuery = "";
+    private SearchMode searchMode = SearchMode.Keyword;
     private List<TreeNode> treeNodes = new();
     private SearchResultItem? selectedFile;
     private TreeNode? selectedFolder;
