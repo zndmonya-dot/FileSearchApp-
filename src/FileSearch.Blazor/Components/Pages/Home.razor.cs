@@ -65,6 +65,9 @@ public partial class Home : IDisposable
     private bool isDarkMode = true;
     private readonly SettingsEditState _settingsEdit = new();
 
+    /// <summary>実行ユーザーが管理者か。非管理者は共有インデックスの参照専用（設定編集・再構築不可）。</summary>
+    private bool isAdmin = false;
+
     // --- レイアウト（サイドバー幅・リサイズ） ---
     private int sidebarWidth = 300;
     private bool isResizing = false;
@@ -167,6 +170,16 @@ public partial class Home : IDisposable
     protected override async Task OnInitializedAsync()
     {
         await SettingsService.LoadAsync();
+
+        // 動作モードの確定: 共有インデックスパスの反映と管理者判定。
+        AppMode.Initialize();
+        isAdmin = AppMode.IsAdmin;
+        if (!string.IsNullOrWhiteSpace(AppMode.SharedIndexPath))
+        {
+            // 共有インデックスを参照する。インストール先は基本このインデックスのみを使う。
+            SettingsService.Settings.IndexPath = AppMode.SharedIndexPath;
+        }
+
         ApplyThemeFromSettings();
         var indexPath = SettingsService.Settings.IndexPath;
         if (!string.IsNullOrWhiteSpace(indexPath))

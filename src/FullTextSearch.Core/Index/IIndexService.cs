@@ -14,22 +14,6 @@ public interface IIndexService
     Task InitializeAsync(string indexPath, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// ドキュメントをインデックスに追加/更新
-    /// </summary>
-    Task IndexDocumentAsync(IndexedDocument document, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// ドキュメントをインデックスから削除
-    /// </summary>
-    Task DeleteDocumentAsync(string filePath, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// フォルダ全体をインデックス。
-    /// 再構築時は progressOffset / progressTotalOverride で進捗を全フォルダ合計で表示する。
-    /// </summary>
-    Task IndexFolderAsync(string folderPath, IProgress<IndexProgress>? progress = null, CancellationToken cancellationToken = default, int progressOffset = 0, int? progressTotalOverride = null);
-
-    /// <summary>
     /// インデックスを再構築（全削除のうえ全件追加）
     /// </summary>
     Task RebuildIndexAsync(IEnumerable<string> folders, IProgress<IndexProgress>? progress = null, IndexRebuildOptions? options = null, CancellationToken cancellationToken = default);
@@ -43,11 +27,6 @@ public interface IIndexService
     /// インデックスの統計情報を取得
     /// </summary>
     IndexStats GetStats();
-
-    /// <summary>
-    /// インデックスを最適化
-    /// </summary>
-    Task OptimizeAsync(CancellationToken cancellationToken = default);
 
     /// <summary>直近のインデックス操作でスキップされたファイルパスのリスト。</summary>
     IReadOnlyList<string> LastSkippedFiles { get; }
@@ -74,11 +53,6 @@ public class IndexProgress
     public string? CurrentFile { get; init; }
 
     /// <summary>
-    /// 進捗率（0-100）
-    /// </summary>
-    public double ProgressPercent => TotalFiles > 0 ? (double)ProcessedFiles / TotalFiles * 100 : 0;
-
-    /// <summary>
     /// エラーが発生したファイル数
     /// </summary>
     public int ErrorCount { get; init; }
@@ -102,16 +76,6 @@ public class IndexStats
     /// インデックス済みドキュメント数
     /// </summary>
     public int DocumentCount { get; init; }
-
-    /// <summary>
-    /// 最終更新日時
-    /// </summary>
-    public DateTime? LastUpdated { get; init; }
-
-    /// <summary>
-    /// インデックスサイズ（バイト）
-    /// </summary>
-    public long IndexSizeBytes { get; init; }
 }
 
 

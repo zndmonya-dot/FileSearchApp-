@@ -120,12 +120,6 @@ public sealed class SudachiTokenizer : Tokenizer
     /// <summary>1 ドキュメントあたり Sudachi に渡す最大文字数。超えると先頭のみ送りオーバーで落ちるのを防ぐ。</summary>
     private const int MaxInputCharsForTokenize = 500_000;
 
-    /// <summary>バッチトークン化で一度に送る最大ドキュメント数。</summary>
-    private const int MaxBatchDocuments = 40;
-
-    /// <summary>バッチ時 1 ドキュメントあたりの最大文字数（ハイライト用なので先頭で十分）。</summary>
-    private const int MaxCharsPerContentInBatch = 80_000;
-
     /// <summary>
     /// SudachiPy 常駐プロセスのプール上限（同時並列数）。
     /// 上限を <c>min(ProcessorCount, 4)</c> としているのは、SudachiPy のトークン化は CPU バウンドで
@@ -171,9 +165,6 @@ public sealed class SudachiTokenizer : Tokenizer
 
     /// <summary>ストリームモード 1 ドキュメントの読み取りタイムアウト（ミリ秒）。SudachiPy ハングを検知してプロセスを強制終了する。</summary>
     private const int StreamTimeoutMs = 60_000;
-
-    /// <summary>バッチモードの全体タイムアウト（ミリ秒）。</summary>
-    private const int BatchTimeoutMs = 120_000;
 
     /// <summary>ワンショットモードのタイムアウト（ミリ秒）。</summary>
     private const int OneshotTimeoutMs = 60_000;
@@ -269,18 +260,6 @@ public sealed class SudachiTokenizer : Tokenizer
             _cachedScriptPath = candidates.FirstOrDefault(File.Exists);
             return _cachedScriptPath;
         }
-    }
-
-    /// <summary>スクリプトパスキャッシュをクリア（テストや再検出用）。</summary>
-    public static void ClearScriptPathCache()
-    {
-        lock (ScriptPathLock) { _cachedScriptPath = null; }
-    }
-
-    /// <summary>Sudachi C モード（Python スクリプト）が利用可能かどうか。</summary>
-    public static bool IsAvailable()
-    {
-        return !string.IsNullOrEmpty(ResolveScriptPath());
     }
 
     /// <summary>高速化: インデックス初期化時に呼び、SudachiPy 常駐プロセスを事前起動する（プールを満たす）。最初のドキュメントからストリームモードが使える。</summary>
@@ -431,97 +410,6 @@ public sealed class SudachiTokenizer : Tokenizer
             watchdog.Change(Timeout.Infinite, Timeout.Infinite);
             return completed ? list : null;
         });
-    }
-
-    /// <summary>検索ハイライト用: 複数ドキュメントの content を 1 回で Python に送り、ドキュメントごとのトークン列を返す。失敗時は null。件数・長さ制限でオーバーを防ぐ。</summary>
-    public static List<List<string>>? InvokeSudachiBatch(IReadOnlyList<string> contents)
-    {
-        if (contents == null || contents.Count == 0)
-            return [];
-        EnsurePool();
-        if (_processPool == null) return null;
-
-        var n = Math.Min(contents.Count, MaxBatchDocuments);
-        var toSend = new List<string>(n);
-        for (var i = 0; i < n; i++)
-        {
-            var s = contents[i] ?? "";
-            if (s.Length > MaxCharsPerContentInBatch)
-                s = s.Substring(0, MaxCharsPerContentInBatch);
-            toSend.Add(s);
-        }
-
-        SudachiProcessHandle? handle = null;
-        bool replace = false;
-        try
-        {
-            if (!_processPool.TryTake(out handle, BatchTimeoutMs)) return null;
-            if (handle == null) return null;
-            if (!handle.IsAlive) { replace = true; return null; }
-
-            try
-            {
-                using var watchdog = new Timer(_ => { try { handle!.Process.Kill(); } catch { /* ignore */ } }, null, BatchTimeoutMs, Timeout.Infinite);
-
-                foreach (var text in toSend)
-                {
-                    handle.StdIn.Write(text);
-                    handle.StdIn.Write('\n');
-                    handle.StdIn.Write(StreamDelim);
-                    handle.StdIn.Write('\n');
-                }
-                handle.StdIn.Flush();
-
-                var result = new List<List<string>>();
-                var current = new List<string>();
-                bool completed = false;
-                string? line;
-                while ((line = handle.StdOut.ReadLine()) != null)
-                {
-                    var t = line.Trim();
-                    if (t == StreamDelim)
-                    {
-                        result.Add(current);
-                        current = new List<string>();
-                        if (result.Count >= toSend.Count) { completed = true; break; }
-                        continue;
-                    }
-                    if (t.Length > 0) current.Add(t);
-                }
-                watchdog.Change(Timeout.Infinite, Timeout.Infinite);
-                if (!completed) { replace = true; return null; }
-                return result;
-            }
-            catch
-            {
-                replace = true;
-                return null;
-            }
-        }
-        finally
-        {
-            if (handle != null)
-            {
-                if (replace || !handle.IsAlive)
-                {
-                    handle.Dispose();
-                    var scriptPath = ResolveScriptPath();
-                    var python = FindPython();
-                    if (!string.IsNullOrEmpty(scriptPath) && !string.IsNullOrEmpty(python))
-                    {
-                        var fresh = StartProcess(scriptPath!, python!);
-                        if (fresh != null && _processPool != null)
-                        {
-                            try { _processPool.Add(fresh); } catch { fresh.Dispose(); }
-                        }
-                    }
-                }
-                else
-                {
-                    try { _processPool?.Add(handle); } catch { handle.Dispose(); }
-                }
-            }
-        }
     }
 
     /// <summary>高速化: まず共有プロセス（ストリーム）で実行し、失敗時のみワンショット。</summary>

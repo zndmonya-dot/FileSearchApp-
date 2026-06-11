@@ -27,6 +27,8 @@ public partial class Home
     {
         try
         {
+            // 非管理者は参照専用のため自動再構築も行わない。
+            if (!isAdmin) return;
             var interval = SettingsService.Settings.AutoRebuildIntervalMinutes;
             if (interval <= 0 || isIndexing) return;
             // 検索中、もしくは直近で検索操作（入力・キー操作・検索実行）があった直後は見送る。
@@ -94,8 +96,9 @@ public partial class Home
                 SearchMode = searchMode,
             }, token);
             if (token.IsCancellationRequested) return;
-            treeNodes = TreeBuilder.BuildTree(SettingsService.Settings.TargetFolders, result.Items);
-            totalFileCount = result.Items.Count;
+            var items = FilterByTargetExtensions(result.Items);
+            treeNodes = TreeBuilder.BuildTree(SettingsService.Settings.TargetFolders, items);
+            totalFileCount = items.Count;
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)
@@ -104,6 +107,19 @@ public partial class Home
             Logger.LogError(ex, "Search failed");
         }
         finally { isSearching = false; StateHasChanged(); }
+    }
+
+    /// <summary>
+    /// 検索結果を、現在のユーザーの対象拡張子（個人設定）で絞り込む。
+    /// 共有インデックスに全種別が入っていても、各ユーザーは自分の選択拡張子だけを表示できる。
+    /// 対象拡張子が未設定（空）の場合は絞り込まない。
+    /// </summary>
+    private List<SearchResultItem> FilterByTargetExtensions(List<SearchResultItem> items)
+    {
+        var exts = SettingsService.Settings.TargetExtensions;
+        if (exts == null || exts.Count == 0) return items;
+        var allowed = new HashSet<string>(exts, StringComparer.OrdinalIgnoreCase);
+        return items.Where(i => allowed.Contains(Path.GetExtension(i.FilePath))).ToList();
     }
 
     /// <summary>フォルダの展開/折りたたみ。展開時はフォルダビューに切り替え。</summary>

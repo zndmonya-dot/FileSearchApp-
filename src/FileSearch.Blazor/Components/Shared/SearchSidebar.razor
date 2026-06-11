@@ -125,8 +125,8 @@
                                 @* M-13 インデックス最終更新日時 *@
                                 <span class="footer-secondary">@GetLastUpdateText()@UserMessages.LastUpdateSuffix</span>
                             </div>
-                            @* M-14 再構築ボタン（押下で SCR-3 を表示） *@
-                            <button type="button" class="footer-action footer-action-with-label" @onclick="OnRequestRebuildIndex" title="@UserMessages.RebuildButtonTitle">
+                            @* M-14 再構築ボタン（押下で SCR-3 を表示）。非管理者は参照専用のため非活性 *@
+                            <button type="button" class="footer-action footer-action-with-label" @onclick="OnRequestRebuildIndex" disabled="@(!IsAdmin)" title="@UserMessages.RebuildButtonTitle">
                                 <svg viewBox="0 0 16 16" fill="currentColor"><path d="M1.705 8.005a.75.75 0 0 1 .834.656 5.5 5.5 0 0 0 9.592 2.97l-1.204-1.204a.25.25 0 0 1 .177-.427h3.646a.25.25 0 0 1 .25.25v3.646a.25.25 0 0 1-.427.177l-1.38-1.38A7.002 7.002 0 0 1 1.05 8.84a.75.75 0 0 1 .656-.834ZM8 2.5a5.487 5.487 0 0 0-4.131 1.869l1.204 1.204A.25.25 0 0 1 4.896 6H1.25A1.75 1.75 0 0 1 1 5.75V2.104a.25.25 0 0 1 .427-.177l1.38 1.38A7.002 7.002 0 0 1 14.95 7.16a.75.75 0 0 1-1.49.178A5.5 5.5 0 0 0 8 2.5Z"/></svg>
                                 <span class="footer-action-label">@UserMessages.Rebuild</span>
                             </button>
@@ -208,6 +208,8 @@
     [Parameter] public EventCallback<MouseEventArgs> OnStartResize { get; set; }
     /// <summary>最終インデックス更新の表示用文字列（相対など）。</summary>
     [Parameter] public Func<string> GetLastUpdateText { get; set; } = () => "";
+    /// <summary>実行ユーザーが管理者か。非管理者は再構築ボタンを非活性にする。</summary>
+    [Parameter] public bool IsAdmin { get; set; }
 
     /// <summary>検索欄入力を親に伝え、入力変更コールバックを続けて呼ぶ。</summary>
     private async Task HandleSearchInput(ChangeEventArgs e)

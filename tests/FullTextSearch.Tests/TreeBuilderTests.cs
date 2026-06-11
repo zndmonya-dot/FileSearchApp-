@@ -27,11 +27,8 @@ public class TreeBuilderTests
             FilePath = Path.Combine(root, "a.txt"),
             FileName = "a.txt",
             FolderPath = root,
-            FileType = "テキストファイル",
             FileSize = 1,
-            LastModified = default,
-            Score = 0,
-            Highlights = new List<MatchHighlight>()
+            LastModified = default
         };
         var tree = TreeBuilder.BuildTree(new[] { root }, new[] { item });
         Assert.Single(tree);
@@ -53,11 +50,8 @@ public class TreeBuilderTests
             FilePath = filePath,
             FileName = "x.txt",
             FolderPath = t2,
-            FileType = "t",
             FileSize = 1,
-            LastModified = default,
-            Score = 0,
-            Highlights = new List<MatchHighlight>()
+            LastModified = default
         };
         var tree = TreeBuilder.BuildTree(new[] { t1, t2 }, new[] { item });
         Assert.Single(tree);
@@ -73,11 +67,8 @@ public class TreeBuilderTests
             FilePath = f,
             FileName = "f.txt",
             FolderPath = d,
-            FileType = "t",
             FileSize = 1,
-            LastModified = default,
-            Score = 0,
-            Highlights = new List<MatchHighlight>()
+            LastModified = default
         };
         var rootT = Root("e0", "n0");
         var tree = TreeBuilder.BuildTree(new[] { rootT }, new[] { item });
@@ -103,10 +94,7 @@ public class TreeBuilderTests
         FilePath = filePath,
         FileName = name,
         FolderPath = folder,
-        FileType = "t",
         FileSize = 0,
-        LastModified = default,
-        Score = 0,
-        Highlights = new List<MatchHighlight>()
+        LastModified = default
     };
 }

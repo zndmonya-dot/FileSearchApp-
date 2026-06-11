@@ -44,6 +44,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<IIndexService, LuceneIndexService>();
         builder.Services.AddSingleton<ISearchService, LuceneSearchService>();
         builder.Services.AddSingleton<IAppSettingsService, AppSettingsService>();
+        builder.Services.AddSingleton<IAppModeService, AppModeService>();
         builder.Services.AddScoped<IPreviewService, PreviewService>();
 
         return builder.Build();

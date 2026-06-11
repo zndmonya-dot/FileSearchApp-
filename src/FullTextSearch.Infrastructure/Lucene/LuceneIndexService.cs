@@ -131,55 +131,6 @@ public class LuceneIndexService : IIndexService, IDisposable
         return Task.CompletedTask;
     }
 
-    /// <summary>1 件を追加または更新し、即時コミットする。</summary>
-    public Task IndexDocumentAsync(IndexedDocument document, CancellationToken cancellationToken = default)
-    {
-        EnsureInitialized();
-
-        var doc = CreateLuceneDocument(document);
-
-        lock (_lock)
-        {
-            // 既存のドキュメントを削除してから追加（更新）
-            _writer!.UpdateDocument(new Term(FieldFilePath, document.FilePath), doc);
-            _writer.Commit();
-        }
-
-        return Task.CompletedTask;
-    }
-
-    /// <summary>パスに一致するドキュメントを削除し、即時コミットする。</summary>
-    public Task DeleteDocumentAsync(string filePath, CancellationToken cancellationToken = default)
-    {
-        EnsureInitialized();
-
-        lock (_lock)
-        {
-            _writer!.DeleteDocuments(new Term(FieldFilePath, filePath));
-            _writer.Commit();
-        }
-
-        return Task.CompletedTask;
-    }
-
-    /// <summary>フォルダ配下の対象ファイルを列挙してインデックスする。</summary>
-    /// <param name="folderPath">インデックス対象のルートフォルダパス。</param>
-    /// <param name="progress">進捗通知（省略可）。</param>
-    /// <param name="cancellationToken">キャンセル。</param>
-    /// <param name="progressOffset">再構築時など、進捗を累積表示するためのオフセット（ProcessedFiles に加算）</param>
-    /// <param name="progressTotalOverride">再構築時など、進捗の総数に使う値（未指定時はこのフォルダのファイル数のみ）</param>
-    public async Task IndexFolderAsync(string folderPath, IProgress<IndexProgress>? progress = null, CancellationToken cancellationToken = default, int progressOffset = 0, int? progressTotalOverride = null)
-    {
-        EnsureInitialized();
-        var files = new List<string>();
-        foreach (var filePath in GetTargetFiles(folderPath))
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            files.Add(filePath);
-        }
-        await IndexFolderWithFilesAsync(folderPath, files, progress, cancellationToken, progressOffset, progressTotalOverride);
-    }
-
     /// <summary>ファイルリストを渡してインデックス（再構築時の重複列挙を避ける）</summary>
     private async Task IndexFolderWithFilesAsync(string folderPath, IReadOnlyList<string> files, IProgress<IndexProgress>? progress, CancellationToken cancellationToken, int progressOffset = 0, int? progressTotalOverride = null)
     {
@@ -491,31 +442,8 @@ public class LuceneIndexService : IIndexService, IDisposable
 
         lock (_lock)
         {
-            var docCount = _writer!.NumDocs;
-            var indexSize = _directory!.ListAll()
-                .Sum(f => new FileInfo(Path.Combine(_directory.Directory.FullName, f)).Length);
-
-            return new IndexStats
-            {
-                DocumentCount = docCount,
-                LastUpdated = DateTime.UtcNow,
-                IndexSizeBytes = indexSize
-            };
+            return new IndexStats { DocumentCount = _writer!.NumDocs };
         }
-    }
-
-    /// <summary>セグメントをマージしてインデックスを圧縮する（時間がかかる場合あり）。</summary>
-    public Task OptimizeAsync(CancellationToken cancellationToken = default)
-    {
-        EnsureInitialized();
-
-        lock (_lock)
-        {
-            _writer!.ForceMerge(1);
-            _writer.Commit();
-        }
-
-        return Task.CompletedTask;
     }
 
     /// <summary>

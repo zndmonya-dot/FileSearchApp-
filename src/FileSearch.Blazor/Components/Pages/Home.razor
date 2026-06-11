@@ -12,6 +12,7 @@
 @inject ISearchService SearchService
 @inject IIndexService IndexService
 @inject IAppSettingsService SettingsService
+@inject IAppModeService AppMode
 @inject FullTextSearch.Core.Preview.IPreviewService PreviewService
 @inject IJSRuntime JSRuntime
 @inject ILogger<Home> Logger
@@ -47,6 +48,7 @@
                       OnCancelIndexBuild="CancelIndexBuild"
                       OnStartResize="StartResize"
                       GetLastUpdateText="GetLastUpdateText"
+                      IsAdmin="isAdmin"
                       OnOpenSkippedLog="OpenSkippedLog" />
 
         @* M-07 右メイン領域（フォルダ一覧／プレビュー／空状態を切り替え） *@
@@ -102,6 +104,7 @@
 
     <SettingsModal Visible="showSettings"
                    State="_settingsEdit"
+                   IsAdmin="isAdmin"
                    LastIndexUpdate="SettingsService.Settings.LastIndexUpdate"
                    OnCloseRequested="CloseSettings"
                    OnSaveRequested="SaveSettings"

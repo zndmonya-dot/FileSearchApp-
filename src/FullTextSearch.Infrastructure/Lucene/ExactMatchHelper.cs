@@ -1,6 +1,4 @@
 // 完全一致検索: インデックス済み本文・ファイル名への文字列一致判定。
-using FullTextSearch.Core.Models;
-
 namespace FullTextSearch.Infrastructure.Lucene;
 
 /// <summary>
@@ -31,45 +29,5 @@ public static class ExactMatchHelper
             return false;
 
         return normalizedText.IndexOf(normalizedQuery, StringComparison.OrdinalIgnoreCase) >= 0;
-    }
-
-    /// <summary>完全一致語句のハイライト断片を生成する（import / sys を個別にはハイライトしない）。</summary>
-    public static IEnumerable<MatchHighlight> BuildHighlights(
-        string content,
-        string normalizedQuery,
-        int fragmentSize,
-        int maxHighlights)
-    {
-        if (string.IsNullOrEmpty(content) || string.IsNullOrEmpty(normalizedQuery) || maxHighlights <= 0)
-            yield break;
-
-        var normalizedContent = SearchQueryParser.NormalizeQueryString(content);
-        if (string.IsNullOrEmpty(normalizedContent))
-            yield break;
-
-        var count = 0;
-        var startIndex = 0;
-        while (count < maxHighlights)
-        {
-            var matchIndex = normalizedContent.IndexOf(normalizedQuery, startIndex, StringComparison.OrdinalIgnoreCase);
-            if (matchIndex < 0)
-                yield break;
-
-            var contextStart = Math.Max(0, matchIndex - fragmentSize / 2);
-            var contextEnd = Math.Min(normalizedContent.Length, matchIndex + normalizedQuery.Length + fragmentSize / 2);
-            var fragment = normalizedContent[contextStart..contextEnd];
-            var highlightStart = matchIndex - contextStart;
-            var highlightEnd = highlightStart + normalizedQuery.Length - 1;
-
-            yield return new MatchHighlight
-            {
-                Text = fragment,
-                HighlightStart = highlightStart,
-                HighlightEnd = highlightEnd
-            };
-
-            count++;
-            startIndex = matchIndex + normalizedQuery.Length;
-        }
     }
 }

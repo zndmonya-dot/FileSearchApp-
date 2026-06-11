@@ -132,7 +132,6 @@ public class PreviewService : IPreviewService
 
         return new PreviewResult
         {
-            Mode = "text",
             Lines = resultLines,
             LineCount = lines.Length
         };
@@ -142,7 +141,6 @@ public class PreviewService : IPreviewService
     {
         return new PreviewResult
         {
-            Mode = "text",
             Lines = new List<PreviewLineResult> { new(message, false) },
             LineCount = 1
         };

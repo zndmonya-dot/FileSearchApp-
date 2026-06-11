@@ -1,6 +1,5 @@
 // Lucene.NET による全文検索とハイライト。Sudachi でクエリをトークナイズし、設定のインデックスパスを参照。
 using System;
-using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using FullTextSearch.Core;
@@ -12,29 +11,17 @@ using Lucene.Net.Analysis;
 using Lucene.Net.Index;
 using Lucene.Net.QueryParsers.Classic;
 using Lucene.Net.Search;
-using Lucene.Net.Search.Highlight;
 using Lucene.Net.Store;
 using Lucene.Net.Util;
 
 namespace FullTextSearch.Infrastructure.Lucene;
 
 /// <summary>
-/// Lucene.NET を使用した検索サービスの実装。部分一致・ハイライト・ファイル種類フィルター等に対応。
+/// Lucene.NET を使用した検索サービスの実装。キーワード／いずれか／完全一致の各モードに対応。
 /// </summary>
 public class LuceneSearchService : ISearchService, IDisposable
 {
     private const LuceneVersion AppLuceneVersion = LuceneVersion.LUCENE_48;
-    /// <summary>
-    /// ハイライト抜粋 1 件あたりの最大文字数。
-    /// 短すぎると一致語の文脈が読み取れず、長すぎるとプレビュー UI を圧迫するため、
-    /// 業務文書の 1 文〜2 文程度を想定して 100 に設定。
-    /// </summary>
-    private const int HighlightFragmentSize = 100;
-    /// <summary>
-    /// 1 ドキュメントあたりに表示するハイライト断片の最大数。
-    /// プレビューの可読性とハイライト計算コスト（Highlighter は本文を再走査するため重い）の両立のため 5 件に制限。
-    /// </summary>
-    private const int MaxHighlights = 5;
 
     private readonly IAppSettingsService _settingsService;
     private string? _currentIndexPath;
@@ -51,22 +38,13 @@ public class LuceneSearchService : ISearchService, IDisposable
         _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
     }
 
-    /// <summary>全文検索を実行し、ハイライト付きの検索結果を返す。UI スレッドをブロックしないよう Task.Run で実行。</summary>
+    /// <summary>全文検索を実行し、検索結果（ファイル情報）を返す。UI スレッドをブロックしないよう Task.Run で実行。</summary>
     public async Task<SearchResult> SearchAsync(string query, SearchOptions? options = null, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(query))
-        {
-            return new SearchResult
-            {
-                Query = query,
-                Items = [],
-                TotalHits = 0,
-                ElapsedMilliseconds = 0
-            };
-        }
+            return new SearchResult { Items = [] };
 
         options ??= new SearchOptions();
-        var stopwatch = Stopwatch.StartNew();
 
         // 検索全体をスレッドプールで実行し UI スレッドのブロックを防ぐ。リーダー競合時は 1 回だけリトライ。
         var result = await Task.Run(() =>
@@ -89,15 +67,7 @@ public class LuceneSearchService : ISearchService, IDisposable
                 }
 
                 if (searcher == null || analyzer == null)
-                {
-                    return new SearchResult
-                    {
-                        Query = query,
-                        Items = [],
-                        TotalHits = 0,
-                        ElapsedMilliseconds = stopwatch.ElapsedMilliseconds
-                    };
-                }
+                    return new SearchResult { Items = [] };
 
                 try
                 {
@@ -114,168 +84,63 @@ public class LuceneSearchService : ISearchService, IDisposable
                             MaxQueryTerms,
                             MaxQueryClauses,
                             FilenameBoost);
-                    var boolQuery = AppendSearchFilters(new BooleanQuery { { luceneQuery, Occur.MUST } }, options);
+                    var boolQuery = new BooleanQuery { { luceneQuery, Occur.MUST } };
 
                     cancellationToken.ThrowIfCancellationRequested();
 
                     // 完全一致: バイグラム候補（旧インデックスでは全件）を走査し、保存本文への連続一致で確定。
                     //           ヒット doc を MaxResults まで収集して打ち切るため、巨大な優先度キューを作らない。
                     // 通常検索: スコア順に上位 MaxResults 件を取得。
-                    IReadOnlyList<int> exactDocIds = Array.Empty<int>();
-                    TopDocs? topDocs = null;
-                    int totalHits;
+                    IReadOnlyList<int> hitDocIds;
                     if (isExactMatchMode)
                     {
                         var collector = new ExactMatchCollector(normalizedQuery, options.MaxResults);
                         try { searcher.Search(boolQuery, collector); }
                         catch (CollectionTerminatedException) { /* MaxResults 到達で打ち切り */ }
-                        exactDocIds = collector.MatchedGlobalDocIds;
-                        totalHits = exactDocIds.Count;
+                        hitDocIds = collector.MatchedGlobalDocIds;
                     }
                     else
                     {
-                        topDocs = searcher.Search(boolQuery, options.MaxResults);
-                        totalHits = topDocs.TotalHits;
+                        var topDocs = searcher.Search(boolQuery, options.MaxResults);
+                        hitDocIds = topDocs.ScoreDocs.Select(sd => sd.Doc).ToList();
                     }
 
-                    var skipHighlights = options.SkipHighlights;
-                    Highlighter? highlighter = null;
-                    if (!skipHighlights && !isExactMatchMode)
-                    {
-                        var formatter = new SimpleHTMLFormatter("[", "]");
-                        var scorer = new QueryScorer(luceneQuery);
-                        highlighter = new Highlighter(formatter, scorer) { TextFragmenter = new SimpleFragmenter(HighlightFragmentSize) };
-                    }
-
-                    // 完全一致は収集済み doc 群（既に連続一致確定済み）、通常検索はスコア順 doc を共通処理する。
-                    var hits = isExactMatchMode
-                        ? exactDocIds.Select(id => (DocId: id, Score: 0f))
-                        : topDocs!.ScoreDocs.Select(sd => (DocId: sd.Doc, Score: sd.Score));
-
-                    var contentsForBatch = new List<string?>();
-                    var docInfos = new List<(string filePath, string fileName, string folderPath, long fileSize, long lastMod, string fileType, float score)>();
-                    foreach (var (docId, score) in hits)
+                    var results = new List<SearchResultItem>(hitDocIds.Count);
+                    foreach (var docId in hitDocIds)
                     {
                         cancellationToken.ThrowIfCancellationRequested();
-
                         var doc = searcher.Doc(docId);
-                        var storedContent = doc.Get(LuceneIndexService.FieldContent) ?? "";
-                        var fileName = doc.Get(LuceneIndexService.FieldFileName) ?? "";
-
-                        var content = !skipHighlights && (highlighter != null || isExactMatchMode) ? storedContent : null;
-                        contentsForBatch.Add(content);
-                        docInfos.Add((
-                            doc.Get(LuceneIndexService.FieldFilePath) ?? "",
-                            fileName,
-                            doc.Get(LuceneIndexService.FieldFolderPath) ?? "",
-                            long.TryParse(doc.Get(LuceneIndexService.FieldFileSize), out var sz) ? sz : 0,
-                            long.TryParse(doc.Get(LuceneIndexService.FieldLastModified), out var ticks) ? ticks : 0,
-                            doc.Get(LuceneIndexService.FieldFileType) ?? "",
-                            score
-                        ));
-                    }
-
-                    var filteredHitCount = docInfos.Count;
-
-                    List<List<string>>? batchTokenLists = null;
-                    if (!skipHighlights && highlighter != null && contentsForBatch.Count > 0)
-                    {
-                        var nonNullContents = contentsForBatch.Select(c => c ?? "").ToList();
-                        batchTokenLists = SudachiTokenizer.InvokeSudachiBatch(nonNullContents);
-                    }
-
-                    var results = new List<SearchResultItem>(filteredHitCount);
-                    for (var i = 0; i < filteredHitCount; i++)
-                    {
-                        cancellationToken.ThrowIfCancellationRequested();
-                        var info = docInfos[i];
-                        var content = contentsForBatch[i];
-                        var highlights = new List<MatchHighlight>(MaxHighlights);
-                        if (!skipHighlights && isExactMatchMode && !string.IsNullOrEmpty(content))
-                        {
-                            highlights.AddRange(ExactMatchHelper.BuildHighlights(content, normalizedQuery, HighlightFragmentSize, MaxHighlights));
-                        }
-                        else if (!skipHighlights && highlighter != null && !string.IsNullOrEmpty(content))
-                        {
-                            try
-                            {
-                                TokenStream tokenStream;
-                                if (batchTokenLists != null && i < batchTokenLists.Count)
-                                {
-                                    tokenStream = new ListTokenStream(batchTokenLists[i]);
-                                }
-                                else
-                                {
-                                    tokenStream = analyzer!.GetTokenStream(LuceneIndexService.FieldContent, new StringReader(content));
-                                }
-                                using (tokenStream)
-                                {
-                                    foreach (var fragment in highlighter!.GetBestFragments(tokenStream, content, MaxHighlights))
-                                    {
-                                        if (string.IsNullOrWhiteSpace(fragment)) continue;
-                                        var highlightStart = fragment.IndexOf('[');
-                                        var highlightEnd = fragment.IndexOf(']');
-                                        highlights.Add(new MatchHighlight
-                                        {
-                                            Text = fragment.Replace("[", "").Replace("]", ""),
-                                            HighlightStart = highlightStart >= 0 ? highlightStart : 0,
-                                            HighlightEnd = highlightEnd >= 0 ? highlightEnd - 1 : 0
-                                        });
-                                    }
-                                }
-                            }
-                            catch { /* ハイライト失敗時は結果のみ返す */ }
-                        }
-
                         results.Add(new SearchResultItem
                         {
-                            FilePath = info.filePath,
-                            FileName = info.fileName,
-                            FolderPath = info.folderPath,
-                            FileSize = info.fileSize,
-                            LastModified = info.lastMod > 0 ? new DateTime(info.lastMod, DateTimeKind.Utc) : DateTime.MinValue,
-                            FileType = info.fileType,
-                            Score = info.score,
-                            Highlights = highlights
+                            FilePath = doc.Get(LuceneIndexService.FieldFilePath) ?? "",
+                            FileName = doc.Get(LuceneIndexService.FieldFileName) ?? "",
+                            FolderPath = doc.Get(LuceneIndexService.FieldFolderPath) ?? "",
+                            FileSize = long.TryParse(doc.Get(LuceneIndexService.FieldFileSize), out var sz) ? sz : 0,
+                            LastModified = long.TryParse(doc.Get(LuceneIndexService.FieldLastModified), out var ticks) && ticks > 0
+                                ? new DateTime(ticks, DateTimeKind.Utc)
+                                : DateTime.MinValue
                         });
                     }
 
-                    stopwatch.Stop();
-                    return new SearchResult
-                    {
-                        Query = query,
-                        Items = results,
-                        TotalHits = isExactMatchMode ? results.Count : totalHits,
-                        ElapsedMilliseconds = stopwatch.ElapsedMilliseconds
-                    };
+                    return new SearchResult { Items = results };
                 }
                 catch (ParseException)
                 {
-                    stopwatch.Stop();
-                    return new SearchResult
-                    {
-                        Query = query,
-                        Items = [],
-                        TotalHits = 0,
-                        ElapsedMilliseconds = stopwatch.ElapsedMilliseconds
-                    };
+                    return new SearchResult { Items = [] };
                 }
                 catch (IOException)
                 {
                     if (attempt == 0) continue;
-                    stopwatch.Stop();
-                    return new SearchResult { Query = query, Items = [], TotalHits = 0, ElapsedMilliseconds = stopwatch.ElapsedMilliseconds };
+                    return new SearchResult { Items = [] };
                 }
                 catch (ObjectDisposedException)
                 {
                     if (attempt == 0) continue;
-                    stopwatch.Stop();
-                    return new SearchResult { Query = query, Items = [], TotalHits = 0, ElapsedMilliseconds = stopwatch.ElapsedMilliseconds };
+                    return new SearchResult { Items = [] };
                 }
             }
 
-            stopwatch.Stop();
-            return new SearchResult { Query = query, Items = [], TotalHits = 0, ElapsedMilliseconds = stopwatch.ElapsedMilliseconds };
+            return new SearchResult { Items = [] };
         }, cancellationToken);
 
         return result;
@@ -488,29 +353,6 @@ public class LuceneSearchService : ISearchService, IDisposable
             if (MatchedGlobalDocIds.Count >= _maxResults)
                 throw new CollectionTerminatedException();
         }
-    }
-
-    private static BooleanQuery AppendSearchFilters(BooleanQuery boolQuery, SearchOptions options)
-    {
-        if (options.FileTypeFilter != null && options.FileTypeFilter.Count > 0)
-        {
-            var typeQuery = new BooleanQuery();
-            foreach (var fileType in options.FileTypeFilter)
-                typeQuery.Add(new TermQuery(new Term(LuceneIndexService.FieldFileType, fileType)), Occur.SHOULD);
-            boolQuery.Add(typeQuery, Occur.MUST);
-        }
-
-        if (options.DateFrom.HasValue || options.DateTo.HasValue)
-        {
-            var from = options.DateFrom?.Ticks ?? long.MinValue;
-            var to = options.DateTo?.Ticks ?? long.MaxValue;
-            boolQuery.Add(NumericRangeQuery.NewInt64Range(LuceneIndexService.FieldLastModified, from, to, true, true), Occur.MUST);
-        }
-
-        if (!string.IsNullOrEmpty(options.FolderFilter))
-            boolQuery.Add(new PrefixQuery(new Term(LuceneIndexService.FieldFolderPath, options.FolderFilter)), Occur.MUST);
-
-        return boolQuery;
     }
 
     /// <inheritdoc />

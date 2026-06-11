@@ -184,6 +184,8 @@ public partial class Home
     /// <summary>フッター「再構築」から。確認ダイアログを開く（実処理は ConfirmIndexUpdateAsync）。</summary>
     private void RequestRebuildIndex()
     {
+        // 非管理者は参照専用のため再構築不可（UI ボタンも非活性だが二重ガード）。
+        if (!isAdmin) return;
         if (isIndexing) return;
         if (SettingsService.Settings.TargetFolders.Count == 0)
         {
