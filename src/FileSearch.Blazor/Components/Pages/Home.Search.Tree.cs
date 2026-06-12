@@ -6,6 +6,7 @@
 // 状態: フィールドの定義は Home.razor.cs
 // =============================================================================
 using FileSearch.Messages;
+using FullTextSearch.Core;
 using FullTextSearch.Core.Models;
 using FullTextSearch.Core.Search;
 using FullTextSearch.Infrastructure.Settings;
@@ -35,8 +36,7 @@ public partial class Home
             // 1 分後の次 tick で再判定するので、ユーザー操作が落ち着いた段階で実行される。
             if (isSearching) return;
             if ((DateTime.UtcNow - _lastSearchActivityUtc).TotalSeconds < AutoRebuildIdleSeconds) return;
-            var last = SettingsService.Settings.LastIndexUpdate;
-            if (!last.HasValue || (DateTime.Now - last.Value).TotalMinutes >= interval)
+            if (AutoRebuildSchedule.IsDue(interval, SettingsService.Settings.LastIndexUpdate, DateTime.UtcNow))
                 _ = InvokeAsync(UpdateIndex);
         }
         catch { /* timer thread: ignore */ }

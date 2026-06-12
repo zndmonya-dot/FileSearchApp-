@@ -28,6 +28,9 @@ public class AppModeService : IAppModeService
     /// <inheritdoc />
     public string? SharedIndexPath { get; private set; }
 
+    /// <inheritdoc />
+    public IReadOnlyList<string> SharedTargetFolders { get; private set; } = Array.Empty<string>();
+
     /// <summary>動作モード設定ファイルのパスを指定して初期化する。</summary>
     /// <param name="appModeFilePath">appmode.json のパス。未指定のとき実行フォルダ直下（単体テストでは一時パスを渡せる）。</param>
     public AppModeService(string? appModeFilePath = null)
@@ -43,6 +46,7 @@ public class AppModeService : IAppModeService
         if (_initialized) return;
         var config = LoadAppModeConfig();
         SharedIndexPath = config?.IndexPath;
+        SharedTargetFolders = config?.TargetFolders as IReadOnlyList<string> ?? Array.Empty<string>();
         IsAdmin = config?.ForceNonAdmin == true ? false : DetermineIsAdmin();
         _initialized = true;
     }
@@ -58,6 +62,14 @@ public class AppModeService : IAppModeService
             if (config == null) return null;
             var path = config.IndexPath?.Trim();
             config.IndexPath = string.IsNullOrWhiteSpace(path) ? null : path;
+            if (config.TargetFolders is { Count: > 0 })
+            {
+                config.TargetFolders = config.TargetFolders
+                    .Select(f => f.Trim().TrimEnd('\\', '/'))
+                    .Where(f => !string.IsNullOrWhiteSpace(f))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
             return config;
         }
         catch
@@ -90,6 +102,9 @@ public class AppModeService : IAppModeService
     {
         /// <summary>共有インデックスのパス（ファイルサーバ等）。</summary>
         public string? IndexPath { get; set; }
+
+        /// <summary>検索対象フォルダ（クライアント初回起動時に settings.json へ反映する）。</summary>
+        public List<string>? TargetFolders { get; set; }
 
         /// <summary>
         /// true のとき管理者判定を無視して非管理者モードで起動する（配布前の UI 確認用）。

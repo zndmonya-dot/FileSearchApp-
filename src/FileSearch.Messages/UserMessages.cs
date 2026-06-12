@@ -54,7 +54,11 @@ public static class UserMessages
     /// <summary>サイドバー・ツリー（メッセージ一覧 I-01〜I-05 相当）</summary>
     public const string SidebarTitleSearchResults = "検索結果";
     /// <summary>検索ボックスのプレースホルダ。</summary>
-    public const string SearchInputPlaceholder = "検索語を入力（Enter）";
+    public const string SearchInputPlaceholder = "検索キーワードを入力";
+    /// <summary>検索ボタンのラベル。</summary>
+    public const string SearchButtonLabel = "検索";
+    /// <summary>検索ボタンのツールチップ。</summary>
+    public const string SearchButtonTitle = "検索を実行（Enter でも可）";
     /// <summary>検索モード: AND検索（部分一致）。</summary>
     public const string SearchModeKeyword = "AND検索";
     /// <summary>検索モード: 完全一致検索（スペース含む語句）。</summary>
@@ -77,8 +81,8 @@ public static class UserMessages
     public const string TreeEmptyKeywordPrompt = "検索キーワードを入力";
     /// <summary>検索済みで 0 件。</summary>
     public const string TreeEmptyNoResults = "結果なし";
-    /// <summary>未検索で Enter 促し。</summary>
-    public const string TreeEmptyPressEnterToSearch = "Enter で検索";
+    /// <summary>未検索で実行促し。</summary>
+    public const string TreeEmptyPressEnterToSearch = "検索ボタンまたは Enter で検索";
 
     /// <summary>フッター構築キャンセルボタンの title。</summary>
     public const string IndexBuildCancelTitle = "インデックス構築をキャンセル";
@@ -191,11 +195,11 @@ public static class UserMessages
     /// <summary>インデックス状態セクション見出し</summary>
     public const string SettingsSectionIndex = "インデックス";
     /// <summary>インデックス状態説明</summary>
-    public const string SettingsDescriptionIndex = "状態と定期再構築の間隔";
+    public const string SettingsDescriptionIndex = "状態と自動更新の間隔";
     /// <summary>最終更新ラベル</summary>
     public const string LabelLastIndexUpdate = "最終更新";
     /// <summary>定期再構築ラベル</summary>
-    public const string LabelAutoRebuild = "定期再構築";
+    public const string LabelAutoRebuild = "自動更新";
     /// <summary>インデックス未実行</summary>
     public const string LastIndexNeverRun = "未実行";
     /// <summary>保存ボタン</summary>
@@ -215,9 +219,9 @@ public static class UserMessages
     /// <summary>定期再構築：12時間</summary>
     public const string AutoRebuild12h = "12時間";
     /// <summary>定期再構築：24時間</summary>
-    public const string AutoRebuild24h = "24時間";
+    public const string AutoRebuild24h = "毎日0時";
     /// <summary>定期再構築：1週間</summary>
-    public const string AutoRebuild1w = "1週間";
+    public const string AutoRebuild1w = "毎週月曜0時";
 
     /// <summary>インデックス更新ダイアログ：タイトル</summary>
     public const string IndexUpdateDialogTitle = "インデックスの更新";

@@ -9,9 +9,9 @@ namespace FullTextSearch.Core.Index;
 public interface IIndexService
 {
     /// <summary>
-    /// インデックスの初期化
+    /// インデックスの初期化。<paramref name="readOnly"/> が true のときは参照専用（IndexWriter を開かない）。
     /// </summary>
-    Task InitializeAsync(string indexPath, CancellationToken cancellationToken = default);
+    Task InitializeAsync(string indexPath, bool readOnly = false, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// インデックスを再構築（全削除のうえ全件追加）

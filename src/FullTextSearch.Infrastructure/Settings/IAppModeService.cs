@@ -13,6 +13,9 @@ public interface IAppModeService
     /// <summary>appmode.json で指定された共有インデックスのパス（未指定なら null）。</summary>
     string? SharedIndexPath { get; }
 
+    /// <summary>appmode.json で指定された検索対象フォルダ（未指定なら空）。共有インデックス配布時に管理者が記載。</summary>
+    IReadOnlyList<string> SharedTargetFolders { get; }
+
     /// <summary>appmode.json の読み込みと管理者判定を行う（冪等）。</summary>
     void Initialize();
 }

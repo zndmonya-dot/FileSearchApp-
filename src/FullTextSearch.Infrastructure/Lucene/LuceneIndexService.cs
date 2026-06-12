@@ -33,7 +33,9 @@ public class LuceneIndexService : IIndexService, IDisposable
     private readonly TextExtractorFactory _extractorFactory;
     private FSDirectory? _directory;
     private IndexWriter? _writer;
+    private DirectoryReader? _statsReader;
     private Analyzer? _analyzer;
+    private bool _readOnly;
     /// <summary>初期化／破棄／ロールバック等のライフサイクル境界を保護するロック。書込（UpdateDocument 等）はスレッドセーフな IndexWriter に任せて取らない。</summary>
     private readonly object _lock = new();
     /// <summary><see cref="_skippedFiles"/> への並列追加を保護する。</summary>
@@ -75,7 +77,7 @@ public class LuceneIndexService : IIndexService, IDisposable
     }
 
     /// <summary>指定パスにインデックスを初期化する。既に同パスで開いていれば何もしない。</summary>
-    public Task InitializeAsync(string indexPath, CancellationToken cancellationToken = default)
+    public Task InitializeAsync(string indexPath, bool readOnly = false, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(indexPath)) return Task.CompletedTask;
         var normalizedPath = Path.GetFullPath(indexPath.Trim());
@@ -83,29 +85,31 @@ public class LuceneIndexService : IIndexService, IDisposable
         lock (_lock)
         {
             var currentPath = _directory?.Directory?.FullName;
-            if (_writer != null && currentPath != null &&
-                string.Equals(currentPath, normalizedPath, StringComparison.OrdinalIgnoreCase))
-            {
+            var samePath = currentPath != null &&
+                string.Equals(currentPath, normalizedPath, StringComparison.OrdinalIgnoreCase);
+            if (samePath && ((readOnly && _readOnly && _statsReader != null) || (!readOnly && _writer != null)))
                 return Task.CompletedTask;
-            }
 
-            if (_writer != null)
-            {
-                _writer.Dispose();
-                _analyzer?.Dispose();
-                _directory?.Dispose();
-                _writer = null;
-                _analyzer = null;
-                _directory = null;
-            }
+            CloseIndexResourcesLocked();
 
             if (!System.IO.Directory.Exists(normalizedPath))
             {
+                if (readOnly)
+                    return Task.CompletedTask;
                 System.IO.Directory.CreateDirectory(normalizedPath);
             }
 
             _directory = FSDirectory.Open(normalizedPath);
 
+            if (readOnly)
+            {
+                _readOnly = true;
+                if (DirectoryReader.IndexExists(_directory))
+                    _statsReader = DirectoryReader.Open(_directory);
+                return Task.CompletedTask;
+            }
+
+            _readOnly = false;
             // Sudachi C モードのみ
             _analyzer = new SudachiAnalyzer();
             SudachiTokenizer.Warmup();
@@ -125,6 +129,20 @@ public class LuceneIndexService : IIndexService, IDisposable
         }
 
         return Task.CompletedTask;
+    }
+
+    /// <summary>開いているインデックスリソースをすべて解放する（<see cref="_lock"/> 内で呼ぶ）。</summary>
+    private void CloseIndexResourcesLocked()
+    {
+        _statsReader?.Dispose();
+        _statsReader = null;
+        _writer?.Dispose();
+        _writer = null;
+        _analyzer?.Dispose();
+        _analyzer = null;
+        _directory?.Dispose();
+        _directory = null;
+        _readOnly = false;
     }
 
     /// <summary>ファイルリストを渡してインデックス（再構築時の重複列挙を避ける）。抽出・トークン化・登録を並列パイプラインで実行する。</summary>
@@ -452,7 +470,7 @@ public class LuceneIndexService : IIndexService, IDisposable
         }
         if (!string.IsNullOrWhiteSpace(indexPath))
         {
-            await InitializeAsync(indexPath!, CancellationToken.None).ConfigureAwait(false);
+            await InitializeAsync(indexPath!, cancellationToken: CancellationToken.None).ConfigureAwait(false);
         }
     }
 
@@ -473,11 +491,13 @@ public class LuceneIndexService : IIndexService, IDisposable
     /// <summary>登録件数・概算サイズなどを返す（簡易統計）。</summary>
     public IndexStats GetStats()
     {
-        EnsureInitialized();
-
         lock (_lock)
         {
-            return new IndexStats { DocumentCount = _writer!.NumDocs };
+            if (_writer != null)
+                return new IndexStats { DocumentCount = _writer.NumDocs };
+            if (_statsReader != null)
+                return new IndexStats { DocumentCount = _statsReader.NumDocs };
+            return new IndexStats { DocumentCount = 0 };
         }
     }
 
@@ -683,9 +703,7 @@ public class LuceneIndexService : IIndexService, IDisposable
 
         lock (_lock)
         {
-            _writer?.Dispose();
-            _analyzer?.Dispose();
-            _directory?.Dispose();
+            CloseIndexResourcesLocked();
         }
 
         _disposed = true;

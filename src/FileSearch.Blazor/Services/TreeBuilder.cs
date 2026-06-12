@@ -15,19 +15,23 @@ public static class TreeBuilder
         if (items == null || items.Count == 0) return [];
         try
         {
+            var folders = targetFolders;
+            if (folders == null || folders.Count == 0)
+                folders = DeriveTargetFoldersFromItems(items);
+
             // 1 回の走査で「対象フォルダ → 該当アイテム一覧」にグループ化（フォルダ数×件数ループを避ける）
-            var normalizedTargets = new List<(string original, string normalized)>(targetFolders.Count);
-            foreach (var f in targetFolders)
+            var normalizedTargets = new List<(string original, string normalized)>(folders.Count);
+            foreach (var f in folders)
                 normalizedTargets.Add((f, f.TrimEnd('\\', '/').ToLowerInvariant()));
-            var bucket = new List<SearchResultItem>[targetFolders.Count];
-            for (var t = 0; t < targetFolders.Count; t++)
+            var bucket = new List<SearchResultItem>[folders.Count];
+            for (var t = 0; t < folders.Count; t++)
                 bucket[t] = new List<SearchResultItem>();
             foreach (var item in items)
             {
                 var folderLower = item.FolderPath.ToLowerInvariant();
                 for (var t = 0; t < normalizedTargets.Count; t++)
                 {
-                    if (folderLower.StartsWith(normalizedTargets[t].normalized))
+                    if (IsUnderOrEqual(normalizedTargets[t].normalized, folderLower))
                     {
                         bucket[t].Add(item);
                         break;
@@ -35,8 +39,8 @@ public static class TreeBuilder
                 }
             }
 
-            var result = new List<TreeNode>(targetFolders.Count);
-            for (var t = 0; t < targetFolders.Count; t++)
+            var result = new List<TreeNode>(folders.Count);
+            for (var t = 0; t < folders.Count; t++)
             {
                 var matchingItems = bucket[t];
                 if (matchingItems.Count == 0) continue;
@@ -180,6 +184,35 @@ public static class TreeBuilder
             count += UpdateFileCount(child);
         node.FileCount = count;
         return count;
+    }
+
+    /// <summary>対象フォルダ未設定時、検索結果のフォルダパスから最小のルート集合を推定する。</summary>
+    internal static List<string> DeriveTargetFoldersFromItems(IReadOnlyList<SearchResultItem> items)
+    {
+        var paths = items
+            .Select(i => i.FolderPath.TrimEnd('\\', '/'))
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(p => p.Length)
+            .ToList();
+        var roots = new List<string>();
+        foreach (var path in paths)
+        {
+            if (roots.Any(r => IsUnderOrEqual(r, path)))
+                continue;
+            roots.RemoveAll(r => IsUnderOrEqual(path, r));
+            roots.Add(path);
+        }
+        return roots;
+    }
+
+    private static bool IsUnderOrEqual(string root, string path)
+    {
+        var r = root.TrimEnd('\\', '/');
+        var p = path.TrimEnd('\\', '/');
+        if (p.Length < r.Length) return false;
+        if (!p.StartsWith(r, StringComparison.OrdinalIgnoreCase)) return false;
+        return p.Length == r.Length || p[r.Length] is '\\' or '/';
     }
 
     /// <summary>ツリーを再帰走査し、ファイルノードのみ <paramref name="acc"/> に追加する。</summary>

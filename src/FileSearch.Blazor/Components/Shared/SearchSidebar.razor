@@ -19,7 +19,7 @@
         </div>
     </div>
 
-    @* M-03 検索入力欄（Enter で検索／Esc でクリア） *@
+    @* M-03 検索入力欄（検索ボタン／Enter で検索、Esc でクリア） *@
     <div class="sidebar-search-wrap">
         <div class="search-mode-group" role="radiogroup" aria-label="@UserMessages.SearchModeGroupLabel">
             <label class="search-mode-option" title="@UserMessages.SearchModeKeywordTitle" @onclick="@SelectKeywordMode">
@@ -35,9 +35,18 @@
                 <span>@UserMessages.SearchModePhrase</span>
             </label>
         </div>
-        <div class="sidebar-search">
-            <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M10.68 11.74a6 6 0 0 1-7.922-8.982 6 6 0 0 1 8.982 7.922l3.04 3.04a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215ZM11.5 7a4.499 4.499 0 1 0-8.997 0A4.499 4.499 0 0 0 11.5 7Z"/></svg>
-            <input id="search-input" type="text" placeholder="@UserMessages.SearchInputPlaceholder" value="@SearchQuery" @oninput="HandleSearchInput" @onkeydown="OnSearchKeyDown" disabled="@IsIndexing" tabindex="0" autofocus />
+        <div class="sidebar-search-row">
+            <div class="sidebar-search">
+                <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M10.68 11.74a6 6 0 0 1-7.922-8.982 6 6 0 0 1 8.982 7.922l3.04 3.04a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215ZM11.5 7a4.499 4.499 0 1 0-8.997 0A4.499 4.499 0 0 0 11.5 7Z"/></svg>
+                <input id="search-input" type="text" placeholder="@UserMessages.SearchInputPlaceholder" value="@SearchQuery" @oninput="HandleSearchInput" @onkeydown="OnSearchKeyDown" disabled="@IsIndexing" tabindex="0" autofocus />
+            </div>
+            <button type="button"
+                    class="sidebar-search-btn"
+                    @onclick="OnSearchClick"
+                    disabled="@(!CanSearch)"
+                    title="@UserMessages.SearchButtonTitle">
+                @UserMessages.SearchButtonLabel
+            </button>
         </div>
     </div>
     @if (IsIndexing)
@@ -184,6 +193,8 @@
     [Parameter] public int IndexSkipCount { get; set; }
     /// <summary>スキップログを開く。</summary>
     [Parameter] public EventCallback OnOpenSkippedLog { get; set; }
+    /// <summary>検索ボタン押下（Enter 検索と同じ）。</summary>
+    [Parameter] public EventCallback OnSearch { get; set; }
     /// <summary>検索欄のキー入力（Enter 検索など）。</summary>
     [Parameter] public EventCallback<KeyboardEventArgs> OnSearchKeyDown { get; set; }
     /// <summary>検索欄の入力変更後（デバウンス用フック）。</summary>
@@ -210,6 +221,12 @@
     [Parameter] public Func<string> GetLastUpdateText { get; set; } = () => "";
     /// <summary>実行ユーザーが管理者か。非管理者は再構築ボタンを非活性にする。</summary>
     [Parameter] public bool IsAdmin { get; set; }
+
+    private bool CanSearch =>
+        !IsIndexing && !IsSearching && !string.IsNullOrWhiteSpace(SearchQuery);
+
+    /// <summary>検索ボタン押下を親に伝える。</summary>
+    private Task OnSearchClick() => OnSearch.InvokeAsync();
 
     /// <summary>検索欄入力を親に伝え、入力変更コールバックを続けて呼ぶ。</summary>
     private async Task HandleSearchInput(ChangeEventArgs e)

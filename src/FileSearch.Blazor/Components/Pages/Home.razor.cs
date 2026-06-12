@@ -178,13 +178,15 @@ public partial class Home : IDisposable
         {
             // 共有インデックスを参照する。インストール先は基本このインデックスのみを使う。
             SettingsService.Settings.IndexPath = AppMode.SharedIndexPath;
+            if (AppMode.SharedTargetFolders.Count > 0 && SettingsService.Settings.TargetFolders.Count == 0)
+                SettingsService.Settings.TargetFolders = AppMode.SharedTargetFolders.ToList();
         }
 
         ApplyThemeFromSettings();
         var indexPath = SettingsService.Settings.IndexPath;
         if (!string.IsNullOrWhiteSpace(indexPath))
         {
-            await IndexService.InitializeAsync(indexPath);
+            await IndexService.InitializeAsync(indexPath, readOnly: !isAdmin);
             indexCount = IndexService.GetStats().DocumentCount;
             SearchService.Warmup();
         }

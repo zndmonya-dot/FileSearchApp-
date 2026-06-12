@@ -11,6 +11,24 @@ public class TreeBuilderTests
         Path.GetFullPath(Path.Combine(new[] { Path.GetTempPath(), "fts-test-tree" }.Concat(parts).ToArray()));
 
     [Fact]
+    public void BuildTree_empty_target_folders_derives_roots_from_items()
+    {
+        var root = Root("h0", "shared");
+        var sub = Path.Combine(root, "docs");
+        var item = new SearchResultItem
+        {
+            FilePath = Path.Combine(sub, "note.txt"),
+            FileName = "note.txt",
+            FolderPath = sub,
+            FileSize = 1,
+            LastModified = default
+        };
+        var tree = TreeBuilder.BuildTree(Array.Empty<string>(), new[] { item });
+        Assert.Single(tree);
+        Assert.Equal(sub, tree[0].FullPath);
+    }
+
+    [Fact]
     public void BuildTree_empty_items_returns_empty()
     {
         var t = Root("a0");

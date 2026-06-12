@@ -113,7 +113,7 @@
                             <label>@UserMessages.LabelLastIndexUpdate</label>
                             <div class="settings-stat @(IsAdmin ? null : "settings-stat--readonly")" aria-readonly="true">@(LastIndexUpdate.HasValue ? LastIndexUpdate.Value.ToString("yyyy/MM/dd HH:mm:ss") : UserMessages.LastIndexNeverRun)</div>
                         </div>
-                        @* S-15 定期再構築間隔（無効/30分/1時間/2時間/6時間/12時間/24時間/1週間） *@
+                        @* S-15 自動更新の間隔 *@
                         <div class="settings-field">
                             <label>@UserMessages.LabelAutoRebuild</label>
                             <select class="settings-select" @bind="State.AutoRebuildIntervalMinutes" disabled="@(!IsAdmin)">
