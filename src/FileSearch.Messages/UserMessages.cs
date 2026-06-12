@@ -165,13 +165,19 @@ public static class UserMessages
     /// <summary>検索対象フォルダ見出し</summary>
     public const string SettingsSectionTargetFolders = "検索対象フォルダ";
     /// <summary>検索対象フォルダ説明</summary>
-    public const string SettingsDescriptionTargetFolders = "インデックス作成対象のフォルダを指定します";
-    /// <summary>追加ボタン</summary>
+    public const string SettingsDescriptionTargetFolders = "インデックス対象のフォルダを複数指定できます";
+    /// <summary>検索対象フォルダ未登録時</summary>
+    public const string TargetFoldersEmpty = "フォルダが登録されていません";
+    /// <summary>追加ボタン（拡張子など）</summary>
     public const string Add = "追加";
-    /// <summary>参照ボタン</summary>
-    public const string Browse = "参照";
-    /// <summary>フォルダパス入力プレースホルダ</summary>
-    public const string SettingsPlaceholderFolderPath = @"C:\Users\...";
+    /// <summary>検索対象フォルダを追加（フォルダ選択ダイアログ）</summary>
+    public const string AddFolder = "フォルダを追加";
+    /// <summary>インデックス保存先を選択（未設定時）</summary>
+    public const string SelectIndexPath = "保存先を選択";
+    /// <summary>インデックス保存先を変更（設定済み時）</summary>
+    public const string ChangeIndexPath = "保存先を変更";
+    /// <summary>対象拡張子未登録時</summary>
+    public const string ExtensionsEmpty = "拡張子が登録されていません（空の場合は抽出器の対応拡張子を使用）";
     /// <summary>対象拡張子見出し</summary>
     public const string SettingsSectionExtensions = "対象拡張子";
     /// <summary>対象拡張子説明</summary>
@@ -187,11 +193,9 @@ public static class UserMessages
     /// <summary>インデックス保存先見出し</summary>
     public const string SettingsSectionIndexPath = "インデックス保存先";
     /// <summary>インデックス保存先説明</summary>
-    public const string SettingsDescriptionIndexPath = "変更後はインデックスの再構築が必要です";
-    /// <summary>フォルダを開くボタン</summary>
-    public const string OpenIndexFolder = "フォルダを開く";
-    /// <summary>インデックスフォルダを開くボタンの title</summary>
-    public const string OpenIndexFolderTitle = "インデックスフォルダをエクスプローラーで開く";
+    public const string SettingsDescriptionIndexPath = "インデックスを保存するフォルダを1つ指定します。変更後は再構築が必要です";
+    /// <summary>インデックス保存先未設定時（設定画面）</summary>
+    public const string IndexPathEmpty = "未設定";
     /// <summary>インデックス状態セクション見出し</summary>
     public const string SettingsSectionIndex = "インデックス";
     /// <summary>インデックス状態説明</summary>

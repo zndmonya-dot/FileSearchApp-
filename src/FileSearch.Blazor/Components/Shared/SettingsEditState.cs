@@ -7,8 +7,6 @@ public class SettingsEditState
 {
     /// <summary>検索対象フォルダの一覧（編集中）</summary>
     public List<string> TargetFolders { get; set; } = new();
-    /// <summary>追加入力欄のフォルダパス</summary>
-    public string NewFolderPath { get; set; } = "";
     /// <summary>フォルダ追加時のエラー・注意メッセージ</summary>
     public string? FolderMessage { get; set; }
     /// <summary>インデックス保存先パス</summary>

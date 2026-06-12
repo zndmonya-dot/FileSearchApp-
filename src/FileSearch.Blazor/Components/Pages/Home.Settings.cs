@@ -25,40 +25,14 @@ public partial class Home
         _settingsEdit.TargetExtensions = SettingsService.Settings.TargetExtensions.ToList();
         _settingsEdit.AutoRebuildIntervalMinutes = SettingsService.Settings.AutoRebuildIntervalMinutes;
         _settingsEdit.ThemeMode = SettingsService.Settings.ThemeMode ?? "System";
-        _settingsEdit.NewFolderPath = "";
         _settingsEdit.NewTargetExtension = "";
         _settingsEdit.ExtensionMessage = null;
+        _settingsEdit.IndexPathMessage = null;
         showSettings = true;
     }
 
     /// <summary>設定モーダルを閉じる。</summary>
     private void CloseSettings() => showSettings = false;
-
-    /// <summary>手入力パスを正規化し、重複・存在チェックのうえ TargetFolders に追加。</summary>
-    private void HandleAddFolder()
-    {
-        _settingsEdit.FolderMessage = null;
-        var path = (_settingsEdit.NewFolderPath ?? "").Trim().TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            _settingsEdit.FolderMessage = UserMessages.FolderPathRequired;
-            return;
-        }
-        if (!Directory.Exists(path))
-        {
-            _settingsEdit.FolderMessage = UserMessages.FolderNotFound;
-            return;
-        }
-        var normalizedExisting = _settingsEdit.TargetFolders
-            .Select(f => f.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)).ToList();
-        if (normalizedExisting.Contains(path, StringComparer.OrdinalIgnoreCase))
-        {
-            _settingsEdit.FolderMessage = UserMessages.AlreadyAdded;
-            return;
-        }
-        _settingsEdit.TargetFolders.Add(path);
-        _settingsEdit.NewFolderPath = "";
-    }
 
     /// <summary>OS のフォルダピッカーで選んだパスを追加。</summary>
     private async Task HandleBrowseFolder()
@@ -117,6 +91,22 @@ public partial class Home
     private void RemoveFolder(string f)
     {
         _settingsEdit.TargetFolders.Remove(f);
+    }
+
+    /// <summary>OS のフォルダピッカーで選んだパスをインデックス保存先に設定する。</summary>
+    private async Task HandleBrowseIndexPath()
+    {
+        _settingsEdit.IndexPathMessage = null;
+        try
+        {
+            var path = await PickFolderAsync();
+            if (string.IsNullOrEmpty(path)) return;
+            _settingsEdit.IndexPath = path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
+        catch (Exception ex)
+        {
+            _settingsEdit.IndexPathMessage = UserMessages.FolderPickerFailed(ex.Message);
+        }
     }
 
     /// <summary>拡張子を「.」付きに正規化して追加。</summary>

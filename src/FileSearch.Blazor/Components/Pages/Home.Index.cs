@@ -15,16 +15,6 @@ namespace FileSearch.Blazor.Components.Pages;
 
 public partial class Home
 {
-    /// <summary>インデックス保存先フォルダをエクスプローラーで開く。</summary>
-    private void OpenIndexFolder()
-    {
-        if (!isAdmin) return;
-        var path = SettingsService.Settings.IndexPath;
-        if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
-            return;
-        Process.Start(new ProcessStartInfo { FileName = "explorer.exe", Arguments = $"\"{path}\"", UseShellExecute = true });
-    }
-
     /// <summary>skipped_files.log を既定アプリで開く。失敗時は indexErrorMessage を設定。</summary>
     private Task OpenSkippedLog()
     {

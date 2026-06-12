@@ -109,12 +109,11 @@
                    LastIndexUpdate="SettingsService.Settings.LastIndexUpdate"
                    OnCloseRequested="CloseSettings"
                    OnSaveRequested="SaveSettings"
-                   OnAddFolder="HandleAddFolder"
                    OnBrowseFolder="HandleBrowseFolder"
                    OnRemoveFolder="RemoveFolder"
+                   OnBrowseIndexPath="HandleBrowseIndexPath"
                    OnAddTargetExtension="HandleAddTargetExtension"
-                   OnRemoveTargetExtension="RemoveTargetExtension"
-                   OnOpenIndexFolder="OpenIndexFolder" />
+                   OnRemoveTargetExtension="RemoveTargetExtension" />
 </div>
 
 @if (isResizing)
