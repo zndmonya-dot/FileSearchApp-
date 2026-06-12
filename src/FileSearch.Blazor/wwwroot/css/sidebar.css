@@ -61,9 +61,19 @@
 .search-mode-group {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: 4px 12px;
     margin-bottom: 6px;
     padding: 0 4px;
+}
+
+.search-mode-spinner {
+    width: 14px;
+    height: 14px;
+    min-width: 14px;
+    min-height: 14px;
+    border-width: 2px;
+    flex-shrink: 0;
 }
 
 .search-mode-option {
@@ -84,6 +94,15 @@
 
 .search-mode-option span {
     line-height: 1.2;
+}
+
+.search-mode-option--disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.search-mode-option--disabled input {
+    cursor: not-allowed;
 }
 
 .sidebar-search {

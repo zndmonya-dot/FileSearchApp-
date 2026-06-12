@@ -22,16 +22,23 @@
     @* M-03 検索入力欄（検索ボタン／Enter で検索、Esc でクリア） *@
     <div class="sidebar-search-wrap">
         <div class="search-mode-group" role="radiogroup" aria-label="@UserMessages.SearchModeGroupLabel">
-            <label class="search-mode-option" title="@UserMessages.SearchModeKeywordTitle" @onclick="@SelectKeywordMode">
-                <input type="radio" name="search-mode" checked="@(SearchMode == SearchMode.Keyword)" disabled="@IsIndexing" @onchange="@SelectKeywordMode" />
+            @if (IsSearching)
+            {
+                <div class="search-mode-spinner spinner-ring" aria-hidden="true"></div>
+            }
+            @{
+                var modeDisabled = IsIndexing || IsSearching;
+            }
+            <label class="search-mode-option @(modeDisabled ? "search-mode-option--disabled" : null)" title="@UserMessages.SearchModeKeywordTitle">
+                <input type="radio" name="search-mode" checked="@(SearchMode == SearchMode.Keyword)" disabled="@modeDisabled" @onchange="@SelectKeywordMode" />
                 <span>@UserMessages.SearchModeKeyword</span>
             </label>
-            <label class="search-mode-option" title="@UserMessages.SearchModeAnyTitle" @onclick="@SelectAnyMode">
-                <input type="radio" name="search-mode" checked="@(SearchMode == SearchMode.Any)" disabled="@IsIndexing" @onchange="@SelectAnyMode" />
+            <label class="search-mode-option @(modeDisabled ? "search-mode-option--disabled" : null)" title="@UserMessages.SearchModeAnyTitle">
+                <input type="radio" name="search-mode" checked="@(SearchMode == SearchMode.Any)" disabled="@modeDisabled" @onchange="@SelectAnyMode" />
                 <span>@UserMessages.SearchModeAny</span>
             </label>
-            <label class="search-mode-option" title="@UserMessages.SearchModePhraseTitle" @onclick="@SelectPhraseMode">
-                <input type="radio" name="search-mode" checked="@(SearchMode == SearchMode.Phrase)" disabled="@IsIndexing" @onchange="@SelectPhraseMode" />
+            <label class="search-mode-option @(modeDisabled ? "search-mode-option--disabled" : null)" title="@UserMessages.SearchModePhraseTitle">
+                <input type="radio" name="search-mode" checked="@(SearchMode == SearchMode.Phrase)" disabled="@modeDisabled" @onchange="@SelectPhraseMode" />
                 <span>@UserMessages.SearchModePhrase</span>
             </label>
         </div>

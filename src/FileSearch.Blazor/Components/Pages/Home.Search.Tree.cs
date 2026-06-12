@@ -58,12 +58,13 @@ public partial class Home
         _lastSearchActivityUtc = DateTime.UtcNow;
     }
 
-    /// <summary>検索モード変更。直前に検索済みの語句があれば同条件で再検索する。</summary>
+    /// <summary>検索モード変更。入力中のキーワードがあれば同語句で再検索する（スピナー表示）。</summary>
     private async Task OnSearchModeChangedAsync(SearchMode mode)
     {
+        if (searchMode == mode) return;
         searchMode = mode;
         _lastSearchActivityUtc = DateTime.UtcNow;
-        if (!string.IsNullOrWhiteSpace(_lastExecutedSearchQuery))
+        if (!isIndexing && !string.IsNullOrWhiteSpace(searchQuery?.Trim()))
             await ExecuteSearch();
     }
 
