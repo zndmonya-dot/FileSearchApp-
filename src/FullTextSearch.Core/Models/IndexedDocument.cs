@@ -40,11 +40,6 @@ public class IndexedDocument
     /// ファイルの種類
     /// </summary>
     public required string FileType { get; init; }
-
-    /// <summary>
-    /// インデックス登録日時
-    /// </summary>
-    public DateTime IndexedAt { get; init; } = DateTime.UtcNow;
 }
 
 

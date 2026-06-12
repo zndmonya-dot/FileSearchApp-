@@ -36,10 +36,4 @@ public static class ContentLimits
 
     /// <summary>プレビュー表示に使う最大文字数。超えた分は省略表示。</summary>
     public const int PreviewMaxChars = 50_000;
-
-    /// <summary>シンタックスハイライトをかける最大行数（それ以降はエスケープのみ）。プレビュー最大文字数と同程度にし、途中でハイライトが切れないようにする。</summary>
-    public const int PreviewMaxLinesForHighlight = 50_000;
-
-    /// <summary>プレビュー行の高さ（px）。Virtualize の ItemSize と CSS の line-height で揃える。</summary>
-    public const int PreviewLineHeightPx = 20;
 }

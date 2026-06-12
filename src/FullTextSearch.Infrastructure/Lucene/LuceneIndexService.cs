@@ -1,5 +1,6 @@
 // Lucene.NET によるインデックス作成・更新・削除。Sudachi 形態素解析（モード C）でトークナイズ。
 using System.Collections.Concurrent;
+using System.Threading;
 using FullTextSearch.Core;
 using FullTextSearch.Core.Extractors;
 using FullTextSearch.Core.Index;
@@ -21,13 +22,13 @@ namespace FullTextSearch.Infrastructure.Lucene;
 public class LuceneIndexService : IIndexService, IDisposable
 {
     private const LuceneVersion AppLuceneVersion = LuceneVersion.LUCENE_48;
-    /// <summary>並列テキスト抽出数（I/O 飽和を狙った値）</summary>
-    private const int ParallelExtractCount = 48;
     /// <summary>
-    /// IndexWriter への並列追加数（並列トークン化数）。<see cref="SudachiTokenizer.PoolSize"/> と一致させ、
-    /// 各書込スレッドが SudachiPy プロセスプールから 1 つずつ取得して並列にトークン化できるようにする。
+    /// 抽出・登録パイプラインの並列度。他アプリと共存するため Sudachi プール＋抽出用に抑え、論理コアの半分を超えない。
+    /// （Sudachi 2 + 抽出 2 ≒ 最大 4 スレッド＝13 世代 i5 で約 4 コア相当。残りは OS／他アプリ用）
     /// </summary>
-    private static readonly int IndexerParallelism = SudachiTokenizer.PoolSize;
+    private static readonly int IndexerParallelism = Math.Min(
+        SudachiTokenizer.PoolSize + 2,
+        Math.Max(2, Environment.ProcessorCount / 2));
 
     private readonly TextExtractorFactory _extractorFactory;
     private FSDirectory? _directory;
@@ -64,8 +65,6 @@ public class LuceneIndexService : IIndexService, IDisposable
     public const string FieldLastModified = "lastmodified";
     /// <summary>種別表示名（日本語ラベル）。</summary>
     public const string FieldFileType = "filetype";
-    /// <summary>インデックス登録日時（Ticks）。</summary>
-    public const string FieldIndexedAt = "indexedat";
     /// <summary>完全一致検索の候補絞り込み用の文字バイグラム索引（本文＋ファイル名、非格納）。<see cref="ContentNGram"/> 参照。</summary>
     public const string FieldContentNGram = "content_ngram";
 
@@ -114,15 +113,12 @@ public class LuceneIndexService : IIndexService, IDisposable
             var config = new IndexWriterConfig(AppLuceneVersion, _analyzer)
             {
                 OpenMode = OpenMode.CREATE_OR_APPEND,
-                RAMBufferSizeMB = 512  // 高速化: メモリに溜めてからフラッシュ
+                RAMBufferSizeMB = 256  // 他アプリ共存: メモリ占有を抑える（512→256）
             };
-            // 並列インデックス追加にあわせてマージも並列化する。
-            // - maxThreadCount: 同時に走るマージスレッド数（CPU の半分まで、上限 4）
-            // - maxMergeCount : 待機キューに積めるマージ最大数（threads + 余裕）
-            // 既定（threads=1）は大量追加時にマージが詰まり書込スループットが頭打ちになるため明示する。
+            // マージは 1 スレッドに抑え、再構築中の CPU スパイク（ファン急回転）を防ぐ。
             var cms = new ConcurrentMergeScheduler();
-            var mergeThreads = Math.Max(1, Math.Min(Environment.ProcessorCount / 2, 4));
-            cms.SetMaxMergesAndThreads(mergeThreads + 2, mergeThreads);
+            const int mergeThreads = 1;
+            cms.SetMaxMergesAndThreads(mergeThreads + 1, mergeThreads);
             config.MergeScheduler = cms;
 
             _writer = new IndexWriter(_directory, config);
@@ -131,35 +127,15 @@ public class LuceneIndexService : IIndexService, IDisposable
         return Task.CompletedTask;
     }
 
-    /// <summary>ファイルリストを渡してインデックス（再構築時の重複列挙を避ける）</summary>
+    /// <summary>ファイルリストを渡してインデックス（再構築時の重複列挙を避ける）。抽出・トークン化・登録を並列パイプラインで実行する。</summary>
     private async Task IndexFolderWithFilesAsync(string folderPath, IReadOnlyList<string> files, IProgress<IndexProgress>? progress, CancellationToken cancellationToken, int progressOffset = 0, int? progressTotalOverride = null)
     {
-        var processedFiles = 0;
-        var errorCount = 0;
-        var totalFiles = files.Count;
-        var totalForProgress = progressTotalOverride ?? totalFiles;
-
-        for (var i = 0; i < files.Count; i += ParallelExtractCount)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var chunk = files.Skip(i).Take(ParallelExtractCount).ToList();
-            errorCount += await ProcessChunkAsync(chunk, cancellationToken);
-            foreach (var path in chunk)
-            {
-                progress?.Report(new IndexProgress
-                {
-                    ProcessedFiles = progressOffset + processedFiles,
-                    TotalFiles = totalForProgress,
-                    CurrentFile = path,
-                    ErrorCount = errorCount
-                });
-                processedFiles++;
-            }
-        }
+        var totalForProgress = progressTotalOverride ?? files.Count;
+        var errorCount = await IndexFilesParallelAsync(files, progress, totalForProgress, progressOffset, cancellationToken).ConfigureAwait(false);
 
         progress?.Report(new IndexProgress
         {
-            ProcessedFiles = progressOffset + processedFiles,
+            ProcessedFiles = progressOffset + files.Count,
             TotalFiles = totalForProgress,
             CurrentFile = null,
             ErrorCount = errorCount
@@ -174,6 +150,74 @@ public class LuceneIndexService : IIndexService, IDisposable
                 _writer!.Commit();
             }
         }
+    }
+
+    /// <summary>
+    /// ファイル一覧を並列に「抽出 → トークン化 → 登録」する。スキップ件数を返す。Commit は呼ばない。
+    /// ワーカースレッドは <see cref="ThreadPriority.BelowNormal"/> で他アプリを優先する。
+    /// </summary>
+    private async Task<int> IndexFilesParallelAsync(
+        IReadOnlyList<string> files,
+        IProgress<IndexProgress>? progress,
+        int totalForProgress,
+        int progressOffset,
+        CancellationToken cancellationToken)
+    {
+        if (files.Count == 0) return 0;
+        var errorCount = 0;
+        var processed = 0;
+        var po = new ParallelOptions
+        {
+            CancellationToken = cancellationToken,
+            MaxDegreeOfParallelism = IndexerParallelism
+        };
+        try
+        {
+            await Parallel.ForEachAsync(files, po, async (path, token) =>
+            {
+                var prevPriority = Thread.CurrentThread.Priority;
+                Thread.CurrentThread.Priority = ThreadPriority.BelowNormal;
+                try
+                {
+                    var doc = await TryGetIndexedDocumentAsync(path, token).ConfigureAwait(false);
+                    if (doc == null)
+                    {
+                        AddSkipped(path);
+                        Interlocked.Increment(ref errorCount);
+                    }
+                    else
+                    {
+                        try
+                        {
+                            _writer!.UpdateDocument(new Term(FieldFilePath, doc.FilePath), CreateLuceneDocument(doc));
+                        }
+                        catch (OperationCanceledException) { throw; }
+                        catch
+                        {
+                            AddSkipped(path);
+                            Interlocked.Increment(ref errorCount);
+                        }
+                    }
+                    var done = Interlocked.Increment(ref processed);
+                    progress?.Report(new IndexProgress
+                    {
+                        ProcessedFiles = progressOffset + done,
+                        TotalFiles = totalForProgress,
+                        CurrentFile = path,
+                        ErrorCount = Volatile.Read(ref errorCount)
+                    });
+                }
+                finally
+                {
+                    Thread.CurrentThread.Priority = prevPriority;
+                }
+            }).ConfigureAwait(false);
+        }
+        catch (AggregateException ae) when (ae.InnerExceptions.All(e => e is OperationCanceledException))
+        {
+            throw new OperationCanceledException(cancellationToken);
+        }
+        return errorCount;
     }
 
     /// <summary>C: や C:\ をドライブルート C:\ に正規化する。GetFullPath("C:") はカレントディレクトリを返すため、ルート指定が 0 件になるのを防ぐ。</summary>
@@ -317,17 +361,8 @@ public class LuceneIndexService : IIndexService, IDisposable
                 }
             }
 
-            for (var i = 0; i < toAddOrUpdate.Count; i += ParallelExtractCount)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                var chunk = toAddOrUpdate.Skip(i).Take(ParallelExtractCount).ToList();
-                errorCount += await ProcessChunkAsync(chunk, cancellationToken);
-                foreach (var path in chunk)
-                {
-                    processed++;
-                    progress?.Report(new IndexProgress { ProcessedFiles = processed, TotalFiles = total, CurrentFile = path, ErrorCount = errorCount });
-                }
-            }
+            errorCount += await IndexFilesParallelAsync(toAddOrUpdate, progress, total, processed, cancellationToken).ConfigureAwait(false);
+            processed += toAddOrUpdate.Count;
 
             progress?.Report(new IndexProgress { ProcessedFiles = processed, TotalFiles = total, CurrentFile = null, ErrorCount = errorCount });
             lock (_lock)
@@ -472,8 +507,7 @@ public class LuceneIndexService : IIndexService, IDisposable
                 Content = content,
                 FileSize = fileInfo.Length,
                 LastModified = fileInfo.LastWriteTimeUtc,
-                FileType = GetFileType(extension),
-                IndexedAt = DateTime.UtcNow
+                FileType = GetFileType(extension)
             };
         }
         catch (OperationCanceledException)
@@ -485,95 +519,6 @@ public class LuceneIndexService : IIndexService, IDisposable
         {
             return null; // エラーになったらそのファイルを飛ばして次へ
         }
-    }
-
-    /// <summary>
-    /// ライターに複数ドキュメントを並列で一括追加。Commit は呼ばない。エラー時はスキップして次へ進み、失敗件数を返す。
-    /// IndexWriter はスレッドセーフのため <c>_lock</c> は取らない。各スレッドがそれぞれ
-    /// SudachiPy プロセスプールから 1 つ取得して並列にトークン化することで、トークン化が直列だった
-    /// 旧実装のボトルネックを解消する。並列度は <see cref="IndexerParallelism"/>。
-    /// </summary>
-    private int AddDocumentsToWriterWithoutCommit(IReadOnlyList<IndexedDocument> documents, CancellationToken cancellationToken)
-    {
-        if (documents.Count == 0) return 0;
-        var failCount = 0;
-        var po = new ParallelOptions
-        {
-            CancellationToken = cancellationToken,
-            MaxDegreeOfParallelism = IndexerParallelism
-        };
-        try
-        {
-            Parallel.ForEach(documents, po, document =>
-            {
-                try
-                {
-                    var doc = CreateLuceneDocument(document);
-                    _writer!.UpdateDocument(new Term(FieldFilePath, document.FilePath), doc);
-                }
-                catch (OperationCanceledException)
-                {
-                    throw;
-                }
-                catch
-                {
-                    AddSkipped(document.FilePath);
-                    Interlocked.Increment(ref failCount);
-                }
-            });
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (AggregateException ae) when (ae.InnerExceptions.All(e => e is OperationCanceledException))
-        {
-            throw new OperationCanceledException(cancellationToken);
-        }
-        return failCount;
-    }
-
-    /// <summary>
-    /// チャンク内のファイルを並列抽出し、Lucene に追加する。スキップされたファイル数を返す。
-    /// キャンセル要求があれば、抽出完了後すぐに <see cref="OperationCanceledException"/> を投げて呼び出し元へ抜ける。
-    /// </summary>
-    private async Task<int> ProcessChunkAsync(IReadOnlyList<string> chunk, CancellationToken cancellationToken)
-    {
-        var tasks = chunk.Select(p => TryGetIndexedDocumentAsync(p, cancellationToken)).ToArray();
-        IndexedDocument?[] docs;
-        try
-        {
-            docs = await Task.WhenAll(tasks);
-        }
-        catch (OperationCanceledException)
-        {
-            // 抽出器側でキャンセル例外を握りつぶしていたため遅延していた。即座に上位へ伝播させる。
-            throw;
-        }
-        catch
-        {
-            docs = new IndexedDocument?[chunk.Count];
-        }
-
-        cancellationToken.ThrowIfCancellationRequested();
-
-        var skippedCount = 0;
-        for (int j = 0; j < docs.Length && j < chunk.Count; j++)
-        {
-            if (docs[j] == null)
-            {
-                AddSkipped(chunk[j]);
-                skippedCount++;
-            }
-        }
-
-        var toAdd = new List<IndexedDocument>(docs.Length);
-        foreach (var d in docs)
-            if (d != null) toAdd.Add(d);
-        if (toAdd.Count > 0)
-            skippedCount += AddDocumentsToWriterWithoutCommit(toAdd, cancellationToken);
-
-        return skippedCount;
     }
 
     /// <summary>対象拡張子に合致するファイルを再帰列挙（Office ロックファイル・一部システムフォルダは除外）。</summary>
@@ -689,8 +634,7 @@ public class LuceneIndexService : IIndexService, IDisposable
             new TextField(FieldContentNGram, new ListTokenStream(ContentNGram.BuildIndexTokens(content, doc.FileName))),
             new Int64Field(FieldFileSize, doc.FileSize, Field.Store.YES),
             new Int64Field(FieldLastModified, doc.LastModified.Ticks, Field.Store.YES),
-            new StringField(FieldFileType, doc.FileType, Field.Store.YES),
-            new Int64Field(FieldIndexedAt, doc.IndexedAt.Ticks, Field.Store.YES)
+            new StringField(FieldFileType, doc.FileType, Field.Store.YES)
         };
     }
 

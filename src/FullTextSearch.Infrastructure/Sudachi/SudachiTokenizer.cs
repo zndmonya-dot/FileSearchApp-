@@ -122,10 +122,10 @@ public sealed class SudachiTokenizer : Tokenizer
 
     /// <summary>
     /// SudachiPy 常駐プロセスのプール上限（同時並列数）。
-    /// 上限を <c>min(ProcessorCount, 4)</c> としているのは、SudachiPy のトークン化は CPU バウンドで
-    /// 4 並列前後で頭打ちになるため、過剰な常駐プロセスのメモリ消費を避ける狙い。
+    /// 1 プロセス ≈ 1 コアを占有するため、他アプリ稼働を想定して上限 2 に抑える（13 世代 i5 デスクトップ／16GB 想定）。
+    /// 論理コアが少ない環境では ProcessorCount/4 に追従（最低 1）。
     /// </summary>
-    public static readonly int PoolSize = Math.Max(2, Math.Min(Environment.ProcessorCount, 4));
+    public static readonly int PoolSize = Math.Max(1, Math.Min(2, Environment.ProcessorCount / 4));
 
     /// <summary>SudachiPy 常駐プロセスのプール（Borrow/Return）。<see cref="EnsurePool"/> 後に有効。</summary>
     private static BlockingCollection<SudachiProcessHandle>? _processPool;
@@ -291,6 +291,7 @@ public sealed class SudachiTokenizer : Tokenizer
             };
             var p = Process.Start(psi);
             if (p == null) return null;
+            try { p.PriorityClass = ProcessPriorityClass.BelowNormal; } catch { /* 権限不足時は無視 */ }
             p.ErrorDataReceived += (_, _) => { };
             p.BeginErrorReadLine();
             return new SudachiProcessHandle(p);
@@ -449,6 +450,7 @@ public sealed class SudachiTokenizer : Tokenizer
         {
             if (process == null)
                 return [];
+            try { process.PriorityClass = ProcessPriorityClass.BelowNormal; } catch { /* 権限不足時は無視 */ }
             process.ErrorDataReceived += (_, _) => { };
             process.BeginErrorReadLine();
             using var watchdog = new Timer(_ => { try { process.Kill(); } catch { } }, null, OneshotTimeoutMs, Timeout.Infinite);
