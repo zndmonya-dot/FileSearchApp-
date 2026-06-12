@@ -1,3 +1,25 @@
+/* ===== Disabled controls（非活性: クリック不可をカーソル・透明度で明示） ===== */
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled {
+    cursor: not-allowed !important;
+    opacity: 0.45;
+}
+
+input:disabled,
+select:disabled,
+textarea:disabled {
+    background-color: var(--color-canvas-subtle, #161b22) !important;
+}
+
+.app.light input:disabled,
+.app.light select:disabled,
+.app.light textarea:disabled {
+    background-color: #f6f8fa !important;
+    color: #8b949e !important;
+}
+
 /* ===== Spinners ===== */
 .spinner-ring {
     width: 32px;

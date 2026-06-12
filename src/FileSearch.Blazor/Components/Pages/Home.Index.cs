@@ -18,6 +18,7 @@ public partial class Home
     /// <summary>インデックス保存先フォルダをエクスプローラーで開く。</summary>
     private void OpenIndexFolder()
     {
+        if (!isAdmin) return;
         var path = SettingsService.Settings.IndexPath;
         if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
             return;

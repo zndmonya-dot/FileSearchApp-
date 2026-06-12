@@ -308,7 +308,7 @@
     border: 1px solid var(--color-border-muted);
 }
 
-.footer-line-with-action .footer-action.footer-action-with-label:hover {
+.footer-line-with-action .footer-action.footer-action-with-label:hover:not(:disabled) {
     border-color: var(--color-border-default);
 }
 
@@ -475,14 +475,24 @@
     white-space: nowrap;
 }
 
-.footer-action:hover {
+.footer-action:hover:not(:disabled) {
     background: rgba(139, 148, 158, 0.15);
     color: #e6edf3;
 }
 
-.app.light .footer-action:hover {
+.app.light .footer-action:hover:not(:disabled) {
     background: rgba(0, 0, 0, 0.08);
     color: #1f2328;
+}
+
+.footer-action:disabled {
+    opacity: 0.35;
+    color: #6e7681;
+    cursor: not-allowed !important;
+}
+
+.footer-action:disabled .footer-action-label {
+    color: inherit;
 }
 
 .footer-progress {

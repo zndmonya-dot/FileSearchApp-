@@ -124,7 +124,11 @@ public partial class Home
     {
         var ext = (_settingsEdit.NewTargetExtension ?? "").Trim();
         if (!string.IsNullOrEmpty(ext) && !ext.StartsWith(".")) ext = "." + ext;
-        if (string.IsNullOrEmpty(ext)) { _settingsEdit.ExtensionMessage = null; return; }
+        if (string.IsNullOrEmpty(ext))
+        {
+            _settingsEdit.ExtensionMessage = UserMessages.ExtensionRequired;
+            return;
+        }
         if (_settingsEdit.TargetExtensions.Contains(ext, StringComparer.OrdinalIgnoreCase)) { _settingsEdit.ExtensionMessage = UserMessages.AlreadyAdded; return; }
         _settingsEdit.TargetExtensions.Add(ext);
         _settingsEdit.NewTargetExtension = "";
@@ -140,6 +144,17 @@ public partial class Home
     /// <summary>編集内容を永続化し、インデックス再初期化・検索サービス更新・テーマ反映後にモーダルを閉じる。</summary>
     private async Task SaveSettings()
     {
+        if (!isAdmin)
+        {
+            // 非管理者はテーマと対象拡張子のみ個人設定として保存（インデックスパス等は触らない）。
+            SettingsService.Settings.TargetExtensions = _settingsEdit.TargetExtensions.ToList();
+            SettingsService.Settings.ThemeMode = _settingsEdit.ThemeMode ?? "System";
+            await SettingsService.SaveAsync();
+            await ApplyThemeAfterSettingsSaveAsync();
+            showSettings = false;
+            return;
+        }
+
         _settingsEdit.IndexPathMessage = null;
         var indexPath = (_settingsEdit.IndexPath ?? "").Trim();
         if (string.IsNullOrWhiteSpace(indexPath))
@@ -162,6 +177,13 @@ public partial class Home
         await IndexService.InitializeAsync(SettingsService.Settings.IndexPath);
         indexCount = IndexService.GetStats().DocumentCount;
         SearchService.RefreshIndex();
+        await ApplyThemeAfterSettingsSaveAsync();
+        showSettings = false;
+    }
+
+    /// <summary>設定保存後のテーマ反映。</summary>
+    private async Task ApplyThemeAfterSettingsSaveAsync()
+    {
         if (string.Equals(SettingsService.Settings.ThemeMode, "System", StringComparison.OrdinalIgnoreCase))
         {
             try { isDarkMode = await GetPreferredColorSchemeFromSystemAsync(); } catch { /* keep current */ }
@@ -170,6 +192,5 @@ public partial class Home
         {
             ApplyThemeFromSettings();
         }
-        showSettings = false;
     }
 }

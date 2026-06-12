@@ -84,6 +84,10 @@ public static class UserMessages
     public const string IndexBuildCancelTitle = "インデックス構築をキャンセル";
     /// <summary>再構築ボタンの title。</summary>
     public const string RebuildButtonTitle = "インデックスを最初から作り直す（全件再スキャン）";
+    /// <summary>再構築ボタン非活性時のツールチップ（管理者のみ実行可）。</summary>
+    public const string RebuildButtonDisabledTitle = "管理者のみ実行できます";
+    /// <summary>設定セクション見出しの参照専用バッジ（非管理者向け）。</summary>
+    public const string SettingsSectionReadOnlySuffix = "（参照のみ）";
     /// <summary>再構築ボタンラベル。</summary>
     public const string Rebuild = "再構築";
     /// <summary>キャンセル。</summary>
@@ -170,6 +174,10 @@ public static class UserMessages
     public const string SettingsDescriptionExtensions = "インデックスする拡張子。空なら抽出器の対応拡張子を使用。";
     /// <summary>拡張子変更後の注意</summary>
     public const string SettingsNoteAfterExtensionChange = "追加・削除した拡張子を反映するには、必ず「保存」を押したあと、インデックスの「再構築」または「差分更新」を実行してください。";
+    /// <summary>対象拡張子の説明（非管理者・検索結果の絞り込みのみ）。</summary>
+    public const string SettingsNoteExtensionClient = "表示する拡張子を選べます。追加・削除したあと「保存」を押すと、あなたの検索結果だけに反映されます（共有インデックスは変更しません）。";
+    /// <summary>拡張子未入力で追加したとき。</summary>
+    public const string ExtensionRequired = "拡張子を入力してください。";
     /// <summary>拡張子入力例</summary>
     public const string SettingsPlaceholderExtensionExample = "例: .txt";
     /// <summary>インデックス保存先見出し</summary>

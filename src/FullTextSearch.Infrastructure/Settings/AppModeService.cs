@@ -41,21 +41,24 @@ public class AppModeService : IAppModeService
     public void Initialize()
     {
         if (_initialized) return;
-        SharedIndexPath = LoadSharedIndexPath();
-        IsAdmin = DetermineIsAdmin();
+        var config = LoadAppModeConfig();
+        SharedIndexPath = config?.IndexPath;
+        IsAdmin = config?.ForceNonAdmin == true ? false : DetermineIsAdmin();
         _initialized = true;
     }
 
-    /// <summary>appmode.json から共有インデックスのパスを読み込む。読めない場合は null。</summary>
-    private string? LoadSharedIndexPath()
+    /// <summary>appmode.json を読み込む。読めない場合は null。</summary>
+    private AppModeConfig? LoadAppModeConfig()
     {
         try
         {
             if (!File.Exists(_appModePath)) return null;
             var json = File.ReadAllText(_appModePath);
             var config = JsonSerializer.Deserialize<AppModeConfig>(json, JsonOptions);
-            var path = config?.IndexPath?.Trim();
-            return string.IsNullOrWhiteSpace(path) ? null : path;
+            if (config == null) return null;
+            var path = config.IndexPath?.Trim();
+            config.IndexPath = string.IsNullOrWhiteSpace(path) ? null : path;
+            return config;
         }
         catch
         {
@@ -87,5 +90,11 @@ public class AppModeService : IAppModeService
     {
         /// <summary>共有インデックスのパス（ファイルサーバ等）。</summary>
         public string? IndexPath { get; set; }
+
+        /// <summary>
+        /// true のとき管理者判定を無視して非管理者モードで起動する（配布前の UI 確認用）。
+        /// 本番の一般ユーザー向け配布物では false または省略すること。
+        /// </summary>
+        public bool ForceNonAdmin { get; set; }
     }
 }
