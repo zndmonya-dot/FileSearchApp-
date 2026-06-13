@@ -29,6 +29,179 @@ public class TreeBuilderTests
     }
 
     [Fact]
+    public void BuildFolderSkeleton_returns_roots_only()
+    {
+        var root = Root("skel0");
+        Directory.CreateDirectory(root);
+        var sub = Path.Combine(root, "docs");
+        Directory.CreateDirectory(sub);
+
+        try
+        {
+            var tree = TreeBuilder.BuildFolderSkeleton(new[] { root });
+            Assert.Single(tree);
+            Assert.False(tree[0].FolderChildrenLoaded);
+            Assert.Empty(tree[0].Children!);
+        }
+        finally
+        {
+            try { Directory.Delete(root, recursive: true); } catch { /* ignore */ }
+        }
+    }
+
+    [Fact]
+    public void LoadDirectFolderChildren_loads_one_level()
+    {
+        var root = Root("skel1");
+        Directory.CreateDirectory(root);
+        var sub = Path.Combine(root, "docs");
+        var nested = Path.Combine(sub, "2024");
+        Directory.CreateDirectory(nested);
+
+        try
+        {
+            var node = TreeBuilder.BuildFolderSkeleton(new[] { root })[0];
+            TreeBuilder.LoadDirectFolderChildren(node);
+            Assert.True(node.FolderChildrenLoaded);
+            var docs = Assert.Single(node.Children!.Where(c => c.Name == "docs"));
+            Assert.False(docs.FolderChildrenLoaded);
+            Assert.Empty(docs.Children!);
+        }
+        finally
+        {
+            try { Directory.Delete(root, recursive: true); } catch { /* ignore */ }
+        }
+    }
+
+    [Fact]
+    public void LoadDirectFolderChildren_loads_files_in_folder()
+    {
+        var root = Root("skel2");
+        Directory.CreateDirectory(root);
+        var file = Path.Combine(root, "readme.txt");
+        File.WriteAllText(file, "hello");
+
+        try
+        {
+            var node = TreeBuilder.BuildFolderSkeleton(new[] { root })[0];
+            var exts = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".txt" };
+            TreeBuilder.LoadDirectFolderChildren(node, exts);
+            var fileNode = Assert.Single(node.Children!.Where(c => !c.IsFolder));
+            Assert.Equal("readme.txt", fileNode.Name);
+            Assert.NotNull(fileNode.FileData);
+            Assert.Equal(file, fileNode.FilePath);
+        }
+        finally
+        {
+            try { Directory.Delete(root, recursive: true); } catch { /* ignore */ }
+        }
+    }
+
+    [Fact]
+    public void CreateSearchResultItem_reads_file_metadata()
+    {
+        var root = Root("skel3");
+        Directory.CreateDirectory(root);
+        var file = Path.Combine(root, "a.txt");
+        File.WriteAllText(file, "x");
+
+        try
+        {
+            var item = TreeBuilder.CreateSearchResultItem(file);
+            Assert.Equal("a.txt", item.FileName);
+            Assert.Equal(root, item.FolderPath);
+        }
+        finally
+        {
+            try { Directory.Delete(root, recursive: true); } catch { /* ignore */ }
+        }
+    }
+
+    [Fact]
+    public void BuildFullFolderTree_loads_nested_folders_and_files()
+    {
+        var root = Root("skel4");
+        Directory.CreateDirectory(root);
+        var sub = Path.Combine(root, "docs");
+        Directory.CreateDirectory(sub);
+        var file = Path.Combine(sub, "note.txt");
+        File.WriteAllText(file, "hello");
+
+        try
+        {
+            var exts = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".txt" };
+            var tree = TreeBuilder.BuildFullFolderTree(new[] { root }, exts);
+            var rootNode = Assert.Single(tree);
+            Assert.True(rootNode.FolderChildrenLoaded);
+            var docs = Assert.Single(rootNode.Children!.Where(c => c.Name == "docs"));
+            Assert.True(docs.FolderChildrenLoaded);
+            var fileNode = Assert.Single(docs.Children!.Where(c => !c.IsFolder));
+            Assert.Equal("note.txt", fileNode.Name);
+            Assert.Equal(1, rootNode.FileCount);
+        }
+        finally
+        {
+            try { Directory.Delete(root, recursive: true); } catch { /* ignore */ }
+        }
+    }
+
+    [Fact]
+    public void BuildFullFolderTree_omits_folders_without_matching_files()
+    {
+        var root = Root("skel5");
+        Directory.CreateDirectory(root);
+        Directory.CreateDirectory(Path.Combine(root, "empty"));
+        var docs = Path.Combine(root, "docs");
+        Directory.CreateDirectory(docs);
+        File.WriteAllText(Path.Combine(docs, "note.txt"), "hello");
+
+        try
+        {
+            var exts = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".txt" };
+            var tree = TreeBuilder.BuildFullFolderTree(new[] { root }, exts);
+            var rootNode = Assert.Single(tree);
+            Assert.DoesNotContain(rootNode.Children!, c => c.IsFolder && c.Name == "empty");
+            Assert.Contains(rootNode.Children!, c => c.IsFolder && c.Name == "docs");
+        }
+        finally
+        {
+            try { Directory.Delete(root, recursive: true); } catch { /* ignore */ }
+        }
+    }
+
+    [Fact]
+    public void BuildFullFolderTree_omits_root_when_no_matching_files()
+    {
+        var root = Root("skel6");
+        Directory.CreateDirectory(root);
+        File.WriteAllText(Path.Combine(root, "app.exe"), "bin");
+
+        try
+        {
+            var exts = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".txt" };
+            Assert.Empty(TreeBuilder.BuildFullFolderTree(new[] { root }, exts));
+        }
+        finally
+        {
+            try { Directory.Delete(root, recursive: true); } catch { /* ignore */ }
+        }
+    }
+
+    [Fact]
+    public void GetFolderDisplayName_handles_drive_root_and_trailing_slash()
+    {
+        Assert.Equal("yamamoro", TreeBuilder.GetFolderDisplayName(@"C:\yamamoro\"));
+        Assert.Equal(@"C:\", TreeBuilder.GetFolderDisplayName(@"C:\"));
+        Assert.Equal(@"C:\", TreeBuilder.GetFolderDisplayName(@"C:"));
+    }
+
+    [Fact]
+    public void BuildFolderSkeleton_empty_folders_returns_empty()
+    {
+        Assert.Empty(TreeBuilder.BuildFolderSkeleton(Array.Empty<string>()));
+    }
+
+    [Fact]
     public void BuildTree_empty_items_returns_empty()
     {
         var t = Root("a0");

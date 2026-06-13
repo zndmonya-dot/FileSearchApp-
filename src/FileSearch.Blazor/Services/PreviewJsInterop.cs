@@ -11,8 +11,8 @@ public sealed class PreviewJsInterop(IJSRuntime js, ILogger<PreviewJsInterop>? l
 {
     private const int ChunkChars = 64 * 1024;
 
-    /// <summary>プレビュー本文を JS 側で描画する（チャンク転送）。</summary>
-    public async Task RenderAsync(PreviewResult result, CancellationToken cancellationToken = default)
+    /// <summary>プレビュー本文を JS 側で描画する（チャンク転送）。描画完了時のハイライト位置文字列を返す。</summary>
+    public async Task<string?> RenderAsync(PreviewResult result, CancellationToken cancellationToken = default)
     {
         string? tooManyLinesMessage = null;
         if (!result.IsError && result.LineCount > PreviewLineBuilder.PreviewMaxRenderLines)
@@ -29,7 +29,8 @@ public sealed class PreviewJsInterop(IJSRuntime js, ILogger<PreviewJsInterop>? l
             searchTerms = result.SearchTerms,
             matchLineNumbers = result.MatchLineNumbers.ToArray(),
             maxLines = PreviewLineBuilder.PreviewMaxRenderLines,
-            tooManyLinesMessage
+            tooManyLinesMessage,
+            scrollToFirstMatch = result.MatchLineNumbers.Count > 0
         };
         await js.InvokeVoidAsync("previewBegin", meta).ConfigureAwait(false);
 
@@ -41,7 +42,7 @@ public sealed class PreviewJsInterop(IJSRuntime js, ILogger<PreviewJsInterop>? l
             await js.InvokeVoidAsync("previewAppend", content.Substring(offset, length)).ConfigureAwait(false);
         }
 
-        await js.InvokeAsync<object>("previewFinish").ConfigureAwait(false);
+        return await js.InvokeAsync<string?>("previewFinish").ConfigureAwait(false);
     }
 
     /// <summary>ハイライト行ナビを初期化する。</summary>

@@ -192,6 +192,7 @@ public partial class Home
             return;
         }
         await ApplyThemeAfterSettingsSaveAsync();
+        await RefreshFolderSkeletonTreeAsync();
         showSettings = false;
     }
 

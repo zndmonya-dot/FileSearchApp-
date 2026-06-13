@@ -21,6 +21,8 @@ public class TreeNode
     public bool IsExpanded { get; set; } = true;
     /// <summary>子ノード（フォルダまたはファイル）</summary>
     public List<TreeNode>? Children { get; set; }
+    /// <summary>フォルダの直下サブフォルダを読み込み済みか（遅延読み込み用。検索結果ツリーは true）。</summary>
+    public bool FolderChildrenLoaded { get; set; } = true;
     /// <summary>配下のファイル数（フォルダノード時）</summary>
     public int FileCount { get; set; }
     /// <summary>検索結果 1 件（ファイルノード時。プレビュー用）</summary>

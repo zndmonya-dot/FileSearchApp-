@@ -85,6 +85,8 @@ public static class UserMessages
     public const string TreeEmptyNoResults = "結果なし";
     /// <summary>未検索で実行促し。</summary>
     public const string TreeEmptyPressEnterToSearch = "検索ボタンまたは Enter で検索";
+    /// <summary>検索前のフォルダ体系を一括読み込み中</summary>
+    public const string FolderTreeLoading = "フォルダを読み込み中...";
 
     /// <summary>フッター構築キャンセルボタンの title。</summary>
     public const string IndexBuildCancelTitle = "インデックス構築をキャンセル";

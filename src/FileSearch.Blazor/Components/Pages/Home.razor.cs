@@ -43,6 +43,8 @@ public partial class Home : IDisposable
     private int totalFileCount = 0;
     /// <summary>検索実行中（サイドバーにスピナー等を出す）</summary>
     private bool isSearching = false;
+    /// <summary>検索前フォルダツリーの一括読み込み中</summary>
+    private bool isLoadingFolderTree = false;
     private string? searchErrorMessage = null;
     /// <summary>最後に実際に実行した検索クエリ（入力中は未実行と区別するため）</summary>
     private string? _lastExecutedSearchQuery;
@@ -77,6 +79,7 @@ public partial class Home : IDisposable
     private CancellationTokenSource? _searchCts;
     private CancellationTokenSource? _previewCts;
     private CancellationTokenSource? _indexCts;
+    private CancellationTokenSource? _folderTreeLoadCts;
     private Timer? _previewDebounceTimer;
     private string? _pendingPreviewPath;
     private Timer? _autoRebuildTimer;
@@ -100,6 +103,8 @@ public partial class Home : IDisposable
     private string filterType = "";
     private bool showFilterMenu = false;
     private int selectedFolderRowIndex = -1;
+    /// <summary>フォルダ遷移の非同期完了が、直後のファイル選択を上書きしないようにする世代番号。</summary>
+    private int _folderNavigationGeneration;
 
     // --- ハイライトナビ（JS） / ファイル間ナビ ---
     private string? _lastHighlightNavFilePath;
@@ -107,6 +112,9 @@ public partial class Home : IDisposable
     private bool _hasTriedInitialHighlightScroll;
     private List<TreeNode>? _fileNavList;
     private int _fileNavIndex = -1;
+    /// <summary>ツリー展開同期の前回値（毎レンダーでの展開戻しを防ぐ）。</summary>
+    private string? _lastTreeSyncFilePath;
+    private string? _lastTreeSyncFolderPath;
 
     // --- インデックス更新ダイアログ ---
     private bool _showRebuildConfirm;
@@ -123,10 +131,21 @@ public partial class Home : IDisposable
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         var treeChanged = false;
-        if (selectedFile != null && !string.IsNullOrEmpty(selectedFile.FilePath) && TreeBuilder.ExpandPathToFile(treeNodes, selectedFile.FilePath))
-            treeChanged = true;
-        if (selectedFolder != null && !string.IsNullOrEmpty(selectedFolder.FullPath) && TreeBuilder.ExpandPathToFolder(treeNodes, selectedFolder.FullPath))
-            treeChanged = true;
+        var filePath = selectedFile?.FilePath;
+        if (!string.Equals(filePath, _lastTreeSyncFilePath, StringComparison.OrdinalIgnoreCase))
+        {
+            _lastTreeSyncFilePath = filePath;
+            if (!string.IsNullOrEmpty(filePath) && TreeBuilder.ExpandPathToFile(treeNodes, filePath))
+                treeChanged = true;
+        }
+
+        var folderPath = selectedFolder?.FullPath;
+        if (!string.Equals(folderPath, _lastTreeSyncFolderPath, StringComparison.OrdinalIgnoreCase))
+        {
+            _lastTreeSyncFolderPath = folderPath;
+            if (!string.IsNullOrEmpty(folderPath) && TreeBuilder.ExpandPathToFolder(treeNodes, folderPath))
+                treeChanged = true;
+        }
         if (treeChanged)
         {
             await Task.Yield();
@@ -168,6 +187,7 @@ public partial class Home : IDisposable
         }
 
         ApplyThemeFromSettings();
+        _ = RefreshFolderSkeletonTreeAsync();
         await InitializeIndexIfConfiguredAsync();
         _autoRebuildTimer = new Timer(OnAutoRebuildTick, null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
     }
@@ -219,6 +239,9 @@ public partial class Home : IDisposable
         _indexCts?.Cancel();
         _indexCts?.Dispose();
         _indexCts = null;
+        _folderTreeLoadCts?.Cancel();
+        _folderTreeLoadCts?.Dispose();
+        _folderTreeLoadCts = null;
     }
 
     /// <summary>ThemeMode に応じて isDarkMode を設定。System のときは OnAfterRender で JS から上書きしうる。</summary>

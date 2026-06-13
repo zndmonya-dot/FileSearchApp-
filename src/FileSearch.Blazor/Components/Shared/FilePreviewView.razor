@@ -52,12 +52,12 @@
         </div>
     </div>
 
-    <div class="preview-zoom-wrap">
+    <div class="preview-zoom-wrap @(IsLoadingPreview ? "is-rendering" : null)">
         <div class="loading-state" style="@(IsLoadingPreview ? null : "display:none")">
             <div class="spinner-ring large"></div>
             <span class="loading-state-text">@UserMessages.PreviewLoading</span>
         </div>
-        <div class="code-view" id="preview-code-view" style="@(IsLoadingPreview ? "display:none" : null)"></div>
+        <div class="code-view" id="preview-code-view"></div>
     </div>
 </div>
 }
@@ -73,7 +73,7 @@
     [Parameter] public EventCallback OnOpenFile { get; set; }
     [Parameter] public EventCallback OnOpenFolder { get; set; }
     [Parameter] public Func<string, string>? GetFileIconClass { get; set; }
-    [Parameter] public EventCallback OnPreviewRendered { get; set; }
+    [Parameter] public EventCallback<string?> OnPreviewRendered { get; set; }
 
     private string _renderKey = "";
     private CancellationTokenSource? _renderCts;
@@ -86,7 +86,7 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (IsLoadingPreview || SelectedFile == null || Preview == null)
+        if (SelectedFile == null || Preview == null)
             return;
 
         var preview = Preview;
@@ -102,9 +102,9 @@
 
         try
         {
-            await PreviewJs.RenderAsync(preview, token);
+            var scrollResult = await PreviewJs.RenderAsync(preview, token);
             if (!token.IsCancellationRequested)
-                await OnPreviewRendered.InvokeAsync();
+                await OnPreviewRendered.InvokeAsync(scrollResult);
         }
         catch (OperationCanceledException)
         {
@@ -113,6 +113,8 @@
         catch (Exception ex)
         {
             PreviewJs.LogInteropFailure("RenderAsync", ex);
+            if (!token.IsCancellationRequested)
+                await OnPreviewRendered.InvokeAsync(null);
         }
     }
 

@@ -33,6 +33,8 @@
                       CurrentPreviewFilePath="@(selectedFile?.FilePath)"
                       CurrentFolderPath="@(selectedFolder?.FullPath)"
                       HasSearchedCurrentQuery="@HasSearchedCurrentQuery"
+                      HasTargetFolders="@(SettingsService.Settings.TargetFolders.Count > 0)"
+                      IsLoadingFolderTree="isLoadingFolderTree"
                       IsSearching="isSearching"
                       SearchErrorMessage="@searchErrorMessage"
                       IsIndexing="isIndexing"
@@ -55,9 +57,23 @@
                       OnOpenSettings="OpenSettings"
                       OnOpenSkippedLog="OpenSkippedLog" />
 
-        @* M-07 右メイン領域（フォルダ一覧／プレビュー／空状態を切り替え） *@
+        @* M-07 右メイン領域（プレビュー優先 → フォルダ一覧 → 空状態） *@
         <main class="main-content">
-            @if (selectedFolder != null)
+            @if (selectedFile != null)
+            {
+                <FilePreviewView SelectedFile="selectedFile"
+                                 IsLoadingPreview="isLoadingPreview"
+                                 Preview="_previewResult"
+                                 ShowNavButtons="ShowNavButtons"
+                                 NavInfo="@NavInfo"
+                                 OnPreviewRendered="HandlePreviewRendered"
+                                 OnGoPrev="GoPrev"
+                                 OnGoNext="GoNext"
+                                 OnOpenFile="OpenFile"
+                                 OnOpenFolder="OpenFolder"
+                                 GetFileIconClass="DisplayFormatters.GetFileIconClass" />
+            }
+            else if (selectedFolder != null)
             {
                 <FolderListView SelectedFolder="selectedFolder"
                                SortedAndFilteredItems="GetSortedAndFilteredItems(selectedFolder.Children ?? new List<TreeNode>())"
@@ -73,20 +89,6 @@
                                OnGoToParent="GoToParentFolder"
                                GetSortIcon="GetSortIcon"
                                GetUniqueExtensions="GetUniqueExtensions" />
-            }
-            else if (selectedFile != null)
-            {
-                <FilePreviewView SelectedFile="selectedFile"
-                                 IsLoadingPreview="isLoadingPreview"
-                                 Preview="_previewResult"
-                                 ShowNavButtons="ShowNavButtons"
-                                 NavInfo="@NavInfo"
-                                 OnPreviewRendered="HandlePreviewRendered"
-                                 OnGoPrev="GoPrev"
-                                 OnGoNext="GoNext"
-                                 OnOpenFile="OpenFile"
-                                 OnOpenFolder="OpenFolder"
-                                 GetFileIconClass="DisplayFormatters.GetFileIconClass" />
             }
             else
             {

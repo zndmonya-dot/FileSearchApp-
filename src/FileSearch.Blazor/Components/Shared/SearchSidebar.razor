@@ -74,23 +74,30 @@
                 <span>@UserMessages.Searching</span>
             </div>
         }
-        else if (TreeNodes.Count == 0)
+        else if (TreeNodes.Count > 0)
         {
-            @* M-06 キーワード未入力／未検索／結果 0 件 *@
-            <div class="tree-status">
-                <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688l-.011-.013-2.914-2.914-.013-.011Z"/></svg>
-                <span>@GetEmptyTreeMessage()</span>
-            </div>
-        }
-        else
-        {
-            @* M-05 検索結果ツリー *@
+            @* M-05 検索結果／フォルダツリー *@
             <SearchResultTree Nodes="TreeNodes"
                              CurrentPreviewFilePath="@CurrentPreviewFilePath"
                              CurrentFolderPath="@CurrentFolderPath"
                              OnToggleNode="OnToggleNode"
                              OnSelectFile="OnSelectFile"
                              GetFileIconClass="GetFileIconClass" />
+        }
+        else if (IsLoadingFolderTree)
+        {
+            <div class="tree-status">
+                <div class="spinner-ring"></div>
+                <span>@UserMessages.FolderTreeLoading</span>
+            </div>
+        }
+        else
+        {
+            @* M-06 キーワード未入力／未検索／結果 0 件 *@
+            <div class="tree-status">
+                <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688l-.011-.013-2.914-2.914-.013-.011Z"/></svg>
+                <span>@GetEmptyTreeMessage()</span>
+            </div>
         }
     </div>
 
@@ -210,6 +217,10 @@
     [Parameter] public string? CurrentFolderPath { get; set; }
     /// <summary>現在の入力で検索が一度でも成功済みか（空ツリー文言の切替）。</summary>
     [Parameter] public bool HasSearchedCurrentQuery { get; set; }
+    /// <summary>検索対象フォルダが 1 件以上設定されているか。</summary>
+    [Parameter] public bool HasTargetFolders { get; set; }
+    /// <summary>検索前フォルダツリーの一括読み込み中。</summary>
+    [Parameter] public bool IsLoadingFolderTree { get; set; }
     /// <summary>フォルダ行クリックで展開トグル。</summary>
     [Parameter] public EventCallback<TreeNode> OnToggleNode { get; set; }
     /// <summary>ファイル行クリックで選択。</summary>
@@ -251,9 +262,10 @@
     private Task SelectAnyMode() => SetSearchMode(SearchMode.Any);
     private Task SelectPhraseMode() => SetSearchMode(SearchMode.Phrase);
 
-    /// <summary>ツリーが空のときの案内（キーワード未入力／未検索／0 件）。</summary>
+    /// <summary>ツリーが空のときの案内（対象フォルダ未設定／キーワード未入力／0 件）。</summary>
     private string GetEmptyTreeMessage()
     {
+        if (!HasTargetFolders) return UserMessages.NoTargetFolders;
         if (string.IsNullOrWhiteSpace(SearchQuery)) return UserMessages.TreeEmptyKeywordPrompt;
         return HasSearchedCurrentQuery ? UserMessages.TreeEmptyNoResults : UserMessages.TreeEmptyPressEnterToSearch;
     }

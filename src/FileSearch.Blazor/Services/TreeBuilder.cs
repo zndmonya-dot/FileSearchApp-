@@ -1,5 +1,7 @@
 // 検索結果一覧を「対象フォルダ → サブフォルダ → ファイル」のツリーに変換する。
+using FullTextSearch.Core.Index;
 using FullTextSearch.Core.Models;
+using FullTextSearch.Core.Preview;
 using FileSearch.Blazor.Components.Shared;
 
 namespace FileSearch.Blazor.Services;
@@ -9,6 +11,169 @@ namespace FileSearch.Blazor.Services;
 /// </summary>
 public static class TreeBuilder
 {
+    /// <summary>ツリー表示用のフォルダ名（ドライブルート・UNC・末尾スラッシュに対応）。</summary>
+    public static string GetFolderDisplayName(string folderPath)
+    {
+        if (string.IsNullOrWhiteSpace(folderPath))
+            return "";
+
+        var normalized = IndexPaths.NormalizeFolderPath(folderPath);
+        var trimmed = normalized.TrimEnd('\\', '/');
+        var name = Path.GetFileName(trimmed);
+        if (!string.IsNullOrEmpty(name))
+            return name;
+
+        if (trimmed.Length >= 2 && trimmed[1] == ':')
+            return trimmed + "\\";
+
+        return normalized;
+    }
+
+    /// <summary>対象フォルダのルートのみをツリー化する（検索前の初期表示用・即時）。</summary>
+    public static List<TreeNode> BuildFolderSkeleton(IReadOnlyList<string> targetFolders)
+    {
+        if (targetFolders == null || targetFolders.Count == 0)
+            return [];
+
+        var result = new List<TreeNode>(targetFolders.Count);
+        foreach (var folder in targetFolders)
+        {
+            var rootPath = IndexPaths.NormalizeFolderPath(folder);
+            if (!Directory.Exists(rootPath))
+                continue;
+
+            result.Add(new TreeNode
+            {
+                Name = GetFolderDisplayName(folder),
+                FullPath = rootPath,
+                IsFolder = true,
+                IsExpanded = false,
+                Children = new List<TreeNode>(),
+                FolderChildrenLoaded = false
+            });
+        }
+
+        return result;
+    }
+
+    /// <summary>対象フォルダ配下を再帰的に走査し、検索前表示用の完全なフォルダツリーを構築する。</summary>
+    public static List<TreeNode> BuildFullFolderTree(IReadOnlyList<string> targetFolders, IReadOnlySet<string>? supportedExtensions = null)
+    {
+        var roots = BuildFolderSkeleton(targetFolders);
+        foreach (var root in roots)
+            LoadFolderTreeRecursive(root, supportedExtensions);
+        foreach (var root in roots)
+        {
+            UpdateFileCount(root);
+            PruneEmptyFolderBranches(root);
+        }
+        roots.RemoveAll(r => r.FileCount == 0);
+        return roots;
+    }
+
+    /// <summary>配下に該当ファイルが 1 件もないフォルダノードを除去する。</summary>
+    private static void PruneEmptyFolderBranches(TreeNode node)
+    {
+        if (!node.IsFolder || node.Children == null)
+            return;
+
+        foreach (var folderChild in node.Children.Where(c => c.IsFolder).ToList())
+            PruneEmptyFolderBranches(folderChild);
+
+        node.Children.RemoveAll(c => c.IsFolder && c.FileCount == 0);
+        UpdateFileCount(node);
+    }
+
+    /// <summary>フォルダノード配下を再帰的に読み込む（<see cref="BuildFullFolderTree"/> 用）。</summary>
+    private static void LoadFolderTreeRecursive(TreeNode parent, IReadOnlySet<string>? supportedExtensions)
+    {
+        LoadDirectFolderChildren(parent, supportedExtensions);
+        foreach (var child in parent.Children?.Where(c => c.IsFolder) ?? Enumerable.Empty<TreeNode>())
+            LoadFolderTreeRecursive(child, supportedExtensions);
+    }
+
+    /// <summary>フォルダ直下のサブフォルダとファイルを 1 階層だけ読み込む（展開時の遅延読み込み）。</summary>
+    public static void LoadDirectFolderChildren(TreeNode parent, IReadOnlySet<string>? supportedExtensions = null)
+    {
+        if (!parent.IsFolder || parent.FolderChildrenLoaded)
+            return;
+
+        var children = new List<TreeNode>();
+
+        try
+        {
+            foreach (var subdir in Directory.EnumerateDirectories(parent.FullPath).OrderBy(d => d, StringComparer.OrdinalIgnoreCase))
+            {
+                var dirName = Path.GetFileName(subdir);
+                if (string.IsNullOrEmpty(dirName) || ShouldSkipDirectory(dirName))
+                    continue;
+
+                children.Add(new TreeNode
+                {
+                    Name = dirName,
+                    FullPath = subdir,
+                    IsFolder = true,
+                    IsExpanded = false,
+                    Children = new List<TreeNode>(),
+                    Parent = parent,
+                    FolderChildrenLoaded = false
+                });
+            }
+
+            foreach (var file in Directory.EnumerateFiles(parent.FullPath).OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
+            {
+                var fileName = Path.GetFileName(file);
+                if (fileName.StartsWith("~$", StringComparison.Ordinal))
+                    continue;
+
+                var ext = PreviewHelper.NormalizeExtension(Path.GetExtension(file));
+                if (supportedExtensions != null && (string.IsNullOrEmpty(ext) || !supportedExtensions.Contains(ext)))
+                    continue;
+
+                var item = CreateSearchResultItem(file);
+                children.Add(new TreeNode
+                {
+                    Name = item.FileName,
+                    FilePath = item.FilePath,
+                    IsFolder = false,
+                    FileData = item,
+                    LastModified = item.LastModified,
+                    FileSize = item.FileSize,
+                    Parent = parent
+                });
+            }
+        }
+        catch
+        {
+            parent.Children = children;
+            parent.FolderChildrenLoaded = true;
+            return;
+        }
+
+        children.Sort((a, b) =>
+        {
+            if (a.IsFolder != b.IsFolder) return a.IsFolder ? -1 : 1;
+            return string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase);
+        });
+
+        parent.Children = children;
+        parent.FolderChildrenLoaded = true;
+    }
+
+    /// <summary>ディスク上のファイルから検索結果 1 件分のメタデータを生成する。</summary>
+    public static SearchResultItem CreateSearchResultItem(string filePath)
+    {
+        var info = new FileInfo(filePath);
+        return new SearchResultItem
+        {
+            FilePath = info.FullName,
+            FileName = info.Name,
+            FolderPath = info.DirectoryName ?? "",
+            FileSize = info.Length,
+            LastModified = info.LastWriteTimeUtc
+        };
+    }
+
     /// <summary>検索結果一覧と対象フォルダ一覧からツリーを構築する</summary>
     public static List<TreeNode> BuildTree(IReadOnlyList<string> targetFolders, IReadOnlyList<SearchResultItem> items)
     {
@@ -48,8 +213,8 @@ public static class TreeBuilder
 
                 var rootNode = new TreeNode
                 {
-                    Name = Path.GetFileName(targetFolder) ?? targetFolder,
-                    FullPath = targetFolder,
+                    Name = GetFolderDisplayName(targetFolder),
+                    FullPath = IndexPaths.NormalizeFolderPath(targetFolder),
                     IsFolder = true,
                     IsExpanded = true,
                     Children = new List<TreeNode>()
@@ -215,10 +380,25 @@ public static class TreeBuilder
         return p.Length == r.Length || p[r.Length] is '\\' or '/';
     }
 
+    private static bool ShouldSkipDirectory(string dirName) =>
+        dirName.StartsWith('$') ||
+        dirName.Equals("System Volume Information", StringComparison.OrdinalIgnoreCase) ||
+        dirName.Equals("Windows", StringComparison.OrdinalIgnoreCase) ||
+        dirName.Equals("Program Files", StringComparison.OrdinalIgnoreCase) ||
+        dirName.Equals("Program Files (x86)", StringComparison.OrdinalIgnoreCase) ||
+        dirName.Equals("ProgramData", StringComparison.OrdinalIgnoreCase) ||
+        dirName.Equals("bin", StringComparison.OrdinalIgnoreCase) ||
+        dirName.Equals("obj", StringComparison.OrdinalIgnoreCase) ||
+        dirName.Equals("node_modules", StringComparison.OrdinalIgnoreCase) ||
+        dirName.Equals(".git", StringComparison.OrdinalIgnoreCase) ||
+        dirName.Equals(".vs", StringComparison.OrdinalIgnoreCase) ||
+        dirName.Equals("__pycache__", StringComparison.OrdinalIgnoreCase) ||
+        dirName.Equals(".venv", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>ツリーを再帰走査し、ファイルノードのみ <paramref name="acc"/> に追加する。</summary>
     private static void CollectFilesRec(TreeNode node, List<TreeNode> acc)
     {
-        if (!node.IsFolder && node.FileData != null)
+        if (!node.IsFolder && !string.IsNullOrEmpty(node.FilePath))
             acc.Add(node);
         foreach (var c in node.Children ?? Enumerable.Empty<TreeNode>())
             CollectFilesRec(c, acc);

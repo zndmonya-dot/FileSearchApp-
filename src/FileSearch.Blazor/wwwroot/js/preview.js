@@ -3,7 +3,6 @@
 (function () {
     var PREVIEW_MAX_LINES_DEFAULT = 15000;
     var BATCH_SIZE = 250;
-    var PREVIEW_LINE_HEIGHT = 20;
 
     var _pendingContent = '';
     var _pendingOptions = null;
@@ -86,16 +85,16 @@
     }
 
     function createLineElement(lineNum, lineText, hasMatch, terms, isPlain) {
-        var row = document.createElement('div');
+        var row = document.createElement('tr');
         row.className = 'code-line' + (hasMatch ? ' line-match' : '');
         row.setAttribute('data-line-num', String(lineNum));
 
-        var num = document.createElement('span');
+        var num = document.createElement('td');
         num.className = 'line-number';
         num.textContent = String(lineNum);
 
         var normalized = normalizeLineText(lineText);
-        var content = document.createElement('span');
+        var content = document.createElement('td');
         content.className = 'line-content' + (hasMatch ? ' highlight' : '');
         if (isPlain) {
             content.textContent = normalized;
@@ -106,6 +105,14 @@
         row.appendChild(num);
         row.appendChild(content);
         return row;
+    }
+
+    function createCodeTableBody() {
+        var table = document.createElement('table');
+        table.className = 'code-table';
+        var tbody = document.createElement('tbody');
+        table.appendChild(tbody);
+        return { table: table, tbody: tbody };
     }
 
     function getPreviewElement() {
@@ -129,7 +136,9 @@
             var maxLines = options.maxLines || PREVIEW_MAX_LINES_DEFAULT;
 
             if (isError) {
-                el.appendChild(createLineElement(1, content, false, terms, true));
+                var errTable = createCodeTableBody();
+                errTable.tbody.appendChild(createLineElement(1, content, false, terms, true));
+                el.appendChild(errTable.table);
                 resolve();
                 return;
             }
@@ -143,6 +152,8 @@
             var total = lines.length;
             var renderCount = Math.min(total, maxLines);
             var index = 0;
+            var codeTable = createCodeTableBody();
+            el.appendChild(codeTable.table);
 
             function renderBatch() {
                 var frag = document.createDocumentFragment();
@@ -153,15 +164,24 @@
                     var hasMatch = matchSet.has(lineNum);
                     frag.appendChild(createLineElement(lineNum, lineText, hasMatch, terms, false));
                 }
-                el.appendChild(frag);
+                codeTable.tbody.appendChild(frag);
 
                 if (index < renderCount) {
                     requestAnimationFrame(renderBatch);
                 } else {
                     if (renderCount < total && options.tooManyLinesMessage) {
-                        el.appendChild(createLineElement(renderCount + 1, options.tooManyLinesMessage, false, [], true));
+                        codeTable.tbody.appendChild(createLineElement(renderCount + 1, options.tooManyLinesMessage, false, [], true));
                     }
-                    resolve();
+                    var scrollResult = null;
+                    if (options.scrollToFirstMatch && options.matchLineNumbers && options.matchLineNumbers.length > 0) {
+                        _highlightLineNumbers = options.matchLineNumbers.slice();
+                        _highlightLineIndex = 0;
+                        var lineNum = _highlightLineNumbers[0];
+                        if (scrollToHighlightLine(lineNum, false)) {
+                            scrollResult = lineNum + '|1|' + _highlightLineNumbers.length;
+                        }
+                    }
+                    resolve(scrollResult);
                 }
             }
 
@@ -203,20 +223,15 @@
     }
 
     function scrollToHighlightLine(lineNum, smooth) {
-        var wrap = document.querySelector('.preview-zoom-wrap') || document.querySelector('.code-view');
-        if (wrap) {
-            wrap.scrollTop = Math.max(0, (lineNum - 1) * PREVIEW_LINE_HEIGHT - wrap.clientHeight / 2);
-        }
-        var behavior = smooth ? 'smooth' : 'auto';
-        requestAnimationFrame(function () {
-            requestAnimationFrame(function () {
-                var row = document.querySelector('.code-line[data-line-num="' + lineNum + '"]');
-                if (row) {
-                    row.scrollIntoView({ behavior: behavior, block: 'center' });
-                    applyHighlightCurrentRow(row);
-                }
-            });
+        var row = document.querySelector('.code-line[data-line-num="' + lineNum + '"]');
+        if (!row) return false;
+
+        applyHighlightCurrentRow(row);
+        row.scrollIntoView({
+            behavior: smooth ? 'smooth' : 'instant',
+            block: 'center'
         });
+        return true;
     }
 
     window.initHighlightNav = function (lineNumbers) {
