@@ -40,11 +40,67 @@ public static class IndexPaths
         var full = NormalizeFilePath(filePath);
         foreach (var folder in normalizedFolderPaths)
         {
-            if (full.StartsWith(folder + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
-                || full.StartsWith(folder + "\\", StringComparison.OrdinalIgnoreCase)
-                || full.Equals(folder, StringComparison.OrdinalIgnoreCase))
+            var root = NormalizeFolderPath(folder);
+            if (full.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+                || full.StartsWith(root + "\\", StringComparison.OrdinalIgnoreCase)
+                || full.Equals(root, StringComparison.OrdinalIgnoreCase))
                 return true;
         }
+        return false;
+    }
+
+    /// <summary>
+    /// インデックス保存パスと別表記だが、今回のスキャン結果に同一実ファイルとして含まれるか。
+    /// UNC とドライブレターなどの不一致で誤削除しないための照合。
+    /// </summary>
+    public static bool IsRepresentedInDiskScan(
+        string storedPath,
+        IReadOnlyDictionary<string, long> diskFiles)
+    {
+        if (diskFiles.Count == 0 || string.IsNullOrWhiteSpace(storedPath))
+            return false;
+
+        var indexedNorm = NormalizeFilePath(storedPath);
+        if (diskFiles.ContainsKey(indexedNorm))
+            return true;
+
+        FileInfo indexedInfo;
+        try
+        {
+            indexedInfo = new FileInfo(storedPath);
+            if (!indexedInfo.Exists)
+                return false;
+        }
+        catch
+        {
+            return false;
+        }
+
+        var indexedTicks = indexedInfo.LastWriteTimeUtc.Ticks;
+        var indexedLength = indexedInfo.Length;
+
+        foreach (var (diskPath, ticks) in diskFiles)
+        {
+            if (string.Equals(indexedNorm, diskPath, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            if (ticks != indexedTicks)
+                continue;
+
+            try
+            {
+                var diskInfo = new FileInfo(diskPath);
+                if (!diskInfo.Exists)
+                    continue;
+                if (diskInfo.Length == indexedLength && diskInfo.LastWriteTimeUtc.Ticks == ticks)
+                    return true;
+            }
+            catch
+            {
+                // 照合失敗時は次候補へ
+            }
+        }
+
         return false;
     }
 }

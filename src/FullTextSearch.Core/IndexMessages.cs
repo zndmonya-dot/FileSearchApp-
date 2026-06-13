@@ -46,4 +46,8 @@ public static class IndexMessages
     /// <summary>差分更新を安全のため中止（処理後にインデックスが空になった）</summary>
     public static string DiffAbortedResultEmpty(int previousCount) =>
         $"安全のため差分更新を中止しました。処理後にインデックスが 0 件になるため変更を破棄しました（更新前 {previousCount:N0} 件）。「全体を再構築」を実行してください。";
+
+    /// <summary>差分更新を安全のため中止（スキャン結果があるのに全件削除のみとなる）</summary>
+    public static string DiffAbortedWouldWipeIndex(int indexedCount) =>
+        $"安全のため差分更新を中止しました。インデックス済み {indexedCount:N0} 件をすべて削除する計画になったため中止しました。対象フォルダ・拡張子を確認し、「全体を再構築」を実行してください。";
 }

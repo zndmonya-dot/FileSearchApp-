@@ -22,6 +22,9 @@ public static class IndexDiffPlanner
     /// </summary>
     /// <param name="indexedMap">キーは正規化済みフルパス。</param>
     /// <param name="diskFiles">キーは正規化済みフルパス。</param>
+    /// <param name="normalizedFolders">スキャン対象フォルダ（正規化済み）。</param>
+    /// <param name="currentIndexVersion">現在のインデックスバージョン。</param>
+    /// <param name="fileExists">ファイル存在確認。省略時は <see cref="File.Exists"/>。</param>
     /// <param name="isExcludedFromScan">スキャン対象外か。null のときはディスク上に残るファイルは削除しない。</param>
     public static DiffPlan Plan(
         IReadOnlyDictionary<string, IndexedFileEntry> indexedMap,
@@ -32,6 +35,11 @@ public static class IndexDiffPlanner
         Func<string, bool>? isExcludedFromScan = null)
     {
         fileExists ??= File.Exists;
+        var normalizedFolderRoots = normalizedFolders
+            .Select(IndexPaths.NormalizeFolderPath)
+            .Where(f => !string.IsNullOrWhiteSpace(f))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
         if (ShouldAbortEmptyScan(indexedMap, diskFiles, fileExists))
         {
@@ -42,12 +50,6 @@ public static class IndexDiffPlanner
         var toDelete = new List<string>();
         foreach (var (normalizedPath, entry) in indexedMap)
         {
-            if (!IndexPaths.IsPathUnderAnyFolder(normalizedPath, normalizedFolders))
-            {
-                toDelete.Add(entry.StoredPath);
-                continue;
-            }
-
             if (diskFiles.ContainsKey(normalizedPath))
                 continue;
 
@@ -57,10 +59,21 @@ public static class IndexDiffPlanner
                 continue;
             }
 
-            // ディスク上に残るが今回のスキャンに含まれない:
-            // 拡張子フィルタで意図的に除外された場合のみ削除。パス不一致・走査漏れでは保持する。
             if (isExcludedFromScan?.Invoke(entry.StoredPath) == true)
+            {
                 toDelete.Add(entry.StoredPath);
+                continue;
+            }
+
+            if (!IndexPaths.IsPathUnderAnyFolder(normalizedPath, normalizedFolderRoots))
+            {
+                // UNC とドライブレターなど表記が違うだけの同一ファイルは削除しない
+                if (!IndexPaths.IsRepresentedInDiskScan(entry.StoredPath, diskFiles))
+                    toDelete.Add(entry.StoredPath);
+                continue;
+            }
+
+            // ディスク上に残り、対象フォルダ配下だが今回のスキャンに含まれない → 保持
         }
 
         var toAddOrUpdate = diskFiles.Keys
@@ -68,6 +81,12 @@ public static class IndexDiffPlanner
                 || entry.LastModifiedTicks != diskFiles[path]
                 || entry.IndexVersion != currentIndexVersion)
             .ToList();
+
+        if (ShouldAbortWouldWipeIndex(indexedMap, toDelete, toAddOrUpdate, diskFiles))
+        {
+            return new DiffPlan([], [], true,
+                IndexMessages.DiffAbortedWouldWipeIndex(indexedMap.Count));
+        }
 
         return new DiffPlan(toDelete, toAddOrUpdate, false, null);
     }
@@ -84,5 +103,20 @@ public static class IndexDiffPlanner
             return false;
 
         return indexedMap.Values.Any(entry => fileExists(entry.StoredPath));
+    }
+
+    /// <summary>
+    /// スキャン結果はあるのに全件削除・再登録なしとなる計画は中止する。
+    /// </summary>
+    internal static bool ShouldAbortWouldWipeIndex(
+        IReadOnlyDictionary<string, IndexedFileEntry> indexedMap,
+        IReadOnlyList<string> toDelete,
+        IReadOnlyList<string> toAddOrUpdate,
+        IReadOnlyDictionary<string, long> diskFiles)
+    {
+        return indexedMap.Count > 0
+            && toDelete.Count == indexedMap.Count
+            && toAddOrUpdate.Count == 0
+            && diskFiles.Count > 0;
     }
 }

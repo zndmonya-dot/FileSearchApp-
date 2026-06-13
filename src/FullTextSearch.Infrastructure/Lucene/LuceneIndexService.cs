@@ -420,6 +420,13 @@ public class LuceneIndexService : IIndexService, IDisposable
 
             lock (_lock)
             {
+                if (indexedMap.Count > 0
+                    && toDeleteStoredPaths.Count >= indexedMap.Count
+                    && _writer!.NumDocs <= toDeleteStoredPaths.Count)
+                {
+                    throw new IndexUpdateAbortedException(IndexMessages.DiffAbortedResultEmpty(indexedMap.Count));
+                }
+
                 foreach (var storedPath in toDeleteStoredPaths)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
@@ -695,9 +702,9 @@ public class LuceneIndexService : IIndexService, IDisposable
                 if (fileName.StartsWith("~$", StringComparison.Ordinal))
                     continue;
 
-                var ext = Path.GetExtension(file);
+                var ext = PreviewHelper.NormalizeExtension(Path.GetExtension(file));
                 if (string.IsNullOrEmpty(ext)) continue;
-                if (!supportedExtensions.Contains(ext.ToLowerInvariant()))
+                if (!supportedExtensions.Contains(ext))
                     continue;
                 yield return file;
             }
