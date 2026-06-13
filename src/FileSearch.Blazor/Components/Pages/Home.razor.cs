@@ -6,7 +6,7 @@
 //   Home.Preview      … プレビュー・ハイライト移動・ファイル/フォルダを開く
 //   Home.Index        … インデックス差分/再構築・進捗・スキップログ・更新ダイアログ
 //   Home.Settings     … 設定モーダル・フォルダ/拡張子・保存
-//   Home.Resize       … サイドバー幅ドラッグ・プレビュー行の表示用キャッシュ
+//   Home.Resize       … サイドバー幅ドラッグ
 //
 // 【文言】画面の日本語は FileSearch.Messages.UserMessages。変更時は docs/メッセージ一覧.md の ID を更新。
 // 【設計メモ】docs/静的定義一覧.md・docs/外部設計.md
@@ -18,6 +18,7 @@ using FullTextSearch.Core.Search;
 using FullTextSearch.Infrastructure.Settings;
 using FileSearch.Blazor.Components.Shared;
 using FileSearch.Blazor.Services;
+using FileSearch.Messages;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
@@ -46,11 +47,10 @@ public partial class Home : IDisposable
     /// <summary>最後に実際に実行した検索クエリ（入力中は未実行と区別するため）</summary>
     private string? _lastExecutedSearchQuery;
 
-    // --- プレビュー（_previewLines が生データ、表示用は Home.Resize の previewLinesDisplay） ---
+    // --- プレビュー ---
     private IReadOnlyList<PreviewLineResult> _previewLines = Array.Empty<PreviewLineResult>();
     private int previewLineCount = 0;
     private bool isLoadingPreview = false;
-    private IReadOnlyList<PreviewLineDisplay>? _previewLinesDisplayCache;
 
     // --- インデックス・フッター ---
     private int indexCount = 0;
@@ -183,14 +183,37 @@ public partial class Home : IDisposable
         }
 
         ApplyThemeFromSettings();
+        await InitializeIndexIfConfiguredAsync();
+        _autoRebuildTimer = new Timer(OnAutoRebuildTick, null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
+    }
+
+    /// <summary>設定のインデックス保存先を開く。失敗してもアプリ全体は落とさない。</summary>
+    private async Task InitializeIndexIfConfiguredAsync()
+    {
         var indexPath = SettingsService.Settings.IndexPath;
-        if (!string.IsNullOrWhiteSpace(indexPath))
+        if (string.IsNullOrWhiteSpace(indexPath))
+            return;
+
+        indexErrorMessage = null;
+        try
         {
             await IndexService.InitializeAsync(indexPath, readOnly: !isAdmin);
+            if (IndexService.LastInitializeFailed)
+            {
+                indexCount = 0;
+                indexErrorMessage = UserMessages.IndexLoadFailed;
+                return;
+            }
+
             indexCount = IndexService.GetStats().DocumentCount;
             SearchService.Warmup();
         }
-        _autoRebuildTimer = new Timer(OnAutoRebuildTick, null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
+        catch (Exception ex)
+        {
+            indexCount = 0;
+            indexErrorMessage = UserMessages.IndexLoadFailed;
+            Logger.LogError(ex, "Failed to initialize index at {IndexPath}", indexPath);
+        }
     }
 
     #endregion

@@ -28,10 +28,7 @@ public static class ContentLimits
     /// <summary>抽出器が返す最大文字数（Office/PDF）。これ以上は打ち切る。</summary>
     public const int ExtractMaxChars = 100_000;
 
-    /// <summary>プレビューを試みる最大ファイルサイズ（バイト）。超える場合は抽出せずエラー表示。</summary>
-    public static readonly long PreviewMaxFileBytes = 10L * 1024 * 1024; // 10MB
-
-    /// <summary>テキストファイルとして読み込む最大ファイルサイズ（バイト）。超えると読み込まない。</summary>
+    /// <summary>テキストファイルとして読み込む最大ファイルサイズ（バイト）。超えると読み込まない。プレビュー上限も同値。</summary>
     public static readonly long MaxTextFileBytesToRead = 10L * 1024 * 1024; // 10MB
 
     /// <summary>プレビュー表示に使う最大文字数。超えた分は省略表示。</summary>

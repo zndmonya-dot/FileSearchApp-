@@ -28,7 +28,6 @@ public class ContentLimitsTests
     public void PreviewAndTextFile_limits_are_10MiB()
     {
         const long expected = 10L * 1024 * 1024;
-        Assert.Equal(expected, ContentLimits.PreviewMaxFileBytes);
         Assert.Equal(expected, ContentLimits.MaxTextFileBytesToRead);
     }
 

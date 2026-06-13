@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Text;
+using FullTextSearch.Core;
 using Lucene.Net.Analysis;
 using Lucene.Net.Analysis.TokenAttributes;
 using Lucene.Net.Util;
@@ -67,9 +68,9 @@ public sealed class SudachiTokenizer : Tokenizer
             return IncrementToken();
         }
         // 最終防御: 1 トークンが Lucene 制限超なら文字境界で分割して出力（immense term エラー防止）
-        if (Encoding.UTF8.GetByteCount(term) > MaxTermUtf8Bytes)
+        if (Encoding.UTF8.GetByteCount(term) > ContentLimits.LuceneMaxTermUtf8Bytes)
         {
-            var (first, rest) = SplitAtMaxUtf8Bytes(term, MaxTermUtf8Bytes);
+            var (first, rest) = SplitAtMaxUtf8Bytes(term, ContentLimits.LuceneMaxTermUtf8Bytes);
             _tokens[_index] = rest;
             _termAttr.SetEmpty().Append(first);
             return true;
@@ -113,9 +114,6 @@ public sealed class SudachiTokenizer : Tokenizer
         }
         _tokens = _tokens.SelectMany(t => TruncateOrSplitToken(t)).ToList();
     }
-
-    /// <summary>Lucene の 1 トークンあたり最大バイト数（UTF-8）。超えると "immense term" でエラーになる。</summary>
-    private const int MaxTermUtf8Bytes = 32765;
 
     /// <summary>1 ドキュメントあたり Sudachi に渡す最大文字数。超えると先頭のみ送りオーバーで落ちるのを防ぐ。</summary>
     private const int MaxInputCharsForTokenize = 500_000;
@@ -174,11 +172,11 @@ public sealed class SudachiTokenizer : Tokenizer
     {
         if (string.IsNullOrEmpty(text)) return [];
         var bytes = Encoding.UTF8.GetBytes(text);
-        if (bytes.Length <= MaxTermUtf8Bytes) return [text];
+        if (bytes.Length <= ContentLimits.LuceneMaxTermUtf8Bytes) return [text];
         var list = new List<string>();
-        for (var i = 0; i < bytes.Length; i += MaxTermUtf8Bytes)
+        for (var i = 0; i < bytes.Length; i += ContentLimits.LuceneMaxTermUtf8Bytes)
         {
-            var len = Math.Min(MaxTermUtf8Bytes, bytes.Length - i);
+            var len = Math.Min(ContentLimits.LuceneMaxTermUtf8Bytes, bytes.Length - i);
             list.Add(Encoding.UTF8.GetString(bytes, i, len));
         }
         return list;
@@ -188,7 +186,7 @@ public sealed class SudachiTokenizer : Tokenizer
     private static IEnumerable<string> TruncateOrSplitToken(string token)
     {
         if (string.IsNullOrEmpty(token)) yield break;
-        if (Encoding.UTF8.GetByteCount(token) <= MaxTermUtf8Bytes)
+        if (Encoding.UTF8.GetByteCount(token) <= ContentLimits.LuceneMaxTermUtf8Bytes)
         {
             yield return token;
             yield break;

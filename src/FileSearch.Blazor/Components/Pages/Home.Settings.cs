@@ -2,13 +2,16 @@
 // Home.Settings.cs — partial class Home
 // =============================================================================
 // 役割: 設定モーダルの開閉、フォルダ/拡張子の追加・バリデーション、保存と IndexService 初期化。
-// 文言: UserMessages（設定エラーは FolderPathRequired 等）。
+// 文言: UserMessages。
 // =============================================================================
 using FileSearch.Messages;
+using FullTextSearch.Core.Extractors;
 using FullTextSearch.Core.Index;
+using FullTextSearch.Core.Preview;
 using FullTextSearch.Core.Search;
 using FullTextSearch.Infrastructure.Settings;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Logging;
 
 namespace FileSearch.Blazor.Components.Pages;
 
@@ -25,8 +28,6 @@ public partial class Home
         _settingsEdit.TargetExtensions = SettingsService.Settings.TargetExtensions.ToList();
         _settingsEdit.AutoRebuildIntervalMinutes = SettingsService.Settings.AutoRebuildIntervalMinutes;
         _settingsEdit.ThemeMode = SettingsService.Settings.ThemeMode ?? "System";
-        _settingsEdit.NewTargetExtension = "";
-        _settingsEdit.ExtensionMessage = null;
         _settingsEdit.IndexPathMessage = null;
         showSettings = true;
     }
@@ -109,27 +110,32 @@ public partial class Home
         }
     }
 
-    /// <summary>拡張子を「.」付きに正規化して追加。</summary>
-    private void HandleAddTargetExtension()
+    /// <summary>対象拡張子の選択を切り替える。</summary>
+    private void HandleToggleTargetExtension(string ext)
     {
-        var ext = (_settingsEdit.NewTargetExtension ?? "").Trim();
-        if (!string.IsNullOrEmpty(ext) && !ext.StartsWith(".")) ext = "." + ext;
-        if (string.IsNullOrEmpty(ext))
-        {
-            _settingsEdit.ExtensionMessage = UserMessages.ExtensionRequired;
+        ext = PreviewHelper.NormalizeExtension(ext);
+        if (!GetSupportedExtensions().Contains(ext))
             return;
-        }
-        if (_settingsEdit.TargetExtensions.Contains(ext, StringComparer.OrdinalIgnoreCase)) { _settingsEdit.ExtensionMessage = UserMessages.AlreadyAdded; return; }
-        _settingsEdit.TargetExtensions.Add(ext);
-        _settingsEdit.NewTargetExtension = "";
-        _settingsEdit.ExtensionMessage = null;
+
+        var existing = _settingsEdit.TargetExtensions
+            .FirstOrDefault(e => string.Equals(e, ext, StringComparison.OrdinalIgnoreCase));
+        if (existing != null)
+            _settingsEdit.TargetExtensions.Remove(existing);
+        else
+            _settingsEdit.TargetExtensions.Add(ext);
     }
 
-    /// <summary>対象拡張子一覧から 1 件削除。</summary>
-    private void RemoveTargetExtension(string ext)
-    {
-        _settingsEdit.TargetExtensions.Remove(ext);
-    }
+    /// <summary>設定画面の拡張子ピッカー用。抽出器が対応する拡張子の一覧。</summary>
+    private IReadOnlyList<string> BuildAvailableExtensions() =>
+        TextExtractors
+            .SelectMany(e => e.SupportedExtensions)
+            .Select(PreviewHelper.NormalizeExtension)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    private HashSet<string> GetSupportedExtensions() =>
+        BuildAvailableExtensions().ToHashSet(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>編集内容を永続化し、インデックス再初期化・検索サービス更新・テーマ反映後にモーダルを閉じる。</summary>
     private async Task SaveSettings()
@@ -164,9 +170,24 @@ public partial class Home
         SettingsService.Settings.AutoRebuildIntervalMinutes = _settingsEdit.AutoRebuildIntervalMinutes;
         SettingsService.Settings.ThemeMode = _settingsEdit.ThemeMode ?? "System";
         await SettingsService.SaveAsync();
-        await IndexService.InitializeAsync(SettingsService.Settings.IndexPath);
-        indexCount = IndexService.GetStats().DocumentCount;
-        SearchService.RefreshIndex();
+        try
+        {
+            await IndexService.InitializeAsync(SettingsService.Settings.IndexPath);
+            if (IndexService.LastInitializeFailed)
+            {
+                _settingsEdit.IndexPathMessage = UserMessages.IndexLoadFailed;
+                return;
+            }
+            indexCount = IndexService.GetStats().DocumentCount;
+            SearchService.RefreshIndex();
+            indexErrorMessage = null;
+        }
+        catch (Exception ex)
+        {
+            _settingsEdit.IndexPathMessage = UserMessages.IndexLoadFailed;
+            Logger.LogError(ex, "Failed to re-initialize index at {IndexPath}", SettingsService.Settings.IndexPath);
+            return;
+        }
         await ApplyThemeAfterSettingsSaveAsync();
         showSettings = false;
     }

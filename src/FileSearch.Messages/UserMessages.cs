@@ -7,7 +7,7 @@ namespace FileSearch.Messages;
 /// <remarks>
 /// <para><b>保守:</b> 文言を追加・変更したら <c>メッセージ一覧.md</c> を同じ PR / 同じ変更で更新する。</para>
 /// <para><b>インデックス・スキップログ:</b> ここではなく <c>FullTextSearch.Core.IndexMessages</c>（Lucene 出力）。</para>
-/// <para><b>静的 HTML:</b> <c>wwwroot/index.html</c> のタイトル等は手動同期。検証は <c>scripts/check-webview-strings.ps1</c>。</para>
+/// <para><b>静的 HTML:</b> <c>wwwroot/index.html</c> の AppTitle / PreviewLoading / WebViewLoadError / WebViewReload は手動同期。検証は <c>scripts/check-webview-strings.ps1</c>。</para>
 /// </remarks>
 public static class UserMessages
 {
@@ -31,15 +31,15 @@ public static class UserMessages
     /// <summary>プレビュー読み込みキャンセル。</summary>
     public const string PreviewLoadCancelled = "読み込みをキャンセルしました";
     /// <summary>フォルダ追加でパス空。</summary>
-    public const string FolderPathRequired = "フォルダパスを入力してください";
-    /// <summary>フォルダが存在しない。</summary>
-    public const string FolderNotFound = "フォルダが見つかりません。パスを確認してください。";
-    /// <summary>重複追加。</summary>
     public const string AlreadyAdded = "既に追加されています";
     /// <summary>インデックス保存先が未指定（W-07）。</summary>
     public const string IndexPathRequired = "インデックス保存先を指定してください";
     /// <summary>インデックス保存先が存在しない（W-08）。</summary>
     public const string IndexPathNotFoundSaveError = "インデックス保存先のフォルダが見つかりません。パスを確認してください。";
+    /// <summary>インデックスを開けない（未到達・破損・権限等）。</summary>
+    public const string IndexLoadFailed = "インデックスを開けません。設定から保存先を確認してください。";
+    /// <summary>インデックスエラー時に設定を開く。</summary>
+    public const string OpenSettingsFromIndexError = "設定を開く";
     /// <summary>インデックス処理キャンセル完了。</summary>
     public const string IndexCancelled = "キャンセルしました";
     /// <summary>差分検出中表示。</summary>
@@ -168,8 +168,6 @@ public static class UserMessages
     public const string SettingsDescriptionTargetFolders = "インデックス対象のフォルダを複数指定できます";
     /// <summary>検索対象フォルダ未登録時</summary>
     public const string TargetFoldersEmpty = "フォルダが登録されていません";
-    /// <summary>追加ボタン（拡張子など）</summary>
-    public const string Add = "追加";
     /// <summary>検索対象フォルダを追加（フォルダ選択ダイアログ）</summary>
     public const string AddFolder = "フォルダを追加";
     /// <summary>インデックス保存先を選択（未設定時）</summary>
@@ -181,15 +179,7 @@ public static class UserMessages
     /// <summary>対象拡張子見出し</summary>
     public const string SettingsSectionExtensions = "対象拡張子";
     /// <summary>対象拡張子説明</summary>
-    public const string SettingsDescriptionExtensions = "インデックスする拡張子。空なら抽出器の対応拡張子を使用。";
-    /// <summary>拡張子変更後の注意</summary>
-    public const string SettingsNoteAfterExtensionChange = "追加・削除した拡張子を反映するには、必ず「保存」を押したあと、インデックスの「再構築」または「差分更新」を実行してください。";
-    /// <summary>対象拡張子の説明（非管理者・検索結果の絞り込みのみ）。</summary>
-    public const string SettingsNoteExtensionClient = "表示する拡張子を選べます。追加・削除したあと「保存」を押すと、あなたの検索結果だけに反映されます（共有インデックスは変更しません）。";
-    /// <summary>拡張子未入力で追加したとき。</summary>
-    public const string ExtensionRequired = "拡張子を入力してください。";
-    /// <summary>拡張子入力例</summary>
-    public const string SettingsPlaceholderExtensionExample = "例: .txt";
+    public const string SettingsDescriptionExtensions = "抽出器が対応する拡張子から選んで追加。空ならすべての対応拡張子を使用。";
     /// <summary>インデックス保存先見出し</summary>
     public const string SettingsSectionIndexPath = "インデックス保存先";
     /// <summary>インデックス保存先説明</summary>

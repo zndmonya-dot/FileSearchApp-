@@ -15,10 +15,6 @@ public class SettingsEditState
     public string? IndexPathMessage { get; set; }
     /// <summary>対象拡張子の一覧</summary>
     public List<string> TargetExtensions { get; set; } = new();
-    /// <summary>追加入力欄の拡張子</summary>
-    public string NewTargetExtension { get; set; } = "";
-    /// <summary>拡張子追加時のメッセージ</summary>
-    public string? ExtensionMessage { get; set; }
     /// <summary>定期再構築間隔（分）。0 で無効</summary>
     public int AutoRebuildIntervalMinutes { get; set; }
     /// <summary>テーマ: "Dark" / "Light" / "System"</summary>

@@ -5,7 +5,7 @@ using FullTextSearch.Core.Models;
 using FullTextSearch.Core.Search;
 
 /// <summary>
-/// ファイルプレビュー取得サービス。指定パスの内容を行テキストまたは HTML で返す。
+/// ファイルプレビュー取得サービス。指定パスの内容を行テキストで返す。
 /// </summary>
 public interface IPreviewService
 {

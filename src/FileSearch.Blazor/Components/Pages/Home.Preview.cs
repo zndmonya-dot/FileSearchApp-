@@ -8,8 +8,6 @@ using System.Diagnostics;
 using FileSearch.Messages;
 using FullTextSearch.Core.Models;
 using FullTextSearch.Core.Preview;
-using FileSearch.Blazor.Components.Shared;
-using FileSearch.Blazor.Services;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
@@ -41,7 +39,6 @@ public partial class Home
         var token = _previewCts.Token;
         isLoadingPreview = true;
         _previewLines = Array.Empty<PreviewLineResult>();
-        _previewLinesDisplayCache = null;
         previewLineCount = 0;
         StateHasChanged();
         await Task.Yield();
@@ -53,18 +50,15 @@ public partial class Home
             var lines = result.Lines ?? Array.Empty<PreviewLineResult>();
             _previewLines = lines;
             previewLineCount = result.LineCount;
-            _previewLinesDisplayCache = null;
         }
         catch (OperationCanceledException)
         {
             _previewLines = new List<PreviewLineResult> { new(UserMessages.PreviewLoadCancelled, false) };
-            _previewLinesDisplayCache = null;
             previewLineCount = 1;
         }
         catch (Exception ex)
         {
             _previewLines = new List<PreviewLineResult> { new(UserMessages.PreviewErrorLine(ex.Message), false) };
-            _previewLinesDisplayCache = null;
             previewLineCount = 1;
         }
         finally { isLoadingPreview = false; StateHasChanged(); }

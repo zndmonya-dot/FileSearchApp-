@@ -7,12 +7,12 @@
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
+using FullTextSearch.Core;
 using FullTextSearch.Core.Extractors;
 using FullTextSearch.Core.Models;
 using FullTextSearch.Core.Preview;
 using FullTextSearch.Core.Search;
 using FileSearch.Messages;
-using FullTextSearch.Infrastructure.Extractors;
 using Microsoft.Extensions.Logging;
 
 namespace FileSearch.Blazor.Services;
@@ -23,7 +23,7 @@ namespace FileSearch.Blazor.Services;
 public class PreviewService : IPreviewService
 {
     /// <summary>プレビューに使う最大文字数（超えた分は省略）</summary>
-    private const int PreviewMaxChars = 50_000;
+    private const int PreviewMaxChars = ContentLimits.PreviewMaxChars;
 
     private readonly TextExtractorFactory _extractorFactory;
     private readonly ILogger<PreviewService>? _logger;

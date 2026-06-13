@@ -56,7 +56,6 @@ public class AppSettingsServiceTests
     private sealed class FakeExtractor : ITextExtractor
     {
         public IEnumerable<string> SupportedExtensions { get; } = new[] { ".txt", ".md" };
-        public PreviewCategory PreviewCategory => PreviewCategory.Text;
         public bool CanExtract(string extension)
         {
             var n = PreviewHelper.NormalizeExtension(extension);

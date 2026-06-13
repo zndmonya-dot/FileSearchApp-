@@ -211,7 +211,6 @@ public partial class Home
         selectedFolder = null;
         selectedFile = node.FileData;
         _previewLines = Array.Empty<PreviewLineResult>();
-        _previewLinesDisplayCache = null;
         previewLineCount = 0;
         isLoadingPreview = true;
         TreeBuilder.ExpandPathToFile(treeNodes, node.FilePath!);

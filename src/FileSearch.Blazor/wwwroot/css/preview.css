@@ -274,128 +274,6 @@
     border-radius: 4px;
 }
 
-/* ===== HTML Preview (汎用) ===== */
-.preview-html-wrap {
-    flex: 1;
-    overflow: auto;
-    background: var(--color-canvas-default);
-    padding: 16px;
-}
-.preview-html-wrap .error {
-    color: var(--color-danger-fg);
-}
-.preview-html-wrap .preview-empty {
-    color: var(--color-fg-muted);
-    margin: 0;
-    padding: 16px 0;
-}
-
-/* Syntax Highlighting Colors (GitHub-inspired) */
-.line-content .hljs-keyword,
-.line-content .hljs-selector-tag,
-.line-content .hljs-built_in,
-.line-content .hljs-name {
-    color: #cf222e;
-}
-
-.line-content .hljs-string,
-.line-content .hljs-regexp,
-.line-content .hljs-addition {
-    color: #0a3069;
-}
-
-.line-content .hljs-number,
-.line-content .hljs-literal {
-    color: #0550ae;
-}
-
-.line-content .hljs-comment,
-.line-content .hljs-quote {
-    color: #6e7781;
-    font-style: italic;
-}
-
-.line-content .hljs-function,
-.line-content .hljs-title {
-    color: #8250df;
-}
-
-.line-content .hljs-class,
-.line-content .hljs-title.class_ {
-    color: #953800;
-}
-
-.line-content .hljs-variable,
-.line-content .hljs-template-variable {
-    color: #953800;
-}
-
-.line-content .hljs-type {
-    color: #0550ae;
-}
-
-.line-content .hljs-attr,
-.line-content .hljs-attribute {
-    color: #0550ae;
-}
-
-.line-content .hljs-meta {
-    color: #0550ae;
-}
-
-/* Dark mode syntax colors */
-.app.dark .line-content .hljs-keyword,
-.app.dark .line-content .hljs-selector-tag,
-.app.dark .line-content .hljs-built_in,
-.app.dark .line-content .hljs-name {
-    color: #ff7b72;
-}
-
-.app.dark .line-content .hljs-string,
-.app.dark .line-content .hljs-regexp,
-.app.dark .line-content .hljs-addition {
-    color: #a5d6ff;
-}
-
-.app.dark .line-content .hljs-number,
-.app.dark .line-content .hljs-literal {
-    color: #79c0ff;
-}
-
-.app.dark .line-content .hljs-comment,
-.app.dark .line-content .hljs-quote {
-    color: #8b949e;
-    font-style: italic;
-}
-
-.app.dark .line-content .hljs-function,
-.app.dark .line-content .hljs-title {
-    color: #d2a8ff;
-}
-
-.app.dark .line-content .hljs-class,
-.app.dark .line-content .hljs-title.class_ {
-    color: #ffa657;
-}
-
-.app.dark .line-content .hljs-variable,
-.app.dark .line-content .hljs-template-variable {
-    color: #ffa657;
-}
-
-.app.dark .line-content .hljs-type {
-    color: #79c0ff;
-}
-
-.app.dark .line-content .hljs-attr,
-.app.dark .line-content .hljs-attribute {
-    color: #79c0ff;
-}
-
-.app.dark .line-content .hljs-meta {
-    color: #79c0ff;
-}
-
 /* Loading State */
 .loading-state {
     flex: 1;
@@ -473,6 +351,7 @@
 /* Filter Dropdown */
 .folder-table th.col-type {
     position: relative;
+    width: 100px;
 }
 
 .folder-table th.col-type > span {
@@ -563,10 +442,6 @@
 
 .folder-table th.col-date {
     width: 140px;
-}
-
-.folder-table th.col-type {
-    width: 100px;
 }
 
 .folder-row {

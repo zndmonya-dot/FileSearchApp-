@@ -13,6 +13,9 @@ public interface IIndexService
     /// </summary>
     Task InitializeAsync(string indexPath, bool readOnly = false, CancellationToken cancellationToken = default);
 
+    /// <summary>直近の <see cref="InitializeAsync"/> が失敗したか（パス未到達・破損・ロック等）。</summary>
+    bool LastInitializeFailed { get; }
+
     /// <summary>
     /// インデックスを再構築（全削除のうえ全件追加）
     /// </summary>

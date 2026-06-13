@@ -2,10 +2,8 @@
 @*
   右ペインのファイルヘッダ・プレビュー本文（行番号付き）。ハイライト間移動・ファイル/フォルダを開く。
 *@
-@using FileSearch.Blazor.Components.Shared
 @using FullTextSearch.Core.Models
 @using Microsoft.AspNetCore.Components.Web
-@using Microsoft.AspNetCore.Components
 @if (SelectedFile != null)
 {
 <div class="file-box">
@@ -64,7 +62,7 @@
     }
     else
     {
-        var lines = PreviewLines ?? Array.Empty<PreviewLineDisplay>();
+        var lines = PreviewLines ?? Array.Empty<PreviewLineResult>();
         @* M-09 プレビュー表示（抽出テキストを行単位で表示。検索語は <mark> でハイライト） *@
         <div class="code-view">
             <table class="code-table">
@@ -92,7 +90,7 @@
     /// <summary>プレビュー抽出中（スピナー）。</summary>
     [Parameter] public bool IsLoadingPreview { get; set; }
     /// <summary>HTML エスケープ済み行とマッチ有無（テーブル行）。</summary>
-    [Parameter] public IReadOnlyList<PreviewLineDisplay> PreviewLines { get; set; } = Array.Empty<PreviewLineDisplay>();
+    [Parameter] public IReadOnlyList<PreviewLineResult> PreviewLines { get; set; } = Array.Empty<PreviewLineResult>();
     /// <summary>行数表示用（ヘッダ。プレビュー行数）。</summary>
     [Parameter] public int PreviewLineCount { get; set; }
     /// <summary>ハイライト前後移動ボタンを出すか。</summary>

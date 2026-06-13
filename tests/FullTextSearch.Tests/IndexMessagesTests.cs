@@ -3,7 +3,7 @@ using Xunit;
 
 namespace FullTextSearch.Tests;
 
-/// <summary>スキップログ文言と拡張子表示名のフォーマット。</summary>
+/// <summary>スキップログ文言のフォーマット。</summary>
 public class IndexMessagesTests
 {
     [Fact]
@@ -20,16 +20,4 @@ public class IndexMessagesTests
     {
         Assert.Equal("合計: 3 件", IndexMessages.SkippedLogTotalLine(3));
     }
-
-    [Theory]
-    [InlineData(".docx", "Word文書")]
-    [InlineData(".PDF", "PDFファイル")]
-    [InlineData(".unknown", "ファイル")]
-    [InlineData(".xlsx", "Excelブック")]
-    public void GetFileTypeDisplayName_maps_extension(string ext, string expected) =>
-        Assert.Equal(expected, IndexMessages.GetFileTypeDisplayName(ext));
-
-    [Fact]
-    public void GetFileTypeDisplayName_mixed_case_with_dot_uses_type_map() =>
-        Assert.Equal("PDFファイル", IndexMessages.GetFileTypeDisplayName(".Pdf"));
 }

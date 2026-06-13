@@ -35,11 +35,6 @@ public class IndexedDocument
     /// 最終更新日時
     /// </summary>
     public DateTime LastModified { get; init; }
-
-    /// <summary>
-    /// ファイルの種類
-    /// </summary>
-    public required string FileType { get; init; }
 }
 
 

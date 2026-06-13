@@ -44,6 +44,11 @@ public class LuceneIndexService : IIndexService, IDisposable
     private IndexRebuildOptions? _currentRebuildOptions;
     private readonly List<string> _skippedFiles = new();
 
+    private bool _lastInitializeFailed;
+
+    /// <inheritdoc />
+    public bool LastInitializeFailed => _lastInitializeFailed;
+
     /// <summary>並列処理から安全にスキップ一覧へ追加する。</summary>
     private void AddSkipped(string path)
     {
@@ -65,8 +70,6 @@ public class LuceneIndexService : IIndexService, IDisposable
     public const string FieldFileSize = "filesize";
     /// <summary>最終更新（Ticks）。</summary>
     public const string FieldLastModified = "lastmodified";
-    /// <summary>種別表示名（日本語ラベル）。</summary>
-    public const string FieldFileType = "filetype";
     /// <summary>完全一致検索の候補絞り込み用の文字バイグラム索引（本文＋ファイル名、非格納）。<see cref="ContentNGram"/> 参照。</summary>
     public const string FieldContentNGram = "content_ngram";
 
@@ -84,6 +87,8 @@ public class LuceneIndexService : IIndexService, IDisposable
 
         lock (_lock)
         {
+            _lastInitializeFailed = false;
+
             var currentPath = _directory?.Directory?.FullName;
             var samePath = currentPath != null &&
                 string.Equals(currentPath, normalizedPath, StringComparison.OrdinalIgnoreCase);
@@ -92,40 +97,61 @@ public class LuceneIndexService : IIndexService, IDisposable
 
             CloseIndexResourcesLocked();
 
-            if (!System.IO.Directory.Exists(normalizedPath))
+            try
             {
+                if (!System.IO.Directory.Exists(normalizedPath))
+                {
+                    if (readOnly)
+                    {
+                        _lastInitializeFailed = true;
+                        return Task.CompletedTask;
+                    }
+                    System.IO.Directory.CreateDirectory(normalizedPath);
+                }
+
+                _directory = FSDirectory.Open(normalizedPath);
+
                 if (readOnly)
+                {
+                    _readOnly = true;
+                    if (DirectoryReader.IndexExists(_directory))
+                    {
+                        try
+                        {
+                            _statsReader = DirectoryReader.Open(_directory);
+                        }
+                        catch (IOException)
+                        {
+                            _lastInitializeFailed = true;
+                            CloseIndexResourcesLocked();
+                        }
+                    }
                     return Task.CompletedTask;
-                System.IO.Directory.CreateDirectory(normalizedPath);
+                }
+
+                _readOnly = false;
+                // Sudachi C モードのみ
+                _analyzer = new SudachiAnalyzer();
+                SudachiTokenizer.Warmup();
+
+                var config = new IndexWriterConfig(AppLuceneVersion, _analyzer)
+                {
+                    OpenMode = OpenMode.CREATE_OR_APPEND,
+                    RAMBufferSizeMB = 256  // 他アプリ共存: メモリ占有を抑える（512→256）
+                };
+                // マージは 1 スレッドに抑え、再構築中の CPU スパイク（ファン急回転）を防ぐ。
+                var cms = new ConcurrentMergeScheduler();
+                const int mergeThreads = 1;
+                cms.SetMaxMergesAndThreads(mergeThreads + 1, mergeThreads);
+                config.MergeScheduler = cms;
+
+                _writer = new IndexWriter(_directory, config);
             }
-
-            _directory = FSDirectory.Open(normalizedPath);
-
-            if (readOnly)
+            catch (Exception)
             {
-                _readOnly = true;
-                if (DirectoryReader.IndexExists(_directory))
-                    _statsReader = DirectoryReader.Open(_directory);
-                return Task.CompletedTask;
+                _lastInitializeFailed = true;
+                CloseIndexResourcesLocked();
             }
-
-            _readOnly = false;
-            // Sudachi C モードのみ
-            _analyzer = new SudachiAnalyzer();
-            SudachiTokenizer.Warmup();
-
-            var config = new IndexWriterConfig(AppLuceneVersion, _analyzer)
-            {
-                OpenMode = OpenMode.CREATE_OR_APPEND,
-                RAMBufferSizeMB = 256  // 他アプリ共存: メモリ占有を抑える（512→256）
-            };
-            // マージは 1 スレッドに抑え、再構築中の CPU スパイク（ファン急回転）を防ぐ。
-            var cms = new ConcurrentMergeScheduler();
-            const int mergeThreads = 1;
-            cms.SetMaxMergesAndThreads(mergeThreads + 1, mergeThreads);
-            config.MergeScheduler = cms;
-
-            _writer = new IndexWriter(_directory, config);
         }
 
         return Task.CompletedTask;
@@ -526,8 +552,7 @@ public class LuceneIndexService : IIndexService, IDisposable
                 FolderPath = fileInfo.DirectoryName ?? string.Empty,
                 Content = content,
                 FileSize = fileInfo.Length,
-                LastModified = fileInfo.LastWriteTimeUtc,
-                FileType = GetFileType(extension)
+                LastModified = fileInfo.LastWriteTimeUtc
             };
         }
         catch (OperationCanceledException)
@@ -653,13 +678,9 @@ public class LuceneIndexService : IIndexService, IDisposable
             // 完全一致検索の候補絞り込み用バイグラム（事前生成したトークン列をそのまま索引、本文の Sudachi 解析とは独立）
             new TextField(FieldContentNGram, new ListTokenStream(ContentNGram.BuildIndexTokens(content, doc.FileName))),
             new Int64Field(FieldFileSize, doc.FileSize, Field.Store.YES),
-            new Int64Field(FieldLastModified, doc.LastModified.Ticks, Field.Store.YES),
-            new StringField(FieldFileType, doc.FileType, Field.Store.YES)
+            new Int64Field(FieldLastModified, doc.LastModified.Ticks, Field.Store.YES)
         };
     }
-
-    /// <summary>拡張子から Lucene の filetype フィールド用ラベルを返す。</summary>
-    private static string GetFileType(string extension) => IndexMessages.GetFileTypeDisplayName(extension);
 
     /// <summary>スキップ一覧をインデックスフォルダ直下のログファイルに書き出す。</summary>
     private void WriteSkippedLog()

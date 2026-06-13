@@ -11,22 +11,10 @@ namespace FullTextSearch.Infrastructure.Extractors;
 /// </summary>
 public class PdfExtractor : ITextExtractor
 {
-    private static readonly HashSet<string> SupportedExtensionSet = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".pdf"
-    };
+    public IEnumerable<string> SupportedExtensions => SupportedExtensionSets.Pdf;
 
     /// <inheritdoc />
-    public IEnumerable<string> SupportedExtensions => SupportedExtensionSet;
-
-    /// <inheritdoc />
-    public PreviewCategory PreviewCategory => PreviewCategory.Pdf;
-
-    /// <inheritdoc />
-    public bool CanExtract(string extension)
-    {
-        return SupportedExtensionSet.Contains(extension);
-    }
+    public bool CanExtract(string extension) => SupportedExtensionSets.Pdf.Contains(extension);
 
     /// <summary>PDF の全ページからテキストを抽出する。</summary>
     public Task<string> ExtractTextAsync(string filePath, CancellationToken cancellationToken = default)

@@ -16,32 +16,4 @@ public static class IndexMessages
 
     /// <summary>スキップログ 2 行目</summary>
     public static string SkippedLogTotalLine(int count) => $"合計: {count} 件";
-
-    /// <summary>拡張子から Lucene の filetype フィールド用の表示名を返す。</summary>
-    public static string GetFileTypeDisplayName(string extension)
-    {
-        return extension.ToLowerInvariant() switch
-        {
-            ".docx" => "Word文書",
-            ".xlsx" => "Excelブック",
-            ".pptx" => "PowerPointプレゼンテーション",
-            ".pdf" => "PDFファイル",
-            ".txt" => "テキストファイル",
-            ".csv" => "CSVファイル",
-            ".log" => "ログファイル",
-            ".md" => "Markdownファイル",
-            ".cs" => "C#ソースコード",
-            ".js" => "JavaScriptファイル",
-            ".ts" => "TypeScriptファイル",
-            ".py" => "Pythonファイル",
-            ".java" => "Javaファイル",
-            ".html" => "HTMLファイル",
-            ".css" => "CSSファイル",
-            ".xml" => "XMLファイル",
-            ".json" => "JSONファイル",
-            ".yaml" or ".yml" => "YAMLファイル",
-            ".pas" or ".dpr" or ".dpk" => "Pascal/Delphi",
-            _ => "ファイル"
-        };
-    }
 }

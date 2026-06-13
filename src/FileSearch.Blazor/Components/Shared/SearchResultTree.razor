@@ -50,12 +50,10 @@
                 </div>
                 @if (node.IsExpanded && node.Children != null)
                 {
-                    <div class="node-children">
-                        @foreach (var child in node.Children)
-                        {
-                            @RenderNode(child, depth + 1)
-                        }
-                    </div>
+                    @foreach (var child in node.Children)
+                    {
+                        @RenderNode(child, depth + 1)
+                    }
                 }
             </div>
         }

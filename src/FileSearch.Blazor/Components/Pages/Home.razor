@@ -16,6 +16,7 @@
 @inject FullTextSearch.Core.Preview.IPreviewService PreviewService
 @inject IJSRuntime JSRuntime
 @inject ILogger<Home> Logger
+@inject IEnumerable<ITextExtractor> TextExtractors
 
 <div class="app @(isDarkMode ? "dark" : "light")">
     <AppHeader OnOpenSettings="OpenSettings" />
@@ -44,12 +45,13 @@
                       OnSearchInputChanged="OnSearchInputChanged"
                       OnToggleNode="ToggleNode"
                       OnSelectFile="SelectFile"
-                      GetFileIconClass="GetFileIconClass"
+                      GetFileIconClass="DisplayFormatters.GetFileIconClass"
                       OnRequestRebuildIndex="RequestRebuildIndex"
                       OnCancelIndexBuild="CancelIndexBuild"
                       OnStartResize="StartResize"
                       GetLastUpdateText="GetLastUpdateText"
                       IsAdmin="isAdmin"
+                      OnOpenSettings="OpenSettings"
                       OnOpenSkippedLog="OpenSkippedLog" />
 
         @* M-07 右メイン領域（フォルダ一覧／プレビュー／空状態を切り替え） *@
@@ -75,7 +77,7 @@
             {
                 <FilePreviewView SelectedFile="selectedFile"
                                  IsLoadingPreview="isLoadingPreview"
-                                 PreviewLines="previewLinesDisplay"
+                                 PreviewLines="_previewLines"
                                  PreviewLineCount="previewLineCount"
                                  ShowNavButtons="ShowNavButtons"
                                  NavInfo="@NavInfo"
@@ -83,7 +85,7 @@
                                  OnGoNext="GoNext"
                                  OnOpenFile="OpenFile"
                                  OnOpenFolder="OpenFolder"
-                                 GetFileIconClass="GetFileIconClass" />
+                                 GetFileIconClass="DisplayFormatters.GetFileIconClass" />
             }
             else
             {
@@ -106,14 +108,14 @@
     <SettingsModal Visible="showSettings"
                    State="_settingsEdit"
                    IsAdmin="isAdmin"
+                   AvailableExtensions="BuildAvailableExtensions()"
                    LastIndexUpdate="SettingsService.Settings.LastIndexUpdate"
                    OnCloseRequested="CloseSettings"
                    OnSaveRequested="SaveSettings"
                    OnBrowseFolder="HandleBrowseFolder"
                    OnRemoveFolder="RemoveFolder"
                    OnBrowseIndexPath="HandleBrowseIndexPath"
-                   OnAddTargetExtension="HandleAddTargetExtension"
-                   OnRemoveTargetExtension="RemoveTargetExtension" />
+                   OnToggleTargetExtension="HandleToggleTargetExtension" />
 </div>
 
 @if (isResizing)

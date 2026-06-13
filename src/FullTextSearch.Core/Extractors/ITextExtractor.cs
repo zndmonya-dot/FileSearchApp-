@@ -2,19 +2,6 @@
 namespace FullTextSearch.Core.Extractors;
 
 /// <summary>
-/// プレビュー種別（抽出器ごとの表示カテゴリ）
-/// </summary>
-public enum PreviewCategory
-{
-    /// <summary>テキスト／コードとしてプレビュー</summary>
-    Text,
-    /// <summary>Office（Word/Excel/PowerPoint）としてプレビュー</summary>
-    Office,
-    /// <summary>PDF としてプレビュー</summary>
-    Pdf
-}
-
-/// <summary>
 /// テキスト抽出器のインターフェース
 /// </summary>
 public interface ITextExtractor
@@ -23,11 +10,6 @@ public interface ITextExtractor
     /// サポートする拡張子のリスト
     /// </summary>
     IEnumerable<string> SupportedExtensions { get; }
-
-    /// <summary>
-    /// プレビュー表示時の種別（テキスト／Office／PDF）
-    /// </summary>
-    PreviewCategory PreviewCategory { get; }
 
     /// <summary>
     /// 指定した拡張子をサポートしているか
@@ -72,5 +54,3 @@ public class TextExtractorFactory
         return _extractors.SelectMany(e => e.SupportedExtensions).Distinct();
     }
 }
-
-

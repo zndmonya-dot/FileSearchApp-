@@ -33,10 +33,10 @@ public static class DisplayFormatters
         Path.GetExtension(name).ToLowerInvariant() switch
         {
             ".doc" or ".docx" => "word",
-            ".xls" or ".xlsx" => "excel",
-            ".ppt" or ".pptx" => "ppt",
+            ".xls" or ".xlsx" or ".xlsm" => "excel",
+            ".pptx" => "ppt",
             ".pdf" => "pdf",
-            ".cs" or ".js" or ".ts" or ".py" or ".java" or ".cpp" or ".c" or ".h" or ".go" or ".rs" or ".rb" or ".php" or ".swift" or ".kt" or ".scala" or ".vb" or ".fs" => "code",
+            ".cs" or ".py" or ".pas" or ".dfm" or ".sql" or ".html" or ".xml" or ".css" => "code",
             _ => "text"
         };
 }
