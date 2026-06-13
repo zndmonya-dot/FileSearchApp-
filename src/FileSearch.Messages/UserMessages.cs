@@ -243,9 +243,13 @@ public static class UserMessages
     /// <summary>フォルダ一覧：子件数</summary>
     public static string FormatChildCount(int count) => $"{count} 件";
     /// <summary>ハイライト前へボタン title</summary>
-    public const string PreviewGoPrevTitle = "前へ（一致→ファイル）";
+    public const string PreviewGoPrevTitle = "前の一致へ（上）";
     /// <summary>ハイライト次へボタン title</summary>
-    public const string PreviewGoNextTitle = "次へ（一致→ファイル）";
+    public const string PreviewGoNextTitle = "次の一致へ（下）";
+    /// <summary>プレビューツールバー・一致移動グループ aria-label</summary>
+    public const string PreviewNavGroupLabel = "検索一致の移動";
+    /// <summary>プレビューツールバー・ファイル操作グループ aria-label</summary>
+    public const string PreviewOpenGroupLabel = "ファイル操作";
     /// <summary>ナビ位置の title</summary>
     public const string PreviewNavPositionTitle = "現在位置";
     /// <summary>前へ</summary>

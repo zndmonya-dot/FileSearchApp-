@@ -108,7 +108,6 @@ public partial class Home : IDisposable
 
     // --- ハイライトナビ（JS） / ファイル間ナビ ---
     private string? _lastHighlightNavFilePath;
-    private string? _highlightNavInfo;
     private bool _hasTriedInitialHighlightScroll;
     private List<TreeNode>? _fileNavList;
     private int _fileNavIndex = -1;
@@ -163,7 +162,6 @@ public partial class Home : IDisposable
         if (!firstRender && selectedFile?.FilePath != _lastHighlightNavFilePath)
         {
             _lastHighlightNavFilePath = selectedFile?.FilePath;
-            _highlightNavInfo = null;
             _hasTriedInitialHighlightScroll = false;
             try { await PreviewJs.ResetHighlightNavAsync(); }
             catch (Exception ex) { PreviewJs.LogInteropFailure("ResetHighlightNav", ex); }

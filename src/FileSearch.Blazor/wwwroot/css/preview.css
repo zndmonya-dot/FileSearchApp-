@@ -155,6 +155,88 @@
     flex-shrink: 0;
 }
 
+/* プレビューヘッダー・統一ツールバー */
+.preview-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.preview-toolbar-segment {
+    display: flex;
+    align-items: stretch;
+    border: 1px solid var(--color-btn-border);
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--color-btn-bg);
+    box-shadow: 0 1px 0 rgba(27, 31, 36, 0.04);
+}
+
+.app.dark .preview-toolbar-segment {
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2);
+}
+
+.preview-toolbar .toolbar-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 32px;
+    min-width: 32px;
+    padding: 0 12px;
+    margin: 0;
+    border: none;
+    border-right: 1px solid var(--color-btn-border);
+    border-radius: 0;
+    background: transparent;
+    color: var(--color-fg-default);
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+
+.preview-toolbar .toolbar-btn:last-child {
+    border-right: none;
+}
+
+.preview-toolbar .toolbar-btn:hover {
+    background: var(--color-btn-hover-bg);
+}
+
+.preview-toolbar .toolbar-btn:active {
+    background: var(--color-neutral-muted);
+}
+
+.preview-toolbar .toolbar-btn-icon {
+    width: 32px;
+    padding: 0;
+}
+
+.preview-toolbar .toolbar-btn svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+
+.preview-toolbar-open .toolbar-btn:first-child svg {
+    color: var(--color-icon-text);
+}
+
+.preview-toolbar-open .toolbar-btn:last-child svg {
+    color: var(--color-icon-folder);
+}
+
+.preview-toolbar-nav .toolbar-btn svg {
+    color: var(--color-fg-default);
+}
+
+.preview-toolbar-nav .toolbar-nav-chevron-down {
+    transform: rotate(180deg);
+}
+
 .btn-group {
     display: flex;
     border: 1px solid var(--color-btn-border);
@@ -267,20 +349,6 @@
 .code-view tr.highlight-current .line-number {
     color: var(--color-attention-fg);
     font-weight: 700;
-}
-
-/* ハイライトナビ: 位置表示 */
-.highlight-nav-group {
-    align-items: center;
-    gap: 8px;
-}
-.highlight-nav-info {
-    font-size: 12px;
-    color: var(--color-fg-muted);
-    white-space: nowrap;
-    padding: 2px 8px;
-    background: var(--color-canvas-subtle);
-    border-radius: 4px;
 }
 
 /* Loading State */

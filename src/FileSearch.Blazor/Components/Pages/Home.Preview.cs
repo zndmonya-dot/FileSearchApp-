@@ -73,24 +73,21 @@ public partial class Home
         StateHasChanged();
     }
 
-    /// <summary>JS 描画完了後に読み込み状態を解除し、ハイライト位置を更新する。</summary>
+    /// <summary>JS 描画完了後に読み込み状態を解除し、最初のハイライト行へスクロールする。</summary>
     private async Task HandlePreviewRendered(string? scrollResultFromJs)
     {
         try
         {
-            if (_previewResult != null && ShowHighlightNav && !_hasTriedInitialHighlightScroll)
+            if (_previewResult != null
+                && selectedFile != null
+                && !string.IsNullOrWhiteSpace(searchQuery)
+                && !_hasTriedInitialHighlightScroll)
             {
                 _hasTriedInitialHighlightScroll = true;
-                if (!string.IsNullOrEmpty(scrollResultFromJs))
-                {
-                    _highlightNavInfo = FormatHighlightNavInfo(scrollResultFromJs);
-                }
-                else
+                if (string.IsNullOrEmpty(scrollResultFromJs))
                 {
                     await PreviewJs.InitHighlightNavAsync(_previewResult.MatchLineNumbers);
-                    var result = await PreviewJs.ScrollToFirstHighlightInstantAsync();
-                    if (!string.IsNullOrEmpty(result))
-                        _highlightNavInfo = FormatHighlightNavInfo(result);
+                    await PreviewJs.ScrollToFirstHighlightInstantAsync();
                 }
             }
         }
@@ -115,11 +112,7 @@ public partial class Home
 
     private bool ShowNavButtons => selectedFile != null && (ShowFileNav || ShowHighlightNav);
 
-    /// <summary>ツールバー右の位置表示。ハイライト優先、なければファイル n/m。</summary>
-    private string? NavInfo => !string.IsNullOrEmpty(_highlightNavInfo) ? _highlightNavInfo
-        : (_fileNavList != null && _fileNavIndex >= 0 && _fileNavIndex < _fileNavList.Count ? $"{_fileNavIndex + 1}/{_fileNavList.Count}" : null);
-
-    /// <summary>preview.js の scrollToNext/PrevHighlight。戻り値は「行番号|現在|総数」。</summary>
+    /// <summary>preview.js の scrollToNext/PrevHighlight。</summary>
     private async Task<string?> TryScrollToHighlightAsync(bool next)
     {
         try
@@ -136,13 +129,8 @@ public partial class Home
     /// <summary>ハイライトが尽きたら次のファイルへ（ShowFileNav 時）。</summary>
     private async Task GoNext()
     {
-        var result = await TryScrollToHighlightAsync(next: true);
-        if (!string.IsNullOrEmpty(result))
-        {
-            _highlightNavInfo = FormatHighlightNavInfo(result);
-            StateHasChanged();
+        if (await TryScrollToHighlightAsync(next: true) != null)
             return;
-        }
         if (ShowFileNav)
             SelectNextFile();
     }
@@ -150,30 +138,10 @@ public partial class Home
     /// <summary>GoNext の逆。</summary>
     private async Task GoPrev()
     {
-        var result = await TryScrollToHighlightAsync(next: false);
-        if (!string.IsNullOrEmpty(result))
-        {
-            _highlightNavInfo = FormatHighlightNavInfo(result);
-            StateHasChanged();
+        if (await TryScrollToHighlightAsync(next: false) != null)
             return;
-        }
         if (ShowFileNav)
             SelectPrevFile();
-    }
-
-    /// <summary>JS からのパイプ区切り文字列を表示用に整形。</summary>
-    private static string? FormatHighlightNavInfo(string? raw)
-    {
-        if (string.IsNullOrEmpty(raw)) return null;
-        var parts = raw.Split('|');
-        if (parts.Length != 3) return null;
-        var lineNum = int.TryParse(parts[0], out var ln) ? ln : 0;
-        var current = int.TryParse(parts[1], out var c) ? c : 0;
-        var total = int.TryParse(parts[2], out var t) ? t : 0;
-        if (total <= 0) return null;
-        return lineNum > 0
-            ? UserMessages.FormatHighlightNavWithLine(lineNum, current, total)
-            : UserMessages.FormatHighlightNavCountsOnly(current, total);
     }
 
     /// <summary>_fileNavList 上で次のファイルを選択（プレビュー読み込みは SelectFile 経由）。</summary>
