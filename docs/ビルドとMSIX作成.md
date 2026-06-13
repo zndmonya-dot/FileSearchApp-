@@ -7,6 +7,7 @@
 ## 前提
 
 - Windows、**.NET 8 SDK** が入っていること
+- 初回 publish 前に Sudachi ネイティブ DLL がビルド済みであること（`dotnet build` または `scripts/build-sudachi-native.ps1`）
 - MSIX に署名するには、**個人証明書ストア** に秘密鍵付き証明書があり、`FileSearch.Blazor.csproj` の **`PackageCertificateThumbprint`** がそれを指していること（詳細は社内配布手順の「3. 配布者の作業」）
 
 ---
@@ -42,7 +43,7 @@ dotnet run --project src\FileSearch.Blazor
 
 ## 証明書なしの ZIP 配布（参考）
 
-社内で .cer を渡したくない場合は、ルートの **`scripts\build-dist.bat`**（または `build-dist.ps1`）でスタンドアロン ZIP を生成できる。publish 前に `check-webview-strings.ps1` が走る。詳細は **[社内配布手順.md](社内配布手順.md)** の「5. 証明書なしの配布（参考）」を参照。
+社内で .cer を渡したくない場合は、ルートの **`scripts\build-dist.bat`**（または `build-dist.ps1`）でスタンドアロン ZIP を生成できる。publish 前に `check-webview-strings.ps1` が走り、`sudachi_ffi.dll` の同梱を確認する。詳細は **[社内配布手順.md](社内配布手順.md)** の「5. 証明書なしの配布（参考）」を参照。
 
 ---
 

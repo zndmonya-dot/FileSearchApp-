@@ -7,7 +7,7 @@ namespace FullTextSearch.Infrastructure.Sudachi;
 
 /// <summary>
 /// Sudachi（モード C）を用いた Lucene アナライザ。
-/// SudachiPy をサブプロセスで呼び出すカスタム Tokenizer を使用する。
+/// sudachi.rs ネイティブ DLL 経由のカスタム Tokenizer を使用する。
 /// 半角英数字も検索できるようトークンを小文字に正規化する。
 /// </summary>
 public sealed class SudachiAnalyzer : Analyzer

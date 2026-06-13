@@ -53,6 +53,23 @@ public class AppSettingsServiceTests
         Assert.Null(ex);
     }
 
+    [Fact]
+    public async Task Load_strips_extensions_not_supported_by_extractors()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "fts-app-set", Guid.NewGuid().ToString("N"), "settings.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var json = """
+            {"targetExtensions":[".txt",".bin",".docx"],"targetFolders":[],"indexPath":"","themeMode":"System"}
+            """;
+        await File.WriteAllTextAsync(path, json);
+        var factory = new TextExtractorFactory(new ITextExtractor[] { new FakeExtractor() });
+        var svc = new AppSettingsService(factory, path);
+        await svc.LoadAsync();
+        Assert.Equal(new[] { ".txt" }, svc.Settings.TargetExtensions);
+        var reloaded = await File.ReadAllTextAsync(path);
+        Assert.DoesNotContain(".bin", reloaded, StringComparison.Ordinal);
+    }
+
     private sealed class FakeExtractor : ITextExtractor
     {
         public IEnumerable<string> SupportedExtensions { get; } = new[] { ".txt", ".md" };

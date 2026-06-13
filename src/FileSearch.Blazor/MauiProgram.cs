@@ -46,6 +46,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<IAppSettingsService, AppSettingsService>();
         builder.Services.AddSingleton<IAppModeService, AppModeService>();
         builder.Services.AddScoped<IPreviewService, PreviewService>();
+        builder.Services.AddScoped<PreviewJsInterop>();
 
         return builder.Build();
     }

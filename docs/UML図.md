@@ -67,14 +67,14 @@ graph TB
     subgraph Infra ["FullTextSearch.Infrastructure（インフラ層）"]
         direction TB
         InfraLucene["Lucene<br/>LuceneIndexService,<br/>LuceneSearchService"]
-        InfraSudachi["Sudachi<br/>SudachiAnalyzer,<br/>SudachiTokenizer,<br/>ListTokenStream"]
+        InfraSudachi["Sudachi<br/>SudachiAnalyzer,<br/>SudachiTokenizer,<br/>SudachiNative,<br/>ListTokenStream"]
         InfraExt["Extractors<br/>OfficeExtractor,<br/>PdfExtractor,<br/>TextFileExtractor"]
         InfraSettings["Settings<br/>IAppSettingsService,<br/>AppSettingsService"]
     end
 
     subgraph External ["外部"]
         Lucene["Lucene.NET 4.8"]
-        Python["Python / SudachiPy"]
+        SudachiDll["sudachi_ffi.dll"]
         FS["ファイルシステム"]
     end
 
@@ -82,7 +82,7 @@ graph TB
     UI --> Infra
     Infra --> Core
     InfraLucene --> Lucene
-    InfraSudachi --> Python
+    InfraSudachi --> SudachiDll
     InfraExt --> FS
 ```
 
@@ -138,14 +138,8 @@ classDiagram
     class ContentLimits {
         <<static>>
         +LuceneMaxTermUtf8Bytes : int = 32765
-        +IndexMaxContentChars : int = 100000
         +IndexMaxFileBytesForExtract : long = 10MB
-        +ExtractMaxChars : int = 100000
-        +PreviewMaxFileBytes : long = 10MB
         +MaxTextFileBytesToRead : long = 10MB
-        +PreviewMaxChars : int = 50000
-        +PreviewMaxLinesForHighlight : int = 50000
-        +PreviewLineHeightPx : int = 20
     }
 
     class IndexProgress {
@@ -276,14 +270,17 @@ classDiagram
     }
 
     class SudachiTokenizer {
-        -StreamTimeoutMs : int = 60000
-        -BatchTimeoutMs : int = 120000
-        -OneshotTimeoutMs : int = 60000
+        +PoolSize : int
         +IncrementToken() bool
         +Reset()
-        +InvokeSudachiBatch(docs)$ List~List~string~~?
-        +IsAvailable()$ bool
         +Warmup()$
+    }
+
+    class SudachiNative {
+        <<static>>
+        +TryEnsureInitialized()$ bool
+        +CreateContext()$ IntPtr
+        +Tokenize(ctx, text)$ List~string~
     }
 
     class ListTokenStream {
@@ -328,11 +325,10 @@ classDiagram
 
     LuceneIndexService --> TextExtractorFactory : 注入
     LuceneIndexService --> SudachiAnalyzer : 生成
+    LuceneIndexService ..> ListTokenStream : 生成
     LuceneSearchService --> IAppSettingsService : 注入
-    LuceneSearchService ..> SudachiTokenizer : static 呼出
-    LuceneSearchService ..> ListTokenStream : 生成
     SudachiAnalyzer --> SudachiTokenizer : 生成
-    SudachiTokenizer ..> Python_SudachiPy : サブプロセス
+    SudachiTokenizer --> SudachiNative : P/Invoke
 ```
 
 ### 3.3 Blazor UI 層（コンポーネント構成）
@@ -437,11 +433,10 @@ sequenceDiagram
     Home->>Search: SearchAsync(query, options, ct)
     Search->>Search: BuildPartialMatchQuery（部分一致・ファイル名ブースト）
     Search->>Analyzer: GetTokenStream 等でクエリ語をトークン化
-    Note over Analyzer,Sudachi: 日本語は Sudachi（Python）経由の Analyzer
+    Note over Analyzer,Sudachi: 日本語は Sudachi ネイティブ（sudachi_ffi.dll）経由
     Search->>Lucene: BooleanQuery で検索
     Lucene-->>Search: TopDocs（ヒット一覧）
     opt ハイライト有効（SkipHighlights でない）
-        Search->>Sudachi: InvokeSudachiBatch(ヒット文書の本文)
         Search->>Search: ハイライト抜粋（Lucene Highlighter）
     end
     Search-->>Home: SearchResult
@@ -478,13 +473,13 @@ sequenceDiagram
             Index->>Factory: GetExtractor(extension)
             Factory-->>Index: ITextExtractor
             Index->>Ext: ExtractTextAsync(filePath, ct)
-            Ext-->>Index: テキスト（100,000文字で打ち切り）
+            Ext-->>Index: テキスト
         end
 
         alt 10MB超 or 抽出エラー
             Index->>Index: _skippedFiles に記録
         else 正常
-            Index->>Index: CreateLuceneDocument（100,000文字で打ち切り）
+            Index->>Index: CreateLuceneDocument
             Index->>Lucene: UpdateDocument
         end
 
@@ -620,30 +615,21 @@ sequenceDiagram
     Home->>Home: StateHasChanged()
 ```
 
-### 4.7 形態素解析（SudachiPy 呼び出し）
+### 4.7 形態素解析（Sudachi ネイティブ）
 
 ```mermaid
 sequenceDiagram
-    participant Caller as 呼び出し元
+    participant Analyzer as SudachiAnalyzer
     participant Tokenizer as SudachiTokenizer
-    participant Watchdog as ウォッチドッグTimer
-    participant Python as Python/SudachiPy
+    participant Native as SudachiNative
+    participant Dll as sudachi_ffi.dll
 
-    Caller->>Tokenizer: InvokeSudachiStream(text)
-    Tokenizer->>Python: Process.Start(sudachi_tokenize.py)
-    Tokenizer->>Python: BeginErrorReadLine()（stderr ドレイン）
-    Tokenizer->>Watchdog: Timer 開始（60秒）
-    Tokenizer->>Python: stdin にテキスト送信
-
-    alt 正常応答
-        Python-->>Tokenizer: stdout からトークン受信
-        Tokenizer->>Watchdog: Timer 停止
-        Tokenizer-->>Caller: List<string>（トークン）
-    else タイムアウト
-        Watchdog->>Python: Kill()
-        Tokenizer->>Tokenizer: DisposeSharedProcess()
-        Tokenizer-->>Caller: null（スキップ扱い）
-    end
+    Analyzer->>Tokenizer: Reset() / IncrementToken()
+    Tokenizer->>Native: Tokenize(ThreadContext, text)
+    Native->>Dll: sudachi_tokenize(ctx, text, ...)
+    Dll-->>Native: トークン列（改行区切り UTF-8）
+    Native-->>Tokenizer: List<string>
+    Tokenizer-->>Analyzer: ICharTermAttribute に surface を設定
 ```
 
 ---

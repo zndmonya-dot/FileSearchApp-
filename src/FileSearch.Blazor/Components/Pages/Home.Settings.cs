@@ -164,7 +164,10 @@ public partial class Home
             return;
         }
 
-        SettingsService.Settings.TargetFolders = _settingsEdit.TargetFolders.ToList();
+        SettingsService.Settings.TargetFolders = _settingsEdit.TargetFolders
+            .Select(IndexPaths.NormalizeFolderPath)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
         SettingsService.Settings.IndexPath = indexPath;
         SettingsService.Settings.TargetExtensions = _settingsEdit.TargetExtensions.ToList();
         SettingsService.Settings.AutoRebuildIntervalMinutes = _settingsEdit.AutoRebuildIntervalMinutes;

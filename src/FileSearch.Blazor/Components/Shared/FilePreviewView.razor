@@ -1,9 +1,11 @@
 @namespace FileSearch.Blazor.Components.Shared
+@implements IDisposable
 @*
-  右ペインのファイルヘッダ・プレビュー本文（行番号付き）。ハイライト間移動・ファイル/フォルダを開く。
+  右ペインのファイルヘッダ・プレビュー本文（WinMerge 風: 行番号 + 等幅）。
+  本文は Blazor 経由で描画せず JS（preview.js）が DOM を直接構築する（WebView 安定性）。
 *@
 @using FullTextSearch.Core.Models
-@using Microsoft.AspNetCore.Components.Web
+@inject FileSearch.Blazor.Services.PreviewJsInterop PreviewJs
 @if (SelectedFile != null)
 {
 <div class="file-box">
@@ -16,7 +18,7 @@
             <span class="file-path-breadcrumb" title="@SelectedFile.FolderPath">@SelectedFile.FolderPath</span>
         </div>
         <div class="file-meta">
-            <span class="file-meta-item">@UserMessages.FormatLineCount(PreviewLineCount)</span>
+            <span class="file-meta-item">@UserMessages.FormatLineCount(Preview?.LineCount ?? 0)</span>
             <span class="file-meta-item">@DisplayFormatters.FormatSize(SelectedFile.FileSize)</span>
         </div>
         <div class="file-actions">
@@ -38,12 +40,10 @@
                 </div>
             }
             <div class="btn-group">
-                @* M-11 開く（関連付けアプリで選択中のファイルを開く） *@
                 <button class="action-btn" @onclick="OnOpenFile" title="@UserMessages.OpenFileTitle">
                     <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Zm4.879-2.773 4.264 2.559a.25.25 0 0 1 0 .428l-4.264 2.559A.25.25 0 0 1 6 10.559V5.442a.25.25 0 0 1 .379-.215Z"/></svg>
                     <span>@UserMessages.OpenFile</span>
                 </button>
-                @* M-12 フォルダ（選択中ファイルの親フォルダをエクスプローラーで開く） *@
                 <button class="action-btn" @onclick="OnOpenFolder" title="@UserMessages.OpenFolderTitle">
                     <svg viewBox="0 0 16 16" fill="currentColor"><path d="M.513 1.513A1.75 1.75 0 0 1 1.75 1h3.5c.55 0 1.07.26 1.4.7l.9 1.2a.25.25 0 0 0 .2.1H13a1 1 0 0 1 1 1v.5H2.75a.75.75 0 0 0 0 1.5h11.978a1 1 0 0 1 .994 1.117L15 13.25A1.75 1.75 0 0 1 13.25 15H1.75A1.75 1.75 0 0 1 0 13.25V2.75c0-.464.184-.91.513-1.237Z"/></svg>
                     <span>@UserMessages.OpenFolderShort</span>
@@ -53,58 +53,72 @@
     </div>
 
     <div class="preview-zoom-wrap">
-    @if (IsLoadingPreview)
-    {
-        <div class="loading-state">
+        <div class="loading-state" style="@(IsLoadingPreview ? null : "display:none")">
             <div class="spinner-ring large"></div>
             <span class="loading-state-text">@UserMessages.PreviewLoading</span>
         </div>
-    }
-    else
-    {
-        var lines = PreviewLines ?? Array.Empty<PreviewLineResult>();
-        @* M-09 プレビュー表示（抽出テキストを行単位で表示。検索語は <mark> でハイライト） *@
-        <div class="code-view">
-            <table class="code-table">
-                <tbody>
-                    @for (int i = 0; i < lines.Count; i++)
-                    {
-                        var lineNum = i + 1;
-                        var line = lines[i];
-                        <tr class="code-line">
-                            <td class="line-number">@lineNum</td>
-                            <td class="line-content @(line.HasMatch ? "highlight" : "")">@((MarkupString)line.Content)</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-    }
+        <div class="code-view" id="preview-code-view" style="@(IsLoadingPreview ? "display:none" : null)"></div>
     </div>
 </div>
 }
 
 @code {
-    /// <summary>表示中の検索ヒット（メタ情報・パス表示用）。</summary>
     [Parameter] public SearchResultItem? SelectedFile { get; set; }
-    /// <summary>プレビュー抽出中（スピナー）。</summary>
     [Parameter] public bool IsLoadingPreview { get; set; }
-    /// <summary>HTML エスケープ済み行とマッチ有無（テーブル行）。</summary>
-    [Parameter] public IReadOnlyList<PreviewLineResult> PreviewLines { get; set; } = Array.Empty<PreviewLineResult>();
-    /// <summary>行数表示用（ヘッダ。プレビュー行数）。</summary>
-    [Parameter] public int PreviewLineCount { get; set; }
-    /// <summary>ハイライト前後移動ボタンを出すか。</summary>
+    [Parameter] public PreviewResult? Preview { get; set; }
     [Parameter] public bool ShowNavButtons { get; set; }
-    /// <summary>「3 / 10」形式のナビ位置テキスト。</summary>
     [Parameter] public string? NavInfo { get; set; }
-    /// <summary>前のハイライトへ。</summary>
     [Parameter] public EventCallback OnGoPrev { get; set; }
-    /// <summary>次のハイライトへ。</summary>
     [Parameter] public EventCallback OnGoNext { get; set; }
-    /// <summary>既定アプリでファイルを開く。</summary>
     [Parameter] public EventCallback OnOpenFile { get; set; }
-    /// <summary>エクスプローラーでフォルダを開く。</summary>
     [Parameter] public EventCallback OnOpenFolder { get; set; }
-    /// <summary>ファイル名からヘッダアイコン CSS クラス。</summary>
     [Parameter] public Func<string, string>? GetFileIconClass { get; set; }
+    [Parameter] public EventCallback OnPreviewRendered { get; set; }
+
+    private string _renderKey = "";
+    private CancellationTokenSource? _renderCts;
+
+    protected override void OnParametersSet()
+    {
+        if (IsLoadingPreview)
+            _renderKey = "";
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (IsLoadingPreview || SelectedFile == null || Preview == null)
+            return;
+
+        var preview = Preview;
+        var key = $"{SelectedFile.FilePath}|{preview.Content.Length}|{preview.IsError}|{preview.LineCount}|{string.Join('\u001f', preview.SearchTerms)}|{string.Join(',', preview.MatchLineNumbers)}";
+        if (key == _renderKey)
+            return;
+        _renderKey = key;
+
+        _renderCts?.Cancel();
+        _renderCts?.Dispose();
+        _renderCts = new CancellationTokenSource();
+        var token = _renderCts.Token;
+
+        try
+        {
+            await PreviewJs.RenderAsync(preview, token);
+            if (!token.IsCancellationRequested)
+                await OnPreviewRendered.InvokeAsync();
+        }
+        catch (OperationCanceledException)
+        {
+            /* 新しいプレビュー要求でキャンセル */
+        }
+        catch (Exception ex)
+        {
+            PreviewJs.LogInteropFailure("RenderAsync", ex);
+        }
+    }
+
+    public void Dispose()
+    {
+        _renderCts?.Cancel();
+        _renderCts?.Dispose();
+    }
 }

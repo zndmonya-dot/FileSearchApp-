@@ -48,8 +48,7 @@ public partial class Home : IDisposable
     private string? _lastExecutedSearchQuery;
 
     // --- プレビュー ---
-    private IReadOnlyList<PreviewLineResult> _previewLines = Array.Empty<PreviewLineResult>();
-    private int previewLineCount = 0;
+    private PreviewResult? _previewResult;
     private bool isLoadingPreview = false;
 
     // --- インデックス・フッター ---
@@ -147,22 +146,8 @@ public partial class Home : IDisposable
             _lastHighlightNavFilePath = selectedFile?.FilePath;
             _highlightNavInfo = null;
             _hasTriedInitialHighlightScroll = false;
-            try { await JSRuntime.InvokeVoidAsync("resetHighlightNav"); }
-            catch { /* JS not ready */ }
-        }
-        if (!firstRender && !isLoadingPreview && ShowHighlightNav && !_hasTriedInitialHighlightScroll)
-        {
-            _hasTriedInitialHighlightScroll = true;
-            try
-            {
-                var result = await JSRuntime.InvokeAsync<string?>("scrollToFirstHighlightInstant");
-                if (!string.IsNullOrEmpty(result))
-                {
-                    _highlightNavInfo = FormatHighlightNavInfo(result);
-                    StateHasChanged();
-                }
-            }
-            catch { /* JS not ready */ }
+            try { await PreviewJs.ResetHighlightNavAsync(); }
+            catch (Exception ex) { PreviewJs.LogInteropFailure("ResetHighlightNav", ex); }
         }
     }
 

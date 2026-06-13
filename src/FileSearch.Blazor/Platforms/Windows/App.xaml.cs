@@ -1,4 +1,5 @@
 // Windows プラットフォーム用の WinUI アプリケーション。MauiProgram でアプリを構築する。
+using FileSearch.Blazor.Platforms.Windows;
 using Microsoft.UI.Xaml;
 
 namespace FileSearch.Blazor.WinUI;
@@ -11,6 +12,9 @@ public partial class App : MauiWinUIApplication
 	/// <summary>シングルトンのアプリケーションオブジェクトを初期化する。</summary>
 	public App()
 	{
+		if (!SingleInstanceGuard.TryAcquire())
+			Environment.Exit(0);
+
 		this.InitializeComponent();
 	}
 

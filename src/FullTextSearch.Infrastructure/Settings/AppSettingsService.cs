@@ -61,11 +61,17 @@ public class AppSettingsService : IAppSettingsService
 
             if (settings != null)
             {
+                var needsResave = false;
                 lock (_lock)
                 {
                     Settings = settings;
-                    Settings.TargetExtensions = NormalizeExtensions(Settings.TargetExtensions ?? new List<string>());
+                    var before = NormalizeExtensions(Settings.TargetExtensions ?? new List<string>());
+                    var sanitized = SanitizeTargetExtensions(before);
+                    Settings.TargetExtensions = sanitized;
+                    needsResave = sanitized.Count != before.Count;
                 }
+                if (needsResave)
+                    await SaveAsync(cancellationToken);
             }
         }
         catch (Exception)
@@ -89,6 +95,8 @@ public class AppSettingsService : IAppSettingsService
             string json;
             lock (_lock)
             {
+                Settings.TargetExtensions = SanitizeTargetExtensions(
+                    NormalizeExtensions(Settings.TargetExtensions ?? new List<string>()));
                 json = JsonSerializer.Serialize(Settings, JsonOptions);
             }
 
@@ -99,6 +107,20 @@ public class AppSettingsService : IAppSettingsService
             // 設定の保存に失敗した場合は無視
         }
     }
+
+    /// <summary>抽出器が対応する拡張子だけに絞る（UI に無い .bin 等の残骸を除去）。</summary>
+    private List<string> SanitizeTargetExtensions(List<string> extensions)
+    {
+        if (extensions.Count == 0) return extensions;
+        var allowed = GetAllowedExtensionSet();
+        return extensions.Where(allowed.Contains).ToList();
+    }
+
+    private HashSet<string> GetAllowedExtensionSet() =>
+        _extractorFactory.GetAllSupportedExtensions()
+            .Select(PreviewHelper.NormalizeExtension)
+            .Where(e => !string.IsNullOrEmpty(e))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>拡張子を「.」+ 小文字に正規化し重複を除く</summary>
     private static List<string> NormalizeExtensions(List<string> extensions)

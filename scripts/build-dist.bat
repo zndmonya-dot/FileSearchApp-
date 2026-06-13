@@ -19,8 +19,8 @@ if errorlevel 1 exit /b 1
 
 if exist "%ROOT%\installers\社内配布\インストール手順.txt" copy /y "%ROOT%\installers\社内配布\インストール手順.txt" "%PUBLISH_DIR%\インストール手順.txt"
 
-if not exist "%PUBLISH_DIR%\sudachi_tokenize.py" (
-  echo WARNING: sudachi_tokenize.py not in publish output.
+if not exist "%PUBLISH_DIR%\sudachi_ffi.dll" (
+  echo WARNING: sudachi_ffi.dll not in publish output. Run scripts\build-sudachi-native.ps1 and rebuild.
 )
 
 if not exist "%DIST_DIR%" mkdir "%DIST_DIR%"

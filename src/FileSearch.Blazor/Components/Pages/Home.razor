@@ -14,6 +14,7 @@
 @inject IAppSettingsService SettingsService
 @inject IAppModeService AppMode
 @inject FullTextSearch.Core.Preview.IPreviewService PreviewService
+@inject FileSearch.Blazor.Services.PreviewJsInterop PreviewJs
 @inject IJSRuntime JSRuntime
 @inject ILogger<Home> Logger
 @inject IEnumerable<ITextExtractor> TextExtractors
@@ -77,10 +78,10 @@
             {
                 <FilePreviewView SelectedFile="selectedFile"
                                  IsLoadingPreview="isLoadingPreview"
-                                 PreviewLines="_previewLines"
-                                 PreviewLineCount="previewLineCount"
+                                 Preview="_previewResult"
                                  ShowNavButtons="ShowNavButtons"
                                  NavInfo="@NavInfo"
+                                 OnPreviewRendered="HandlePreviewRendered"
                                  OnGoPrev="GoPrev"
                                  OnGoNext="GoNext"
                                  OnOpenFile="OpenFile"

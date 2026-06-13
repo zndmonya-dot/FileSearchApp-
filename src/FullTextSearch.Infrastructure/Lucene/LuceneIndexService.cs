@@ -1,10 +1,10 @@
 // Lucene.NET によるインデックス作成・更新・削除。Sudachi 形態素解析（モード C）でトークナイズ。
 using System.Collections.Concurrent;
 using System.Threading;
+using FullTextSearch.Core.Models;
 using FullTextSearch.Core;
 using FullTextSearch.Core.Extractors;
 using FullTextSearch.Core.Index;
-using FullTextSearch.Core.Models;
 using FullTextSearch.Core.Preview;
 using FullTextSearch.Infrastructure.Sudachi;
 using Lucene.Net.Analysis;
@@ -23,12 +23,10 @@ public class LuceneIndexService : IIndexService, IDisposable
 {
     private const LuceneVersion AppLuceneVersion = LuceneVersion.LUCENE_48;
     /// <summary>
-    /// 抽出・登録パイプラインの並列度。他アプリと共存するため Sudachi プール＋抽出用に抑え、論理コアの半分を超えない。
-    /// （Sudachi 2 + 抽出 2 ≒ 最大 4 スレッド＝13 世代 i5 で約 4 コア相当。残りは OS／他アプリ用）
+    /// 抽出・登録パイプラインの並列度。ネイティブ Sudachi はスレッドローカルで並列化可能。
+    /// 論理コア半分（最大 8）を上限とし、他アプリ用に余裕を残す。
     /// </summary>
-    private static readonly int IndexerParallelism = Math.Min(
-        SudachiTokenizer.PoolSize + 2,
-        Math.Max(2, Environment.ProcessorCount / 2));
+    private static readonly int IndexerParallelism = SudachiTokenizer.PoolSize;
 
     private readonly TextExtractorFactory _extractorFactory;
     private FSDirectory? _directory;
@@ -42,7 +40,7 @@ public class LuceneIndexService : IIndexService, IDisposable
     private readonly object _skippedLock = new();
     private bool _disposed;
     private IndexRebuildOptions? _currentRebuildOptions;
-    private readonly List<string> _skippedFiles = new();
+    private readonly List<SkippedFileEntry> _skippedFiles = new();
 
     private bool _lastInitializeFailed;
 
@@ -50,18 +48,20 @@ public class LuceneIndexService : IIndexService, IDisposable
     public bool LastInitializeFailed => _lastInitializeFailed;
 
     /// <summary>並列処理から安全にスキップ一覧へ追加する。</summary>
-    private void AddSkipped(string path)
+    private void AddSkipped(string path, string reason)
     {
-        lock (_skippedLock) _skippedFiles.Add(path);
+        lock (_skippedLock) _skippedFiles.Add(new SkippedFileEntry(path, reason));
     }
 
     /// <inheritdoc />
-    public IReadOnlyList<string> LastSkippedFiles => _skippedFiles;
+    public IReadOnlyList<SkippedFileEntry> LastSkippedFiles => _skippedFiles;
 
     /// <summary>ファイルパス（ドキュメント ID 兼キー）。</summary>
     public const string FieldFilePath = "filepath";
     /// <summary>ファイル名。</summary>
     public const string FieldFileName = "filename";
+    /// <summary>ファイル名（小文字・未分割）。部分一致・ワイルドカード検索用。</summary>
+    public const string FieldFileNameLc = "filename_lc";
     /// <summary>親フォルダパス。</summary>
     public const string FieldFolderPath = "folderpath";
     /// <summary>抽出本文（検索対象）。</summary>
@@ -70,6 +70,10 @@ public class LuceneIndexService : IIndexService, IDisposable
     public const string FieldFileSize = "filesize";
     /// <summary>最終更新（Ticks）。</summary>
     public const string FieldLastModified = "lastmodified";
+    /// <summary>インデックス登録ロジックの版（差分更新で再インデックス判定に使用）。</summary>
+    public const string FieldIndexVersion = "indexversion";
+    /// <summary>現在のインデックス版。<see cref="FieldIndexVersion"/> と不一致のドキュメントは差分更新で再登録する。</summary>
+    public const int CurrentIndexVersion = 1;
     /// <summary>完全一致検索の候補絞り込み用の文字バイグラム索引（本文＋ファイル名、非格納）。<see cref="ContentNGram"/> 参照。</summary>
     public const string FieldContentNGram = "content_ngram";
 
@@ -223,22 +227,22 @@ public class LuceneIndexService : IIndexService, IDisposable
                 Thread.CurrentThread.Priority = ThreadPriority.BelowNormal;
                 try
                 {
-                    var doc = await TryGetIndexedDocumentAsync(path, token).ConfigureAwait(false);
-                    if (doc == null)
+                    var result = await TryGetIndexedDocumentAsync(path, token).ConfigureAwait(false);
+                    if (result.Document == null)
                     {
-                        AddSkipped(path);
+                        AddSkipped(path, result.SkipReason ?? IndexMessages.SkippedReasonExtractFailed);
                         Interlocked.Increment(ref errorCount);
                     }
                     else
                     {
                         try
                         {
-                            _writer!.UpdateDocument(new Term(FieldFilePath, doc.FilePath), CreateLuceneDocument(doc));
+                            _writer!.UpdateDocument(new Term(FieldFilePath, result.Document.FilePath), CreateLuceneDocument(result.Document));
                         }
                         catch (OperationCanceledException) { throw; }
                         catch
                         {
-                            AddSkipped(path);
+                            AddSkipped(path, IndexMessages.SkippedReasonIndexWriteFailed);
                             Interlocked.Increment(ref errorCount);
                         }
                     }
@@ -264,17 +268,6 @@ public class LuceneIndexService : IIndexService, IDisposable
         return errorCount;
     }
 
-    /// <summary>C: や C:\ をドライブルート C:\ に正規化する。GetFullPath("C:") はカレントディレクトリを返すため、ルート指定が 0 件になるのを防ぐ。</summary>
-    private static string NormalizeFolderPath(string folder)
-    {
-        var s = folder.TrimEnd('\\', '/').Trim();
-        if (s.Length == 2 && char.IsLetter(s[0]) && s[1] == ':')
-            return s + "\\";
-        if (s.Length == 1 && char.IsLetter(s[0]))
-            return s + ":\\";
-        return Path.GetFullPath(s);
-    }
-
     /// <summary>インデックスを全削除してから、指定フォルダ群を再スキャンして全件登録する。</summary>
     public async Task RebuildIndexAsync(IEnumerable<string> folders, IProgress<IndexProgress>? progress = null, IndexRebuildOptions? options = null, CancellationToken cancellationToken = default)
     {
@@ -292,7 +285,7 @@ public class LuceneIndexService : IIndexService, IDisposable
                 _writer!.DeleteAll();
             }
 
-            var folderList = folders.Select(NormalizeFolderPath).ToList();
+            var folderList = folders.Select(IndexPaths.NormalizeFolderPath).ToList();
             var folderFileLists = new List<(string folder, List<string> files)>(folderList.Count);
             var globalTotal = 0;
             foreach (var folder in folderList)
@@ -326,7 +319,11 @@ public class LuceneIndexService : IIndexService, IDisposable
         }
         catch (OperationCanceledException)
         {
-            // 中断時は未コミットの変更（DeleteAll 直後の状態など）を破棄して、直前のコミット状態へ戻す。
+            await RollbackAndReopenAsync().ConfigureAwait(false);
+            throw;
+        }
+        catch (Exception)
+        {
             await RollbackAndReopenAsync().ConfigureAwait(false);
             throw;
         }
@@ -352,7 +349,7 @@ public class LuceneIndexService : IIndexService, IDisposable
                 _writer!.Commit();
             }
 
-            var normalizedFolders = folderList.Select(NormalizeFolderPath).ToList();
+            var normalizedFolders = folderList.Select(IndexPaths.NormalizeFolderPath).ToList();
 
             if (!DirectoryReader.IndexExists(_directory!))
             {
@@ -374,43 +371,69 @@ public class LuceneIndexService : IIndexService, IDisposable
                     try
                     {
                         var info = new FileInfo(path);
-                        diskFiles[path] = info.LastWriteTimeUtc.Ticks;
+                        diskFiles[IndexPaths.NormalizeFilePath(path)] = info.LastWriteTimeUtc.Ticks;
                     }
                     catch { /* スキップ */ }
                 }
             }
 
-            // 削除対象: (1) 現在の対象フォルダ配下に無いインデックス済みファイル
-            //            （= 設定からフォルダが外された／対象拡張子が変更された等で対象外になったもの）
-            //          (2) 対象フォルダ配下にあるが、ディスク上に存在しないファイル
-            var toDelete = indexedMap.Keys
-                .Where(path => !IsPathUnderAnyFolder(path, normalizedFolders) || !diskFiles.ContainsKey(path))
-                .ToList();
-            var toAddOrUpdate = diskFiles.Keys
-                .Where(path => !indexedMap.TryGetValue(path, out var ticks) || ticks != diskFiles[path])
-                .ToList();
+            // 削除対象: (1) 設定から外れたフォルダ配下
+            //          (2) ディスク上に存在しない
+            //          (3) 拡張子フィルタ等でスキャン対象外になったもの
+            // スキャン 0 件かつファイルがディスク上に残る場合は全削除せず中止する。
+            var supportedExtensions = GetSupportedExtensionSet();
+            var diff = IndexDiffPlanner.Plan(
+                indexedMap,
+                diskFiles,
+                normalizedFolders,
+                CurrentIndexVersion,
+                isExcludedFromScan: path =>
+                {
+                    var ext = PreviewHelper.NormalizeExtension(Path.GetExtension(path));
+                    return !supportedExtensions.Contains(ext);
+                });
+            if (diff.Aborted)
+                throw new IndexUpdateAbortedException(diff.AbortReason!);
 
-            var total = toDelete.Count + toAddOrUpdate.Count;
+            var toDeleteStoredPaths = diff.ToDeleteStoredPaths;
+            var toAddOrUpdate = diff.ToAddOrUpdatePaths;
+
+            var total = toDeleteStoredPaths.Count + toAddOrUpdate.Count;
             var processed = 0;
             var errorCount = 0;
 
-            lock (_lock)
+            if (total == 0)
             {
-                foreach (var path in toDelete)
+                progress?.Report(new IndexProgress
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    _writer!.DeleteDocuments(new Term(FieldFilePath, path));
-                    processed++;
-                    progress?.Report(new IndexProgress { ProcessedFiles = processed, TotalFiles = total, CurrentFile = path, ErrorCount = errorCount });
-                }
+                    ProcessedFiles = 0,
+                    TotalFiles = 0,
+                    CurrentFile = null,
+                    ErrorCount = 0,
+                    NoChanges = true
+                });
             }
 
+            // 追加・更新を先に行い、削除は最後（途中失敗時にインデックスが空になるのを防ぐ）
             errorCount += await IndexFilesParallelAsync(toAddOrUpdate, progress, total, processed, cancellationToken).ConfigureAwait(false);
             processed += toAddOrUpdate.Count;
+
+            lock (_lock)
+            {
+                foreach (var storedPath in toDeleteStoredPaths)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    _writer!.DeleteDocuments(new Term(FieldFilePath, storedPath));
+                    processed++;
+                    progress?.Report(new IndexProgress { ProcessedFiles = processed, TotalFiles = total, CurrentFile = storedPath, ErrorCount = errorCount });
+                }
+            }
 
             progress?.Report(new IndexProgress { ProcessedFiles = processed, TotalFiles = total, CurrentFile = null, ErrorCount = errorCount });
             lock (_lock)
             {
+                if (indexedMap.Count > 0 && _writer!.NumDocs == 0)
+                    throw new IndexUpdateAbortedException(IndexMessages.DiffAbortedResultEmpty(indexedMap.Count));
                 _writer!.Commit();
             }
 
@@ -418,9 +441,16 @@ public class LuceneIndexService : IIndexService, IDisposable
         }
         catch (OperationCanceledException)
         {
-            // 中断時は未コミットの変更を破棄して、開始時のコミット済み状態へ戻す。
-            // これにより、差分更新を途中でキャンセルしてもインデックスファイルが
-            // 中途半端な状態にならず、改めて差分更新を実行すれば再開できる。
+            await RollbackAndReopenAsync().ConfigureAwait(false);
+            throw;
+        }
+        catch (IndexUpdateAbortedException)
+        {
+            await RollbackAndReopenAsync().ConfigureAwait(false);
+            throw;
+        }
+        catch (Exception)
+        {
             await RollbackAndReopenAsync().ConfigureAwait(false);
             throw;
         }
@@ -431,12 +461,13 @@ public class LuceneIndexService : IIndexService, IDisposable
     }
 
     /// <summary>
-    /// インデックス内の全ファイルのパスと最終更新日時（Ticks）を取得する。
+    /// インデックス内の全ファイルのパスと最終更新日時（Ticks）・版を取得する。
+    /// キーは正規化済みフルパス。削除時は <see cref="IndexDiffPlanner.IndexedFileEntry.StoredPath"/>（インデックス保存値）を Term に使う。
     /// Writer が開いたままのため DirectoryReader.Open(writer) を使用（Open(directory) はロック競合で失敗する場合がある）。
     /// </summary>
-    private Dictionary<string, long> GetAllIndexedPathsAndLastModified()
+    private Dictionary<string, IndexDiffPlanner.IndexedFileEntry> GetAllIndexedPathsAndLastModified()
     {
-        var result = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
+        var result = new Dictionary<string, IndexDiffPlanner.IndexedFileEntry>(StringComparer.OrdinalIgnoreCase);
         if (_writer == null) return result;
 
         DirectoryReader? reader = null;
@@ -457,11 +488,14 @@ public class LuceneIndexService : IIndexService, IDisposable
             foreach (var scoreDoc in topDocs.ScoreDocs)
             {
                 var doc = reader.Document(scoreDoc.Doc);
-                var path = doc.Get(FieldFilePath);
-                var lastModStr = doc.Get(FieldLastModified);
-                if (string.IsNullOrEmpty(path)) continue;
-                if (long.TryParse(lastModStr, out var ticks))
-                    result[path] = ticks;
+                var storedPath = doc.Get(FieldFilePath);
+                if (string.IsNullOrEmpty(storedPath)) continue;
+                var normalizedPath = IndexPaths.NormalizeFilePath(storedPath);
+                if (!long.TryParse(doc.Get(FieldLastModified), out var ticks))
+                    ticks = 0;
+                if (!int.TryParse(doc.Get(FieldIndexVersion), out var version))
+                    version = 0;
+                result[normalizedPath] = new IndexDiffPlanner.IndexedFileEntry(storedPath, ticks, version);
             }
         }
         finally
@@ -500,20 +534,6 @@ public class LuceneIndexService : IIndexService, IDisposable
         }
     }
 
-    /// <summary>ファイルパスが、正規化済みフォルダ一覧のいずれかの配下（または同一）か。</summary>
-    private static bool IsPathUnderAnyFolder(string filePath, List<string> normalizedFolderPaths)
-    {
-        var full = Path.GetFullPath(filePath);
-        foreach (var folder in normalizedFolderPaths)
-        {
-            if (full.StartsWith(folder + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
-                || full.StartsWith(folder + "\\", StringComparison.OrdinalIgnoreCase)
-                || full.Equals(folder, StringComparison.OrdinalIgnoreCase))
-                return true;
-        }
-        return false;
-    }
-
     /// <summary>登録件数・概算サイズなどを返す（簡易統計）。</summary>
     public IndexStats GetStats()
     {
@@ -529,23 +549,51 @@ public class LuceneIndexService : IIndexService, IDisposable
 
     /// <summary>
     /// ファイルからインデックス用ドキュメントを取得する。抽出器がない場合は空本文でインデックス（ファイル名・パス検索用）。
-    /// サイズ超過・抽出エラー時は null を返しスキップ対象とする。
+    /// サイズ超過・抽出エラー時は <see cref="IndexDocumentResult.SkipReason"/> を設定する。
     /// </summary>
-    private async Task<IndexedDocument?> TryGetIndexedDocumentAsync(string filePath, CancellationToken cancellationToken)
+    private async Task<IndexDocumentResult> TryGetIndexedDocumentAsync(string filePath, CancellationToken cancellationToken)
     {
+        filePath = IndexPaths.NormalizeFilePath(filePath);
         try
         {
+            if (!File.Exists(filePath))
+                return IndexDocumentResult.Skipped(IndexMessages.SkippedReasonFileNotFound);
+
             var fileInfo = new FileInfo(filePath);
             if (ContentLimits.ExceedsIndexTextExtractionFileSizeLimit(fileInfo.Length))
-                return null;
+            {
+                return IndexDocumentResult.Ok(new IndexedDocument
+                {
+                    FilePath = filePath,
+                    FileName = fileInfo.Name,
+                    FolderPath = fileInfo.DirectoryName ?? string.Empty,
+                    Content = string.Empty,
+                    FileSize = fileInfo.Length,
+                    LastModified = fileInfo.LastWriteTimeUtc
+                });
+            }
 
             var extension = fileInfo.Extension.ToLowerInvariant();
             var extractor = _extractorFactory.GetExtractor(extension);
-            var content = extractor != null
-                ? await extractor.ExtractTextAsync(filePath, cancellationToken)
-                : string.Empty;
+            string content;
+            if (extractor != null)
+            {
+                try
+                {
+                    content = await extractor.ExtractTextAsync(filePath, cancellationToken);
+                }
+                catch (OperationCanceledException) { throw; }
+                catch
+                {
+                    return IndexDocumentResult.Skipped(IndexMessages.SkippedReasonExtractFailed);
+                }
+            }
+            else
+            {
+                content = string.Empty;
+            }
 
-            return new IndexedDocument
+            return IndexDocumentResult.Ok(new IndexedDocument
             {
                 FilePath = filePath,
                 FileName = fileInfo.Name,
@@ -553,38 +601,53 @@ public class LuceneIndexService : IIndexService, IDisposable
                 Content = content,
                 FileSize = fileInfo.Length,
                 LastModified = fileInfo.LastWriteTimeUtc
-            };
+            });
         }
         catch (OperationCanceledException)
         {
-            // キャンセルはスキップではなく上位へ伝播させ、即座に処理を打ち切る。
             throw;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return IndexDocumentResult.Skipped(IndexMessages.SkippedReasonAccessDenied);
+        }
+        catch (IOException)
+        {
+            return IndexDocumentResult.Skipped(IndexMessages.SkippedReasonExtractFailed);
         }
         catch
         {
-            return null; // エラーになったらそのファイルを飛ばして次へ
+            return IndexDocumentResult.Skipped(IndexMessages.SkippedReasonExtractFailed);
         }
     }
 
-    /// <summary>対象拡張子に合致するファイルを再帰列挙（Office ロックファイル・一部システムフォルダは除外）。</summary>
-    private IEnumerable<string> GetTargetFiles(string folderPath)
+    private readonly record struct IndexDocumentResult(IndexedDocument? Document, string? SkipReason)
     {
-        HashSet<string> supportedExtensions;
-        if (_currentRebuildOptions?.TargetExtensions != null && _currentRebuildOptions.TargetExtensions.Count > 0)
+        public static IndexDocumentResult Ok(IndexedDocument doc) => new(doc, null);
+        public static IndexDocumentResult Skipped(string reason) => new(null, reason);
+    }
+
+    /// <summary>対象拡張子に合致するファイルを再帰列挙（Office ロックファイル・一部システムフォルダは除外）。</summary>
+    private IEnumerable<string> GetTargetFiles(string folderPath) =>
+        SafeEnumerateFiles(folderPath, GetSupportedExtensionSet());
+
+    /// <summary>現在の再構築オプションに基づく対象拡張子集合。</summary>
+    private HashSet<string> GetSupportedExtensionSet()
+    {
+        var allowed = _extractorFactory.GetAllSupportedExtensions()
+            .Select(PreviewHelper.NormalizeExtension)
+            .Where(e => !string.IsNullOrEmpty(e))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (_currentRebuildOptions?.TargetExtensions is { Count: > 0 } targetExtensions)
         {
-            // ユーザーが設定した拡張子を「.」+ 小文字に正規化して使用
-            supportedExtensions = _currentRebuildOptions.TargetExtensions
+            return targetExtensions
                 .Select(PreviewHelper.NormalizeExtension)
-                .Where(e => !string.IsNullOrEmpty(e))
+                .Where(e => !string.IsNullOrEmpty(e) && allowed.Contains(e))
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
         }
-        else
-        {
-            var extractorSupported = _extractorFactory.GetAllSupportedExtensions();
-            supportedExtensions = extractorSupported.Select(PreviewHelper.NormalizeExtension).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        }
 
-        return SafeEnumerateFiles(folderPath, supportedExtensions);
+        return allowed;
     }
 
     /// <summary>ファイル／ディレクトリ列挙の例外を握りつぶし、失敗時は null。</summary>
@@ -647,12 +710,7 @@ public class LuceneIndexService : IIndexService, IDisposable
             {
                 // システムフォルダをスキップ
                 var dirName = Path.GetFileName(subdir);
-                if (dirName.StartsWith("$") || 
-                    dirName.Equals("System Volume Information", StringComparison.OrdinalIgnoreCase) ||
-                    dirName.Equals("Windows", StringComparison.OrdinalIgnoreCase) ||
-                    dirName.Equals("Program Files", StringComparison.OrdinalIgnoreCase) ||
-                    dirName.Equals("Program Files (x86)", StringComparison.OrdinalIgnoreCase) ||
-                    dirName.Equals("ProgramData", StringComparison.OrdinalIgnoreCase))
+                if (ShouldSkipDirectory(dirName))
                 {
                     continue;
                 }
@@ -662,23 +720,39 @@ public class LuceneIndexService : IIndexService, IDisposable
         }
     }
 
-    /// <summary><see cref="IndexedDocument"/> を Lucene の <see cref="Document"/> に変換する（本文は長さ上限で切り詰め）。</summary>
+    /// <summary>インデックス走査から除外するディレクトリ名（大文字小文字無視）。</summary>
+    private static bool ShouldSkipDirectory(string dirName) =>
+        dirName.StartsWith('$') ||
+        dirName.Equals("System Volume Information", StringComparison.OrdinalIgnoreCase) ||
+        dirName.Equals("Windows", StringComparison.OrdinalIgnoreCase) ||
+        dirName.Equals("Program Files", StringComparison.OrdinalIgnoreCase) ||
+        dirName.Equals("Program Files (x86)", StringComparison.OrdinalIgnoreCase) ||
+        dirName.Equals("ProgramData", StringComparison.OrdinalIgnoreCase) ||
+        dirName.Equals("bin", StringComparison.OrdinalIgnoreCase) ||
+        dirName.Equals("obj", StringComparison.OrdinalIgnoreCase) ||
+        dirName.Equals("node_modules", StringComparison.OrdinalIgnoreCase) ||
+        dirName.Equals(".git", StringComparison.OrdinalIgnoreCase) ||
+        dirName.Equals(".vs", StringComparison.OrdinalIgnoreCase) ||
+        dirName.Equals("__pycache__", StringComparison.OrdinalIgnoreCase) ||
+        dirName.Equals(".venv", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary><see cref="IndexedDocument"/> を Lucene の <see cref="Document"/> に変換する。</summary>
     private static Document CreateLuceneDocument(IndexedDocument doc)
     {
-        var content = doc.Content.Length > ContentLimits.IndexMaxContentChars
-            ? doc.Content.Substring(0, ContentLimits.IndexMaxContentChars)
-            : doc.Content;
+        var content = doc.Content;
 
         return new Document
         {
             new StringField(FieldFilePath, doc.FilePath, Field.Store.YES),
             new TextField(FieldFileName, doc.FileName, Field.Store.YES),
+            new StringField(FieldFileNameLc, doc.FileName.ToLowerInvariant(), Field.Store.NO),
             new StringField(FieldFolderPath, doc.FolderPath, Field.Store.YES),
             new TextField(FieldContent, content, Field.Store.YES),
             // 完全一致検索の候補絞り込み用バイグラム（事前生成したトークン列をそのまま索引、本文の Sudachi 解析とは独立）
             new TextField(FieldContentNGram, new ListTokenStream(ContentNGram.BuildIndexTokens(content, doc.FileName))),
             new Int64Field(FieldFileSize, doc.FileSize, Field.Store.YES),
-            new Int64Field(FieldLastModified, doc.LastModified.Ticks, Field.Store.YES)
+            new Int64Field(FieldLastModified, doc.LastModified.Ticks, Field.Store.YES),
+            new Int32Field(FieldIndexVersion, CurrentIndexVersion, Field.Store.YES)
         };
     }
 
@@ -690,13 +764,14 @@ public class LuceneIndexService : IIndexService, IDisposable
         try
         {
             var logPath = Path.Combine(_directory.Directory.FullName, DefaultPaths.SkippedFilesLogFileName);
-            var lines = new List<string>(_skippedFiles.Count + 3)
+            var lines = new List<string>(_skippedFiles.Count + 4)
             {
                 IndexMessages.SkippedLogHeaderLine(DateTime.Now),
                 IndexMessages.SkippedLogTotalLine(_skippedFiles.Count),
+                IndexMessages.SkippedLogFormatHint,
                 ""
             };
-            lines.AddRange(_skippedFiles);
+            lines.AddRange(_skippedFiles.Select(e => IndexMessages.SkippedLogLine(e.Path, e.Reason)));
             File.WriteAllLines(logPath, lines, System.Text.Encoding.UTF8);
         }
         catch

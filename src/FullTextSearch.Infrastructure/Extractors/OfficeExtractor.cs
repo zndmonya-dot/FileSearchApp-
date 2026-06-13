@@ -3,7 +3,6 @@ using System.Text;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using DocumentFormat.OpenXml.Wordprocessing;
-using FullTextSearch.Core;
 using FullTextSearch.Core.Extractors;
 using NPOI.HSSF.UserModel;
 using NPOI.HWPF;
@@ -74,11 +73,7 @@ public class OfficeExtractor : ITextExtractor
                         rowTexts.Add(value);
                 }
                 if (rowTexts.Count > 0)
-                {
                     sb.AppendLine(string.Join("\t", rowTexts));
-                    if (sb.Length >= ContentLimits.ExtractMaxChars)
-                        return sb.ToString();
-                }
             }
             sb.AppendLine();
         }
@@ -119,11 +114,7 @@ public class OfficeExtractor : ITextExtractor
 
             var text = para.InnerText;
             if (!string.IsNullOrWhiteSpace(text))
-            {
                 sb.AppendLine(text);
-                if (sb.Length >= ContentLimits.ExtractMaxChars)
-                    break;
-            }
         }
         return sb.ToString();
     }
@@ -160,15 +151,9 @@ public class OfficeExtractor : ITextExtractor
                 }
 
                 if (rowTexts.Count > 0)
-                {
                     sb.AppendLine(string.Join("\t", rowTexts));
-                    if (sb.Length >= ContentLimits.ExtractMaxChars)
-                        break;
-                }
             }
 
-            if (sb.Length >= ContentLimits.ExtractMaxChars)
-                break;
             sb.AppendLine();
         }
         return sb.ToString();
@@ -203,15 +188,9 @@ public class OfficeExtractor : ITextExtractor
             foreach (var text in slide.Descendants<DocumentFormat.OpenXml.Drawing.Text>())
             {
                 if (!string.IsNullOrWhiteSpace(text.Text))
-                {
                     sb.AppendLine(text.Text);
-                    if (sb.Length >= ContentLimits.ExtractMaxChars)
-                        break;
-                }
             }
 
-            if (sb.Length >= ContentLimits.ExtractMaxChars)
-                break;
             sb.AppendLine();
         }
         return sb.ToString();

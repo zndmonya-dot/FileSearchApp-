@@ -56,11 +56,13 @@
     box-shadow: 0 1px 0 var(--color-border-muted);
 }
 
-/* プレビュー本文ラッパー */
+/* プレビュー本文ラッパー（スクロールは .code-view に一本化） */
 .preview-zoom-wrap {
     flex: 1;
-    overflow: auto;
+    overflow: hidden;
     min-height: 0;
+    display: flex;
+    flex-direction: column;
 }
 
 /* File Header - 長いパスは省略し、右のボタンとぶつからないようにする */
@@ -195,6 +197,7 @@
     flex: 1;
     overflow: auto;
     background: var(--color-canvas-default);
+    min-height: 0;
 }
 
 .code-table {
@@ -206,7 +209,12 @@
 }
 
 .code-line {
+    display: flex;
     border: none;
+    min-height: 20px;
+    font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 12px;
+    line-height: 20px;
 }
 
 .code-line:hover .line-number,
@@ -215,18 +223,24 @@
 }
 
 .line-number {
-    width: 1%;
-    min-width: 50px;
-    padding: 0 16px 0 16px;
+    flex: 0 0 56px;
+    padding: 0 12px 0 8px;
     text-align: right;
     color: var(--color-fg-subtle);
     user-select: none;
-    vertical-align: top;
     white-space: nowrap;
+    background: var(--color-canvas-subtle);
+    border-right: 1px solid var(--color-border-muted);
+}
+
+.code-line:nth-child(even) .line-content {
+    background: color-mix(in srgb, var(--color-canvas-subtle) 35%, transparent);
 }
 
 .line-content {
-    padding: 0 16px;
+    flex: 1;
+    min-width: 0;
+    padding: 0 16px 0 0;
     white-space: pre-wrap;
     word-break: break-word;
     color: var(--color-fg-default);
@@ -251,11 +265,11 @@
 }
 
 /* ハイライトナビ: 現在行を強調 */
-.code-view tr.highlight-current {
+.code-view .code-line.highlight-current {
     background: var(--color-attention-subtle);
     border-left: 3px solid var(--color-attention-fg);
 }
-.code-view tr.highlight-current .line-number {
+.code-view .code-line.highlight-current .line-number {
     color: var(--color-attention-fg);
     font-weight: 700;
 }

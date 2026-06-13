@@ -62,18 +62,26 @@ public partial class Home
     }
 
     /// <summary>進捗コールバック。件数・スロットルで UI 更新を間引く。</summary>
-    private IProgress<IndexProgress> CreateThrottledProgress(string countUnit)
+    private IProgress<IndexProgress> CreateThrottledProgress(string countUnit, bool diffUpdate = false)
     {
         _lastReportedProgressCount = -1;
         return new Progress<IndexProgress>(p =>
         {
             indexProgressPercent = p.TotalFiles > 0 ? (int)((double)p.ProcessedFiles / p.TotalFiles * 100) : 0;
-            var baseText = UserMessages.FormatIndexProgressCounts(
-                p.ProcessedFiles, p.TotalFiles, countUnit, p.ErrorCount);
-            indexProgressText = string.IsNullOrEmpty(p.CurrentFile)
-                ? baseText
-                : Path.GetFileName(p.CurrentFile);
-            var shouldUpdate = p.CurrentFile == null
+            if (diffUpdate && p.NoChanges)
+            {
+                indexProgressText = UserMessages.IndexDiffNoChanges;
+            }
+            else
+            {
+                var baseText = UserMessages.FormatIndexProgressCounts(
+                    p.ProcessedFiles, p.TotalFiles, countUnit, p.ErrorCount);
+                indexProgressText = string.IsNullOrEmpty(p.CurrentFile)
+                    ? baseText
+                    : Path.GetFileName(p.CurrentFile);
+            }
+            var shouldUpdate = p.NoChanges
+                || p.CurrentFile == null
                 || (p.ProcessedFiles - _lastReportedProgressCount) >= ProgressReportInterval
                 || (DateTime.UtcNow - _lastReportedProgressTime).TotalMilliseconds >= ProgressReportThrottleMs;
             if (shouldUpdate)
@@ -91,7 +99,8 @@ public partial class Home
         string countUnit,
         Func<IProgress<IndexProgress>, CancellationToken, Task> runAsync,
         Func<Exception, string> getErrorMessage,
-        string logContext)
+        string logContext,
+        bool diffUpdate = false)
     {
         if (isIndexing) return;
         if (SettingsService.Settings.TargetFolders.Count == 0)
@@ -111,12 +120,13 @@ public partial class Home
         StateHasChanged();
         await Task.Yield();
 
-        var progress = CreateThrottledProgress(countUnit);
+        var progress = CreateThrottledProgress(countUnit, diffUpdate);
         try
         {
             await Task.Run(async () => await runAsync(progress, token), token);
             if (token.IsCancellationRequested) return;
             indexCount = IndexService.GetStats().DocumentCount;
+            SearchService.RefreshIndex();
             SettingsService.Settings.LastIndexUpdate = DateTime.Now;
             await SettingsService.SaveAsync();
             indexErrorMessage = null;
@@ -125,6 +135,11 @@ public partial class Home
                 indexSkipCount = skipped.Count;
             else
                 indexSkipCount = 0;
+        }
+        catch (IndexUpdateAbortedException ex)
+        {
+            indexErrorMessage = ex.Message;
+            Logger.LogWarning(ex, "Index update aborted");
         }
         catch (OperationCanceledException)
         {
@@ -156,7 +171,8 @@ public partial class Home
             UserMessages.PieceUnit,
             (p, ct) => IndexService.UpdateIndexAsync(folders, p, options, ct),
             ex => string.IsNullOrEmpty(ex.Message) ? UserMessages.UpdateFailed : $"{UserMessages.UpdateFailed} {ex.Message}",
-            "Index update failed");
+            "Index update failed",
+            diffUpdate: true);
     }
 
     /// <summary>全件再構築。</summary>

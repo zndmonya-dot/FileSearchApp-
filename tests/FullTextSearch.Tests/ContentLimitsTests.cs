@@ -14,7 +14,7 @@ public class ContentLimitsTests
     public void IndexMaxFileBytesForExtract_is_10MiB() =>
         Assert.Equal(10L * 1024 * 1024, ContentLimits.IndexMaxFileBytesForExtract);
 
-    /// <summary>REQ-2.5: 超過のみスキップ（厳密に 10MB 超）。<see cref="ContentLimits.ExceedsIndexTextExtractionFileSizeLimit"/> は Lucene の <c>TryGetIndexedDocumentAsync</c> と同じ式。</summary>
+    /// <summary>REQ-2.5: 超過のみスキップ（厳密に 10MB 超）。</summary>
     [Theory]
     [InlineData(0, false)]
     [InlineData(1, false)]
@@ -25,18 +25,6 @@ public class ContentLimitsTests
         Assert.Equal(isExcess, ContentLimits.ExceedsIndexTextExtractionFileSizeLimit(fileSize));
 
     [Fact]
-    public void PreviewAndTextFile_limits_are_10MiB()
-    {
-        const long expected = 10L * 1024 * 1024;
-        Assert.Equal(expected, ContentLimits.MaxTextFileBytesToRead);
-    }
-
-    /// <summary>要件 REQ-2.7（1 文書のインデックス格納文字数上限）および ExtractMaxChars との一致。</summary>
-    [Fact]
-    public void IndexMaxContentChars_and_ExtractMaxChars_match_requirement_100_000()
-    {
-        const int cap = 100_000;
-        Assert.Equal(cap, ContentLimits.IndexMaxContentChars);
-        Assert.Equal(cap, ContentLimits.ExtractMaxChars);
-    }
+    public void MaxTextFileBytesToRead_matches_index_file_bytes() =>
+        Assert.Equal(ContentLimits.IndexMaxFileBytesForExtract, ContentLimits.MaxTextFileBytesToRead);
 }

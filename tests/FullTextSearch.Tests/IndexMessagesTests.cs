@@ -20,4 +20,19 @@ public class IndexMessagesTests
     {
         Assert.Equal("合計: 3 件", IndexMessages.SkippedLogTotalLine(3));
     }
+
+    [Fact]
+    public void SkippedLogLine_includes_path_and_reason_tab_separated()
+    {
+        var line = IndexMessages.SkippedLogLine(@"C:\docs\a.docx", "テキスト抽出に失敗");
+        Assert.Equal("C:\\docs\\a.docx" + '\t' + "テキスト抽出に失敗", line);
+    }
+
+    [Fact]
+    public void SkippedReasonFileTooLarge_includes_byte_count()
+    {
+        var reason = IndexMessages.SkippedReasonFileTooLarge(12_345_678);
+        Assert.Contains("10MB", reason);
+        Assert.Contains("12,345,678", reason);
+    }
 }

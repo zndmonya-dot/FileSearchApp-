@@ -18,11 +18,10 @@ public class SearchQueryParserTests
     private const LuceneVersion AppLuceneVersion = LuceneVersion.LUCENE_48;
 
     [Fact]
-    public void SplitTerms_keyword_mode_keeps_whole_input_as_one_keyword()
+    public void SplitTerms_keyword_mode_splits_by_space()
     {
         var terms = SearchQueryParser.SplitTerms("import sys", SearchMode.Keyword);
-        Assert.Single(terms);
-        Assert.Equal("import sys", terms[0]);
+        Assert.Equal(2, terms.Count);
     }
 
     [Fact]
@@ -48,7 +47,7 @@ public class SearchQueryParserTests
     }
 
     [Fact]
-    public void BuildQuery_keyword_treats_spaced_input_as_single_keyword()
+    public void BuildQuery_keyword_splits_spaced_input_into_and_parts()
     {
         var query = SearchQueryParser.BuildQuery("import sys", Analyzer, SearchMode.Keyword);
         Assert.True(ContainsMultipleMustWildcardQueries(query));
@@ -98,6 +97,21 @@ public class SearchQueryParserTests
     }
 
     [Fact]
+    public void BuildQuery_any_single_word_uses_literal_wildcard()
+    {
+        var query = SearchQueryParser.BuildQuery("ライセンス情報", Analyzer, SearchMode.Any);
+        Assert.True(ContainsContentWildcardPattern(query, "*ライセンス情報*"));
+    }
+
+    [Fact]
+    public void GetHighlightTokens_single_or_keyword_is_one_term()
+    {
+        var tokens = SearchQueryParser.GetHighlightTokens("ライセンス情報", SearchMode.Any);
+        Assert.Single(tokens);
+        Assert.Equal("ライセンス情報", tokens[0]);
+    }
+
+    [Fact]
     public void BuildQuery_any_uses_should_with_minimum_match()
     {
         var query = SearchQueryParser.BuildQuery("alpha beta", Analyzer, SearchMode.Any);
@@ -129,10 +143,61 @@ public class SearchQueryParserTests
     }
 
     [Fact]
+    public void BuildQuery_keyword_matches_filename_lc_only()
+    {
+        using var dir = new RAMDirectory();
+        var config = new IndexWriterConfig(AppLuceneVersion, Analyzer);
+        using (var writer = new IndexWriter(dir, config))
+        {
+            var doc = new Document
+            {
+                new TextField(LuceneIndexService.FieldContent, "", Field.Store.YES),
+                new StringField(LuceneIndexService.FieldFileNameLc, "annual_report_2024.docx", Field.Store.NO),
+                new TextField(LuceneIndexService.FieldFileName, "annual_report_2024.docx", Field.Store.YES),
+            };
+            writer.AddDocument(doc);
+        }
+
+        using var reader = DirectoryReader.Open(dir);
+        var searcher = new IndexSearcher(reader);
+        var query = SearchQueryParser.BuildQuery("report", Analyzer, SearchMode.Keyword);
+        var hits = searcher.Search(query, 10);
+        Assert.True(hits.TotalHits > 0);
+    }
+
+    [Fact]
     public void NormalizeQueryString_converts_full_width_space()
     {
         var normalized = SearchQueryParser.NormalizeQueryString("a\u3000b");
         Assert.Equal("a b", normalized);
+    }
+
+    [Fact]
+    public void GetHighlightTokens_single_and_keyword_is_one_term()
+    {
+        var tokens = SearchQueryParser.GetHighlightTokens("ライセンス情報", SearchMode.Keyword);
+        Assert.Single(tokens);
+        Assert.Equal("ライセンス情報", tokens[0]);
+    }
+
+    [Fact]
+    public void GetHighlightTokens_spaced_and_splits_terms()
+    {
+        var tokens = SearchQueryParser.GetHighlightTokens("import sys", SearchMode.Keyword);
+        Assert.Equal(2, tokens.Count);
+        Assert.Equal("import", tokens[0]);
+        Assert.Equal("sys", tokens[1]);
+    }
+
+    private static bool ContainsContentWildcardPattern(Query query, string pattern)
+    {
+        return query switch
+        {
+            WildcardQuery wq when wq.Term?.Field == LuceneIndexService.FieldContent
+                => wq.Term.Text == pattern,
+            BooleanQuery bq => bq.Clauses.Any(c => ContainsContentWildcardPattern(c.Query, pattern)),
+            _ => false,
+        };
     }
 
     private static bool ContainsPhraseQuery(Query query, int slop)
@@ -143,11 +208,6 @@ public class SearchQueryParserTests
             BooleanQuery bq => bq.Clauses.Any(c => ContainsPhraseQuery(c.Query, slop)),
             _ => false,
         };
-    }
-
-    private static bool ContainsMultipleMustTermQueries(Query query)
-    {
-        return query is BooleanQuery bq && bq.Clauses.Count(c => c.Occur == Occur.MUST) > 1;
     }
 
     private static bool ContainsMultipleMustWildcardQueries(Query query)

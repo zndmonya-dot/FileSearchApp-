@@ -25,8 +25,8 @@ if (Test-Path $readmeSrc) {
     Copy-Item $readmeSrc (Join-Path $publishDir "インストール手順.txt") -Force
 }
 
-if (-not (Test-Path (Join-Path $publishDir "sudachi_tokenize.py"))) {
-    Write-Warning "sudachi_tokenize.py not found in publish output. Check csproj CopyToPublishDirectory."
+if (-not (Test-Path (Join-Path $publishDir "sudachi_ffi.dll"))) {
+    Write-Warning "sudachi_ffi.dll not found in publish output. Run scripts/build-sudachi-native.ps1 and rebuild."
 }
 
 New-Item -ItemType Directory -Path $distDir -Force | Out-Null

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <PropertyGroup>
+    <SudachiRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\tools\sudachi\'))</SudachiRoot>
+    <SudachiBuildScript>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\scripts\build-sudachi-native.ps1'))</SudachiBuildScript>
+  </PropertyGroup>
+
+  <Target Name="BuildSudachiNativeIfMissing" BeforeTargets="BeforeBuild"
+          Condition="!Exists('$(SudachiRoot)sudachi_ffi.dll') AND Exists('$(SudachiBuildScript)')">
+    <Message Importance="high" Text="Building Sudachi native DLL (first time or missing)..." />
+    <Exec Command="pwsh -NoProfile -ExecutionPolicy Bypass -File &quot;$(SudachiBuildScript)&quot;" />
+  </Target>
+
+  <ItemGroup Condition="Exists('$(SudachiRoot)sudachi_ffi.dll')">
+    <Content Include="$(SudachiRoot)sudachi_ffi.dll"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest"
+             Link="sudachi_ffi.dll" />
+    <Content Include="$(SudachiRoot)resources\**\*"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest"
+             Link="sudachi\resources\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>

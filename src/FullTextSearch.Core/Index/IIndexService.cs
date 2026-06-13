@@ -31,8 +31,8 @@ public interface IIndexService
     /// </summary>
     IndexStats GetStats();
 
-    /// <summary>直近のインデックス操作でスキップされたファイルパスのリスト。</summary>
-    IReadOnlyList<string> LastSkippedFiles { get; }
+    /// <summary>直近のインデックス操作でスキップされたファイル（パスと理由）。</summary>
+    IReadOnlyList<SkippedFileEntry> LastSkippedFiles { get; }
 }
 
 /// <summary>
@@ -59,6 +59,9 @@ public class IndexProgress
     /// エラーが発生したファイル数
     /// </summary>
     public int ErrorCount { get; init; }
+
+    /// <summary>差分更新で追加・更新・削除対象が 0 件だった場合に true。</summary>
+    public bool NoChanges { get; init; }
 }
 
 /// <summary>

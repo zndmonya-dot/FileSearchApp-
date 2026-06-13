@@ -86,7 +86,8 @@ public partial class Home
         _searchCts = new CancellationTokenSource();
         var token = _searchCts.Token;
         searchErrorMessage = null;
-        isSearching = true; treeNodes.Clear(); selectedFile = null; totalFileCount = 0;
+        isSearching = true;
+        selectedFile = null;
         StateHasChanged();
         try
         {
@@ -210,8 +211,7 @@ public partial class Home
         if (node.FileData == null) return;
         selectedFolder = null;
         selectedFile = node.FileData;
-        _previewLines = Array.Empty<PreviewLineResult>();
-        previewLineCount = 0;
+        _previewResult = null;
         isLoadingPreview = true;
         TreeBuilder.ExpandPathToFile(treeNodes, node.FilePath!);
         _fileNavList = TreeBuilder.CollectAllFileNodes(treeNodes);

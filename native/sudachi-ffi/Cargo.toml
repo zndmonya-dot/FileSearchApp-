@@ -1,0 +1,12 @@
+[package]
+name = "sudachi_ffi"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "C FFI wrapper for Sudachi (mode C) for FileSearch"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+sudachi = { git = "https://github.com/WorksApplications/sudachi.rs.git", tag = "v0.6.11" }

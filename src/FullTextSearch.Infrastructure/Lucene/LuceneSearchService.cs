@@ -75,15 +75,28 @@ public class LuceneSearchService : ISearchService, IDisposable
 
                     var normalizedQuery = SearchQueryParser.NormalizeQueryString(query);
                     var isExactMatchMode = options.SearchMode == SearchMode.Phrase;
-                    var luceneQuery = isExactMatchMode
-                        ? BuildExactCandidateQuery(normalizedQuery, searcher.IndexReader)
-                        : SearchQueryParser.BuildQuery(
+                    var highlightTerms = SearchQueryParser.GetHighlightTokens(query, options.SearchMode);
+                    Query luceneQuery;
+                    if (isExactMatchMode)
+                    {
+                        luceneQuery = BuildExactCandidateQuery(normalizedQuery, searcher.IndexReader);
+                    }
+                    else if ((options.SearchMode == SearchMode.Keyword || options.SearchMode == SearchMode.Any)
+                        && SearchQueryTerms.IsSingleKeyword(normalizedQuery))
+                    {
+                        // 1語（例: ライセンス情報）→ 部分一致。バイグラムで候補絞り込み。
+                        luceneQuery = BuildExactCandidateQuery(normalizedQuery, searcher.IndexReader);
+                    }
+                    else
+                    {
+                        luceneQuery = SearchQueryParser.BuildQuery(
                             query,
                             analyzer,
                             options.SearchMode,
                             MaxQueryTerms,
                             MaxQueryClauses,
                             FilenameBoost);
+                    }
                     var boolQuery = new BooleanQuery { { luceneQuery, Occur.MUST } };
 
                     cancellationToken.ThrowIfCancellationRequested();
@@ -101,15 +114,25 @@ public class LuceneSearchService : ISearchService, IDisposable
                     }
                     else
                     {
-                        var topDocs = searcher.Search(boolQuery, options.MaxResults);
+                        var fetchLimit = Math.Min(Math.Max(options.MaxResults * 10, options.MaxResults), 10_000);
+                        var topDocs = searcher.Search(boolQuery, fetchLimit);
                         hitDocIds = topDocs.ScoreDocs.Select(sd => sd.Doc).ToList();
                     }
 
-                    var results = new List<SearchResultItem>(hitDocIds.Count);
+                    var results = new List<SearchResultItem>(Math.Min(hitDocIds.Count, options.MaxResults));
                     foreach (var docId in hitDocIds)
                     {
                         cancellationToken.ThrowIfCancellationRequested();
                         var doc = searcher.Doc(docId);
+
+                        if (!isExactMatchMode && highlightTerms.Count > 0)
+                        {
+                            var storedContent = doc.Get(LuceneIndexService.FieldContent);
+                            var fileName = doc.Get(LuceneIndexService.FieldFileName);
+                            if (!SearchMatchVerifier.Matches(storedContent, fileName, highlightTerms, options.SearchMode))
+                                continue;
+                        }
+
                         results.Add(new SearchResultItem
                         {
                             FilePath = doc.Get(LuceneIndexService.FieldFilePath) ?? "",
@@ -120,6 +143,9 @@ public class LuceneSearchService : ISearchService, IDisposable
                                 ? new DateTime(ticks, DateTimeKind.Utc)
                                 : DateTime.MinValue
                         });
+
+                        if (results.Count >= options.MaxResults)
+                            break;
                     }
 
                     return new SearchResult { Items = results };
@@ -366,13 +392,44 @@ public class LuceneSearchService : ISearchService, IDisposable
         }
     }
 
-    /// <summary>
-    /// 検索用の Reader / Analyzer を事前に用意し、初回検索の遅延を軽減する。
-    /// </summary>
+    /// <inheritdoc />
     public void Warmup()
     {
         EnsureSearcherReady();
     }
+
+    /// <inheritdoc />
+    public Task<string?> TryGetStoredContentAsync(string filePath, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(filePath))
+            return Task.FromResult<string?>(null);
+
+        return Task.Run(() =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            EnsureSearcherReady();
+
+            IndexSearcher? searcher;
+            lock (_lock)
+            {
+                searcher = _searcher;
+            }
+
+            if (searcher == null)
+                return null;
+
+            var query = new TermQuery(new Term(LuceneIndexService.FieldFilePath, filePath));
+            var topDocs = searcher.Search(query, 1);
+            if (topDocs.TotalHits == 0)
+                return null;
+
+            return searcher.Doc(topDocs.ScoreDocs[0].Doc).Get(LuceneIndexService.FieldContent) ?? "";
+        }, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public IReadOnlyList<string> GetHighlightTerms(string query, SearchMode mode) =>
+        SearchQueryParser.GetHighlightTokens(query, mode);
 
     /// <summary>DirectoryReader・Analyzer・FSDirectory を解放する。</summary>
     public void Dispose()

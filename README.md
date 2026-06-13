@@ -11,6 +11,7 @@ Windows向けの高速全文検索アプリケーションです。ファイル�
 - **キーボード・操作**: 検索欄で Enter で検索実行、Esc で検索語クリア。ファイルを開く・フォルダを開くはプレビュー上の「開く」「フォルダ」ボタン
 - **マッチ箇所表示**: 検索キーワードがヒットした箇所をハイライト付きで抜粋表示
 - **行単位ハイライトナビゲーション**: プレビュー画面で「次へ」「前へ」ボタンにより、ハイライト行単位で移動（WinMerge風）。同じ行内の複数のマッチをスキップして次の行に移動
+- **二重起動防止**: 同一ユーザーセッション内で 1 インスタンスのみ（2 回目は既存ウィンドウを前面表示）
 - **定期インデックス再構築**: 設定で間隔（分）を指定すると、**全体再構築**がタイマーで実行される（0 で無効）。ファイル変更のリアルタイム監視ではない
 
 ## 対応ファイル形式
@@ -25,8 +26,8 @@ Windows向けの高速全文検索アプリケーションです。ファイル�
 ## 動作要件
 
 - **Windows 専用**（Windows 10/11）
-- **開発・実行時**: .NET 8 SDK、Python 3、SudachiPy（下記セットアップ）
-- **配布版 MSIX の利用時**: 利用者 PC に Python は不要（[docs/社内配布手順.md](docs/社内配布手順.md) 参照）
+- **開発・実行時**: .NET 8 SDK、Rust（Sudachi ネイティブ DLL 初回ビルド用。`dotnet build` 時に自動ビルド）
+- **配布版 MSIX / ZIP の利用時**: 利用者 PC に Python / Rust は不要（辞書・`sudachi_ffi.dll` は同梱）
 - （任意）Microsoft Office … 検索・プレビューはテキスト抽出のため不要。ファイルを開く際に利用
 
 **インストール（利用者）と環境構築（開発者）の違い**は [docs/インストールと環境構築.md](docs/インストールと環境構築.md) を参照。
@@ -45,13 +46,13 @@ dotnet restore
 dotnet build
 ```
 
-### 3. SudachiPy のインストール（形態素解析用）
+初回ビルド時、Sudachi ネイティブ DLL と辞書（約 70MB）が自動取得・ビルドされます。手動で行う場合:
 
 ```powershell
-pip install sudachipy sudachidict_core
+pwsh -File scripts/build-sudachi-native.ps1
 ```
 
-### 4. 実行
+### 3. 実行
 
 ```powershell
 dotnet run --project src\FileSearch.Blazor
@@ -89,10 +90,14 @@ dotnet run --project src\FileSearch.Blazor
 
 ```
 （リポジトリルート）/
+├── native/sudachi-ffi/               # Sudachi ネイティブ FFI（Rust）
+├── scripts/build-sudachi-native.ps1  # Sudachi DLL・辞書のビルド
+├── tools/sudachi/                    # sudachi_ffi.dll・辞書リソース（publish 同梱）
 ├── src/
 │   ├── FileSearch.Blazor/            # Blazor Hybrid (MAUI) アプリ（メインUI）
 │   ├── FullTextSearch.Core/           # コアロジック（インターフェース、モデル）
-│   └── FullTextSearch.Infrastructure/  # インフラ実装（Lucene、プレビュー）
+│   ├── FullTextSearch.Infrastructure/  # インフラ実装（Lucene、Sudachi、抽出器）
+│   └── SudachiNative.targets          # MSBuild: Sudachi 同梱・初回ビルド
 └── tests/
     └── FullTextSearch.Tests/          # ユニットテスト
 ```
@@ -110,7 +115,7 @@ dotnet run --project src\FileSearch.Blazor
 ## 使用ライブラリ
 
 - Lucene.NET 4.8 - 全文検索エンジン
-- Sudachi（SudachiPy） - 日本語形態素解析（モード C、Python で実行）
+- Sudachi（sudachi.rs ネイティブ / モード C）- 日本語形態素解析（Python 不要）
 - DocumentFormat.OpenXml - Office文書テキスト抽出
 - PdfPig - PDFテキスト抽出
 - UTF.Unknown (UtfUnknown) - テキストファイルのエンコーディング自動判定

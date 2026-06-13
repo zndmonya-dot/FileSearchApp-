@@ -54,9 +54,11 @@
 
 ## 5. Sudachi（形態素解析）
 
-- **入力**: C# から Python へ UTF-8 でテキストを渡している（`StandardInputEncoding = Encoding.UTF8` 等）。
+- **入力**: C# から `SudachiNative.Tokenize` 経由で UTF-8 文字列を `sudachi_ffi.dll`（sudachi.rs / モード C）に渡す。
 - **C# 側**: 渡す前に Unicode 正規化はしていない。UTF-8 バイト数が Lucene の制限（32765 バイト）を超えるトークンは、バイト境界を考慮して分割している（`SplitAtMaxUtf8Bytes` 等）。
-- **Python/Sudachi 側**: 公式の正規化仕様は未確認。Sudachi が内部で NFKC 等を行っている場合は、インデックス・検索とも同じ正規化がかかるため、一貫性は保たれやすい。
+- **Sudachi 側**: 公式の正規化仕様は未確認。Sudachi が内部で NFKC 等を行っている場合は、インデックス・検索とも同じ正規化がかかるため、一貫性は保たれやすい。
+
+> **旧記述（Python IPC 時代）**: C# から Python サブプロセスへ stdin で UTF-8 送信していた。現在は該当しない。
 
 ---
 

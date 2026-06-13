@@ -26,6 +26,15 @@ public interface ISearchService
     /// 検索用の Reader / Analyzer を事前に用意し、初回検索の遅延を軽減する。
     /// </summary>
     void Warmup();
+
+    /// <summary>
+    /// インデックスに格納された本文を取得する。未登録の場合は null。
+    /// メタデータのみ登録（本文空）の場合は空文字列。
+    /// </summary>
+    Task<string?> TryGetStoredContentAsync(string filePath, CancellationToken cancellationToken = default);
+
+    /// <summary>プレビューハイライト用の検索語。</summary>
+    IReadOnlyList<string> GetHighlightTerms(string query, SearchMode mode);
 }
 
 /// <summary>

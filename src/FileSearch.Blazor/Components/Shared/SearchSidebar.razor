@@ -22,12 +22,8 @@
     @* M-03 検索入力欄（検索ボタン／Enter で検索、Esc でクリア） *@
     <div class="sidebar-search-wrap">
         <div class="search-mode-group" role="radiogroup" aria-label="@UserMessages.SearchModeGroupLabel">
-            @if (IsSearching)
-            {
-                <div class="search-mode-spinner spinner-ring" aria-hidden="true"></div>
-            }
             @{
-                var modeDisabled = IsIndexing || IsSearching;
+                var modeDisabled = IsIndexing;
             }
             <label class="search-mode-option @(modeDisabled ? "search-mode-option--disabled" : null)" title="@UserMessages.SearchModeKeywordTitle">
                 <input type="radio" name="search-mode" checked="@(SearchMode == SearchMode.Keyword)" disabled="@modeDisabled" @onchange="@SelectKeywordMode" />
@@ -72,7 +68,7 @@
     <div class="sidebar-content" id="tree-list">
         @if (IsSearching)
         {
-            @* M-06 状態表示: 検索実行中 *@
+            @* M-06 検索実行中（Enter・検索ボタン・AND/OR 切替で共通） *@
             <div class="tree-status">
                 <div class="spinner-ring"></div>
                 <span>@UserMessages.Searching</span>
@@ -80,7 +76,7 @@
         }
         else if (TreeNodes.Count == 0)
         {
-            @* M-06 状態表示: キーワード未入力／未検索／結果 0 件 *@
+            @* M-06 キーワード未入力／未検索／結果 0 件 *@
             <div class="tree-status">
                 <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688l-.011-.013-2.914-2.914-.013-.011Z"/></svg>
                 <span>@GetEmptyTreeMessage()</span>
@@ -88,7 +84,7 @@
         }
         else
         {
-            @* M-05 検索結果表示領域（フォルダ／ファイルのツリー） *@
+            @* M-05 検索結果ツリー *@
             <SearchResultTree Nodes="TreeNodes"
                              CurrentPreviewFilePath="@CurrentPreviewFilePath"
                              CurrentFolderPath="@CurrentFolderPath"

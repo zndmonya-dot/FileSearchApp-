@@ -44,6 +44,8 @@ public static class UserMessages
     public const string IndexCancelled = "キャンセルしました";
     /// <summary>差分検出中表示。</summary>
     public const string DiffDetecting = "差分を検出中...";
+    /// <summary>差分更新で変更がなかった場合。</summary>
+    public const string IndexDiffNoChanges = "差分更新: 変更はありませんでした。";
     /// <summary>処理準備中。</summary>
     public const string Preparing = "準備中...";
     /// <summary>進捗の単位「ファイル」。</summary>
@@ -66,11 +68,11 @@ public static class UserMessages
     /// <summary>検索モード: OR検索（部分一致）。</summary>
     public const string SearchModeAny = "OR検索";
     /// <summary>検索モード「AND検索」のツールチップ。</summary>
-    public const string SearchModeKeywordTitle = "入力全体の語すべてを部分一致（例: import sys → import と sys の両方を含む）";
+    public const string SearchModeKeywordTitle = "スペースなし＝入力1語の部分一致、スペースあり＝各語が同一行（またはファイル名）にすべて含まれる（例: ライセンス情報 / import sys）";
     /// <summary>検索モード「完全一致検索」のツールチップ。</summary>
-    public const string SearchModePhraseTitle = "入力文字列がそのまま連続して含まれる（例: import sys のみ。import だけ・sys だけでは不可）";
+    public const string SearchModePhraseTitle = "入力文字列がそのまま連続して含まれる（本文またはファイル名。例: import sys のみ）";
     /// <summary>検索モード「OR検索」のツールチップ。</summary>
-    public const string SearchModeAnyTitle = "スペース区切りの語のどれか1つを含む（例: 契約 見積）";
+    public const string SearchModeAnyTitle = "スペースなし＝入力1語の部分一致、スペースあり＝いずれかの語が同一行（またはファイル名）に含まれる（例: ライセンス情報 / 契約 見積）";
     /// <summary>検索モード選択の aria-label。</summary>
     public const string SearchModeGroupLabel = "検索方法";
     /// <summary>インデックス構築中は検索不可（W-01）。</summary>
@@ -281,10 +283,14 @@ public static class UserMessages
     public const string PreviewPathRequired = "ファイルパスが指定されていません";
     /// <summary>プレビュー不可プレースホルダ</summary>
     public const string PreviewNotAvailable = "[プレビュー不可]";
+    /// <summary>10MB 超ファイル</summary>
+    public const string PreviewFileTooLarge = "10MBを超えるためプレビューできません";
     /// <summary>キャンセル行</summary>
     public const string PreviewCancelledBracket = "[キャンセル]";
     /// <summary>本文省略の接尾辞</summary>
-    public const string PreviewTruncatedEllipsis = "\n... (省略)";
+    /// <summary>プレビュー行数が多いときの省略メッセージ。</summary>
+    public static string PreviewTooManyLinesLine(int totalLines, int shownLines) =>
+        $"（行数が多いため先頭 {shownLines:N0} 行のみ表示。全 {totalLines:N0} 行）";
     /// <summary>プレビュー行のエラー表示（E-05/E-06）</summary>
     public static string PreviewErrorLine(string message) => $"[エラー] {message}";
 }
