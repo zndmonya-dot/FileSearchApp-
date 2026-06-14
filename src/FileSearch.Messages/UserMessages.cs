@@ -128,12 +128,8 @@ public static class UserMessages
     /// <summary>ハイライト位置のみ（current/total）。</summary>
     public static string FormatHighlightNavCountsOnly(int current, int total) => $"{current}/{total}";
 
-    /// <summary>メインエリア未選択時のタイトル</summary>
-    public const string EmptyMainSelectFileTitle = "ファイルを選択";
     /// <summary>メインエリア未選択時のヒント（対象フォルダ未設定）</summary>
     public const string EmptyMainNoFoldersHint = "設定から検索対象フォルダを追加してください";
-    /// <summary>メインエリア未選択時のヒント</summary>
-    public const string EmptyMainSelectFileHint = "左のツリーからファイルを選ぶとプレビューが表示されます";
 
     /// <summary>フッター：スキップログを開くボタンの title</summary>
     public static string SkippedLogOpenTooltip(string logFileName) =>
@@ -278,16 +274,16 @@ public static class UserMessages
     public const string FolderListBreadcrumbLabel = "フォルダの場所";
     /// <summary>プレビュー中ファイルのパンくず aria-label</summary>
     public const string PreviewFolderPathLabel = "ファイルの場所";
-    /// <summary>親ディレクトリ行（..）</summary>
-    public const string FolderListParentDir = "..";
     /// <summary>列：名前</summary>
     public const string ColumnName = "名前";
+    /// <summary>列：先頭行プレビュー（検索時はマッチ行）</summary>
+    public const string ColumnPreview = "内容";
+    /// <summary>列幅リサイズハンドルの title</summary>
+    public const string ColumnResizeHandleTitle = "ドラッグして列幅を変更";
     /// <summary>列：更新日時</summary>
     public const string ColumnDate = "更新日時";
     /// <summary>列：拡張子</summary>
     public const string ColumnExtension = "拡張子";
-    /// <summary>列：サイズ</summary>
-    public const string ColumnSize = "サイズ";
     /// <summary>フィルターボタン title</summary>
     public const string FilterTitle = "フィルター";
     /// <summary>フィルター：すべて</summary>

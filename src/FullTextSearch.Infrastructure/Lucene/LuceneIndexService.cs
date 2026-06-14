@@ -66,6 +66,8 @@ public class LuceneIndexService : IIndexService, IDisposable
     public const string FieldFolderPath = "folderpath";
     /// <summary>抽出本文（検索対象）。</summary>
     public const string FieldContent = "content";
+    /// <summary>先頭行プレビュー（フォルダ一覧表示用・短い文字列のみ格納）。</summary>
+    public const string FieldContentPreview = "content_preview";
     /// <summary>ファイルサイズ（バイト）。</summary>
     public const string FieldFileSize = "filesize";
     /// <summary>最終更新（Ticks）。</summary>
@@ -747,6 +749,7 @@ public class LuceneIndexService : IIndexService, IDisposable
     private static Document CreateLuceneDocument(IndexedDocument doc)
     {
         var content = doc.Content;
+        var contentPreview = ContentPreviewHelper.ExtractFirstLine(content);
 
         return new Document
         {
@@ -755,6 +758,7 @@ public class LuceneIndexService : IIndexService, IDisposable
             new StringField(FieldFileNameLc, doc.FileName.ToLowerInvariant(), Field.Store.NO),
             new StringField(FieldFolderPath, doc.FolderPath, Field.Store.YES),
             new TextField(FieldContent, content, Field.Store.YES),
+            new StringField(FieldContentPreview, contentPreview, Field.Store.YES),
             // 完全一致検索の候補絞り込み用バイグラム（事前生成したトークン列をそのまま索引、本文の Sudachi 解析とは独立）
             new TextField(FieldContentNGram, new ListTokenStream(ContentNGram.BuildIndexTokens(content, doc.FileName))),
             new Int64Field(FieldFileSize, doc.FileSize, Field.Store.YES),

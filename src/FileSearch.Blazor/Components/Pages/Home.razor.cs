@@ -106,6 +106,13 @@ public partial class Home : IDisposable
     /// <summary>フォルダ遷移の非同期完了が、直後のファイル選択を上書きしないようにする世代番号。</summary>
     private int _folderNavigationGeneration;
 
+    // --- ファイル先頭行プレビュー（フォルダ一覧・検索結果ツリー共通） ---
+    private IReadOnlyDictionary<string, string> _fileContentPreviews =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    private CancellationTokenSource? _filePreviewCts;
+    private int _filePreviewGeneration;
+    private const int MaxFileContentPreviews = 1000;
+
     // --- ハイライトナビ（JS） / ファイル間ナビ ---
     private string? _lastHighlightNavFilePath;
     private bool _hasTriedInitialHighlightScroll;
@@ -240,6 +247,9 @@ public partial class Home : IDisposable
         _folderTreeLoadCts?.Cancel();
         _folderTreeLoadCts?.Dispose();
         _folderTreeLoadCts = null;
+        _filePreviewCts?.Cancel();
+        _filePreviewCts?.Dispose();
+        _filePreviewCts = null;
     }
 
     /// <summary>ThemeMode に応じて isDarkMode を設定。System のときは OnAfterRender で JS から上書きしうる。</summary>

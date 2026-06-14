@@ -24,7 +24,7 @@ public static class TreeBuilder
             return name;
 
         if (trimmed.Length >= 2 && trimmed[1] == ':')
-            return trimmed + "\\";
+            return trimmed[..1];
 
         return normalized;
     }

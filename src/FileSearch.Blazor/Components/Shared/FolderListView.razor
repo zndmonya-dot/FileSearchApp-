@@ -1,6 +1,6 @@
 @namespace FileSearch.Blazor.Components.Shared
 @*
-  選択フォルダ配下の子一覧（GitHub リポジトリブラウザ風: パンくず + 名前/更新日時/サイズ）。
+  選択フォルダ配下の子一覧（GitHub リポジトリブラウザ風: パンくず + 名前/内容/更新日時）。
 *@
 @using FileSearch.Blazor.Components.Shared
 @using Microsoft.AspNetCore.Components.Web
@@ -58,50 +58,76 @@
         </div>
     </div>
     <div id="folder-list" class="folder-list">
-        <table class="folder-table">
+        @if (_isColumnResizing)
+        {
+            <div class="folder-col-resize-overlay"
+                 @onmousemove="OnColumnResize"
+                 @onmouseup="StopColumnResize"
+                 @onmouseleave="StopColumnResize"></div>
+        }
+        <table class="folder-table @(_isColumnResizing ? "folder-table--resizing" : null)">
+            <colgroup>
+                <col style="width: @($"{_colNameWidth}px")" />
+                <col style="width: @($"{_colPreviewWidth}px")" />
+                <col style="width: @($"{_colDateWidth}px")" />
+            </colgroup>
             <thead>
                 <tr>
-                    <th class="sortable @(SortColumn == "name" ? "sorted" : "")" @onclick='() => OnSort.InvokeAsync("name")'>
-                        @UserMessages.ColumnName @GetSortIcon("name")
+                    <th class="col-name sortable @(SortColumn == "name" ? "sorted" : "")" @onclick='() => OnSort.InvokeAsync("name")'>
+                        <span class="col-header-label">@UserMessages.ColumnName @GetSortIcon("name")</span>
+                        <span class="col-resize-handle"
+                              title="@UserMessages.ColumnResizeHandleTitle"
+                              @onmousedown="@(e => StartColumnResize(e, FolderTableColumn.Name))"
+                              @onmousedown:stopPropagation="true"
+                              @onclick:stopPropagation="true"></span>
+                    </th>
+                    <th class="col-preview sortable @(SortColumn == "preview" ? "sorted" : "")" @onclick='() => OnSort.InvokeAsync("preview")'>
+                        <span class="col-header-label">@UserMessages.ColumnPreview @GetSortIcon("preview")</span>
+                        <span class="col-resize-handle"
+                              title="@UserMessages.ColumnResizeHandleTitle"
+                              @onmousedown="@(e => StartColumnResize(e, FolderTableColumn.Preview))"
+                              @onmousedown:stopPropagation="true"
+                              @onclick:stopPropagation="true"></span>
                     </th>
                     <th class="col-date sortable @(SortColumn == "date" ? "sorted" : "")" @onclick='() => OnSort.InvokeAsync("date")'>
-                        @UserMessages.ColumnDate @GetSortIcon("date")
-                    </th>
-                    <th class="col-size sortable @(SortColumn == "size" ? "sorted" : "")" @onclick='() => OnSort.InvokeAsync("size")'>
-                        @UserMessages.ColumnSize @GetSortIcon("size")
+                        <span class="col-header-label">@UserMessages.ColumnDate @GetSortIcon("date")</span>
+                        <span class="col-resize-handle"
+                              title="@UserMessages.ColumnResizeHandleTitle"
+                              @onmousedown="@(e => StartColumnResize(e, FolderTableColumn.Date))"
+                              @onmousedown:stopPropagation="true"
+                              @onclick:stopPropagation="true"></span>
                     </th>
                 </tr>
             </thead>
             <tbody>
-                @if (SelectedFolder.Parent != null)
-                {
-                    <tr class="folder-row folder-row-parent" @onclick="OnGoToParent" title="@UserMessages.FolderListGoParentTitle">
-                        <td class="col-name" colspan="3">
-                            <svg class="item-icon folder" viewBox="0 0 16 16" fill="currentColor"><path d="M.513 1.513A1.75 1.75 0 0 1 1.75 1h3.5c.55 0 1.07.26 1.4.7l.9 1.2a.25.25 0 0 0 .2.1H13a1 1 0 0 1 1 1v.5H2.75a.75.75 0 0 0 0 1.5h11.978a1 1 0 0 1 .994 1.117L15 13.25A1.75 1.75 0 0 1 13.25 15H1.75A1.75 1.75 0 0 1 0 13.25V2.75c0-.464.184-.91.513-1.237Z"/></svg>
-                            <span class="item-name item-name-parent">@UserMessages.FolderListParentDir</span>
-                        </td>
-                    </tr>
-                }
                 @if (SelectedFolder.Children != null)
                 {
                     var folderListItems = SortedAndFilteredItems.ToList();
                     @for (var i = 0; i < folderListItems.Count; i++)
                     {
                         var item = folderListItems[i];
+                        var previewText = GetContentPreview(item);
                         <tr class="folder-row @(i == SelectedRowIndex ? "selected" : "")" @onclick="async () => { await OnRowClick.InvokeAsync(item); }">
                             <td class="col-name">
-                                @if (item.IsFolder)
+                                <span class="col-name-cell">
+                                    @if (item.IsFolder)
+                                    {
+                                        <svg class="item-icon folder" viewBox="0 0 16 16" fill="currentColor"><path d="M.513 1.513A1.75 1.75 0 0 1 1.75 1h3.5c.55 0 1.07.26 1.4.7l.9 1.2a.25.25 0 0 0 .2.1H13a1 1 0 0 1 1 1v.5H2.75a.75.75 0 0 0 0 1.5h11.978a1 1 0 0 1 .994 1.117L15 13.25A1.75 1.75 0 0 1 13.25 15H1.75A1.75 1.75 0 0 1 0 13.25V2.75c0-.464.184-.91.513-1.237Z"/></svg>
+                                    }
+                                    else
+                                    {
+                                        <svg class="item-icon file" viewBox="0 0 16 16" fill="currentColor"><path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688l-.011-.013-2.914-2.914-.013-.011Z"/></svg>
+                                    }
+                                    <span class="item-name">@item.Name</span>
+                                </span>
+                            </td>
+                            <td class="col-preview">
+                                @if (previewText != null)
                                 {
-                                    <svg class="item-icon folder" viewBox="0 0 16 16" fill="currentColor"><path d="M.513 1.513A1.75 1.75 0 0 1 1.75 1h3.5c.55 0 1.07.26 1.4.7l.9 1.2a.25.25 0 0 0 .2.1H13a1 1 0 0 1 1 1v.5H2.75a.75.75 0 0 0 0 1.5h11.978a1 1 0 0 1 .994 1.117L15 13.25A1.75 1.75 0 0 1 13.25 15H1.75A1.75 1.75 0 0 1 0 13.25V2.75c0-.464.184-.91.513-1.237Z"/></svg>
+                                    <span class="item-content-preview" title="@previewText">@previewText</span>
                                 }
-                                else
-                                {
-                                    <svg class="item-icon file" viewBox="0 0 16 16" fill="currentColor"><path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688l-.011-.013-2.914-2.914-.013-.011Z"/></svg>
-                                }
-                                <span class="item-name">@item.Name</span>
                             </td>
                             <td class="col-date">@(item.LastModified.HasValue ? DisplayFormatters.FormatDate(item.LastModified.Value) : "-")</td>
-                            <td class="col-size">@(item.IsFolder ? "-" : DisplayFormatters.FormatSize(item.FileSize))</td>
                         </tr>
                     }
                 }
@@ -123,10 +149,28 @@
     [Parameter] public EventCallback OnToggleFilterMenu { get; set; }
     [Parameter] public EventCallback<string> OnFilter { get; set; }
     [Parameter] public EventCallback<TreeNode> OnRowClick { get; set; }
-    [Parameter] public EventCallback OnGoToParent { get; set; }
     [Parameter] public EventCallback<TreeNode> OnNavigateToFolder { get; set; }
+    [Parameter] public IReadOnlyDictionary<string, string>? FileContentPreviews { get; set; }
     [Parameter] public Func<string, MarkupString> GetSortIcon { get; set; } = _ => (MarkupString)"";
     [Parameter] public Func<List<TreeNode>, IEnumerable<string>> GetUniqueExtensions { get; set; } = _ => Enumerable.Empty<string>();
+
+    private enum FolderTableColumn { Name, Preview, Date }
+
+    private const int ColNameDefault = 220;
+    private const int ColPreviewDefault = 320;
+    private const int ColDateDefault = 140;
+    private const int ColMinName = 96;
+    private const int ColMinPreview = 80;
+    private const int ColMinDate = 108;
+    private const int ColMax = 640;
+
+    private int _colNameWidth = ColNameDefault;
+    private int _colPreviewWidth = ColPreviewDefault;
+    private int _colDateWidth = ColDateDefault;
+    private bool _isColumnResizing;
+    private FolderTableColumn _resizeColumn;
+    private double _columnResizeStartX;
+    private int _columnResizeStartWidth;
 
     private List<TreeNode> GetBreadcrumb()
     {
@@ -135,5 +179,63 @@
             list.Add(node);
         list.Reverse();
         return list;
+    }
+
+    private string? GetContentPreview(TreeNode item)
+    {
+        if (item.IsFolder || string.IsNullOrEmpty(item.FilePath) || FileContentPreviews == null)
+            return null;
+        return FileContentPreviews.TryGetValue(item.FilePath, out var preview) && !string.IsNullOrEmpty(preview)
+            ? preview
+            : null;
+    }
+
+    private void StartColumnResize(MouseEventArgs e, FolderTableColumn column)
+    {
+        _isColumnResizing = true;
+        _resizeColumn = column;
+        _columnResizeStartX = e.ClientX;
+        _columnResizeStartWidth = GetColumnWidth(column);
+    }
+
+    private void OnColumnResize(MouseEventArgs e)
+    {
+        if (!_isColumnResizing)
+            return;
+
+        var delta = (int)(e.ClientX - _columnResizeStartX);
+        SetColumnWidth(_resizeColumn, ClampColumnWidth(_resizeColumn, _columnResizeStartWidth + delta));
+    }
+
+    private void StopColumnResize(MouseEventArgs _) => _isColumnResizing = false;
+
+    private int GetColumnWidth(FolderTableColumn column) => column switch
+    {
+        FolderTableColumn.Name => _colNameWidth,
+        FolderTableColumn.Preview => _colPreviewWidth,
+        FolderTableColumn.Date => _colDateWidth,
+        _ => ColNameDefault,
+    };
+
+    private void SetColumnWidth(FolderTableColumn column, int width)
+    {
+        switch (column)
+        {
+            case FolderTableColumn.Name: _colNameWidth = width; break;
+            case FolderTableColumn.Preview: _colPreviewWidth = width; break;
+            case FolderTableColumn.Date: _colDateWidth = width; break;
+        }
+    }
+
+    private int ClampColumnWidth(FolderTableColumn column, int width)
+    {
+        var min = column switch
+        {
+            FolderTableColumn.Name => ColMinName,
+            FolderTableColumn.Preview => ColMinPreview,
+            FolderTableColumn.Date => ColMinDate,
+            _ => 80,
+        };
+        return Math.Clamp(width, min, ColMax);
     }
 }

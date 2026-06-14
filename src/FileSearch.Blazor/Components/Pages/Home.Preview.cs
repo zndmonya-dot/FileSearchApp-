@@ -221,6 +221,7 @@ public partial class Home
             selectedFolderRowIndex = 0;
         }
 
+        ScheduleFolderContentPreviewsLoad(folderNode);
         StateHasChanged();
     }
 }

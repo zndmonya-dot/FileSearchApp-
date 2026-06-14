@@ -484,6 +484,7 @@
     width: 100%;
     border-collapse: collapse;
     font-size: 14px;
+    table-layout: fixed;
 }
 
 .folder-table tbody {
@@ -498,12 +499,60 @@
 }
 
 .folder-table th {
+    position: relative;
     padding: 8px 16px;
+    padding-right: 12px;
     text-align: left;
     font-size: 12px;
     font-weight: 600;
     color: var(--color-fg-muted);
     border-bottom: 1px solid var(--color-border-default);
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.col-header-label {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding-right: 6px;
+}
+
+.col-resize-handle {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 8px;
+    height: 100%;
+    cursor: col-resize;
+    user-select: none;
+    touch-action: none;
+    z-index: 2;
+}
+
+.col-resize-handle::after {
+    content: "";
+    position: absolute;
+    top: 20%;
+    bottom: 20%;
+    right: 3px;
+    width: 1px;
+    background: transparent;
+    transition: background 0.1s;
+}
+
+.col-resize-handle:hover::after,
+.folder-table--resizing .col-resize-handle::after {
+    background: var(--color-accent-fg);
+    opacity: 0.55;
+}
+
+.folder-col-resize-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    cursor: col-resize;
 }
 
 .folder-table th.sortable {
@@ -615,16 +664,6 @@
     content: '✓ ';
 }
 
-.folder-table th.col-size {
-    width: 100px;
-    text-align: right;
-    white-space: nowrap;
-}
-
-.folder-table th.col-date {
-    width: 140px;
-}
-
 .folder-row {
     cursor: pointer;
     transition: background 0.1s;
@@ -642,19 +681,6 @@
     background: var(--color-accent-subtle);
 }
 
-.folder-row-parent {
-    background: var(--color-canvas-subtle);
-}
-
-.folder-row-parent:hover {
-    background: var(--color-canvas-subtle);
-}
-
-.folder-row-parent .item-name-parent {
-    color: var(--color-fg-default);
-    font-weight: 500;
-}
-
 .folder-list:focus {
     outline: none;
 }
@@ -665,16 +691,21 @@
     color: var(--color-fg-default);
 }
 
-.folder-row td.col-name {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+.folder-row td.col-name,
+.folder-row td.col-preview {
+    overflow: hidden;
 }
 
-.folder-row td.col-size {
-    text-align: right;
+.col-name-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    max-width: 100%;
+    min-width: 0;
+}
+
+.folder-row td.col-preview {
     color: var(--color-fg-muted);
-    white-space: nowrap;
 }
 
 .folder-row td.col-date {
@@ -704,6 +735,19 @@
 .item-name {
     color: var(--color-accent-fg);
     font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.item-content-preview {
+    display: block;
+    color: var(--color-fg-muted);
+    font-weight: 400;
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .folder-row:hover .item-name {

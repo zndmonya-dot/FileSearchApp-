@@ -93,14 +93,11 @@
 }
 
 /*
- * 領域別ズーム（Ctrl + ホイール）。
- * ・ツリー（左サイドバー）と右メイン領域を独立にスケーリング。
- * ・JS 側（index.html）で wheel イベントを捕捉し、:root の CSS 変数を更新する。
- * ・WebView2(Chromium) の `zoom` を採用（レイアウトに反映され、`em` 依存を増やさず実装できる）。
- * ・倍率は永続化しない（再起動・WebView 再読み込みで等倍に戻る）。
+ * プレビュー本文のズーム（Ctrl + ホイール）。
+ * ・JS 側（index.html）で wheel を捕捉し :root の --zoom-preview を更新。
+ * ・倍率は永続化しない（再起動・再読み込みで等倍に戻る）。
  */
-.sidebar { zoom: var(--zoom-sidebar, 1); }
-.main-content { zoom: var(--zoom-main, 1); }
+.preview-zoom-wrap { zoom: var(--zoom-preview, 1); }
 
 /* インデックス再構築中: 右メイン領域の操作を無効化 */
 .main-content--locked {

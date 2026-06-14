@@ -117,6 +117,7 @@ public partial class Home
         root.IsExpanded = true;
         selectedFolder = root;
         selectedFolderRowIndex = 0;
+        ScheduleFolderContentPreviewsLoad(root);
     }
 
     /// <summary>バックグラウンドのフォルダツリー読み込みを中断する（検索割り込み時）。</summary>
@@ -211,6 +212,12 @@ public partial class Home
     {
         if (isIndexing || !node.IsFolder) return;
 
+        if (selectedFile != null)
+        {
+            _ = OpenFolderFromTreeAsync(node);
+            return;
+        }
+
         var expanding = !node.IsExpanded;
         node.IsExpanded = expanding;
 
@@ -240,12 +247,41 @@ public partial class Home
         StateHasChanged();
     }
 
-    /// <summary>右ペインのフォルダ一覧を開く（プレビュー中はフォルダ選択のみ更新しない）。</summary>
-    private void ApplyFolderSelection(TreeNode node)
+    /// <summary>プレビュー中に左ツリーでフォルダを選んだとき、右ペインをフォルダ一覧へ切り替える。</summary>
+    private async Task OpenFolderFromTreeAsync(TreeNode node)
     {
-        if (selectedFile != null) return;
+        if (isIndexing || !node.IsFolder)
+            return;
+
+        Interlocked.Increment(ref _folderNavigationGeneration);
+        _previewCts?.Cancel();
+        selectedFile = null;
+        _previewResult = null;
+        isLoadingPreview = false;
+
+        node.IsExpanded = true;
+        await EnsureFolderChildrenLoadedAsync(node);
+
         selectedFolder = node;
         selectedFolderRowIndex = 0;
+        ScheduleFolderContentPreviewsLoad(node);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>右ペインのフォルダ一覧を開く。</summary>
+    private void ApplyFolderSelection(TreeNode node)
+    {
+        if (selectedFile != null)
+        {
+            _previewCts?.Cancel();
+            selectedFile = null;
+            _previewResult = null;
+            isLoadingPreview = false;
+        }
+
+        selectedFolder = node;
+        selectedFolderRowIndex = 0;
+        ScheduleFolderContentPreviewsLoad(node);
     }
 
     /// <summary><paramref name="path"/> が <paramref name="folderPath"/> 配下（または同一）か。</summary>
@@ -340,6 +376,16 @@ public partial class Home
         return allowed.Count > 0 ? allowed : null;
     }
 
+    /// <summary>内容列ソート用。プレビュー未取得・フォルダは空文字。</summary>
+    private string GetPreviewSortKey(TreeNode node)
+    {
+        if (node.IsFolder || string.IsNullOrEmpty(node.FilePath))
+            return "";
+        return _fileContentPreviews.TryGetValue(node.FilePath, out var preview) && !string.IsNullOrEmpty(preview)
+            ? preview
+            : "";
+    }
+
     /// <summary>フォルダ一覧テーブルのソート列。同一列なら昇降切替。</summary>
     private void SetSort(string column)
     {
@@ -387,9 +433,9 @@ public partial class Home
         filtered = sortColumn switch
         {
             "name" => sortAscending ? filtered.OrderBy(i => !i.IsFolder).ThenBy(i => i.Name) : filtered.OrderBy(i => !i.IsFolder).ThenByDescending(i => i.Name),
+            "preview" => sortAscending ? filtered.OrderBy(i => GetPreviewSortKey(i)) : filtered.OrderByDescending(i => GetPreviewSortKey(i)),
             "date" => sortAscending ? filtered.OrderBy(i => i.LastModified) : filtered.OrderByDescending(i => i.LastModified),
             "type" => sortAscending ? filtered.OrderBy(i => i.IsFolder ? "" : Path.GetExtension(i.Name)) : filtered.OrderByDescending(i => i.IsFolder ? "" : Path.GetExtension(i.Name)),
-            "size" => sortAscending ? filtered.OrderBy(i => i.FileSize) : filtered.OrderByDescending(i => i.FileSize),
             _ => filtered.OrderBy(i => !i.IsFolder).ThenBy(i => i.Name)
         };
         return filtered;
@@ -427,13 +473,21 @@ public partial class Home
             {
                 item.IsExpanded = true;
                 await EnsureFolderChildrenLoadedAsync(item);
-                if (generation != _folderNavigationGeneration || selectedFile != null)
+                if (generation != _folderNavigationGeneration)
                 {
                     StateHasChanged();
                     return;
                 }
+                if (selectedFile != null)
+                {
+                    _previewCts?.Cancel();
+                    selectedFile = null;
+                    _previewResult = null;
+                    isLoadingPreview = false;
+                }
                 selectedFolder = item;
                 selectedFolderRowIndex = 0;
+                ScheduleFolderContentPreviewsLoad(item);
                 StateHasChanged();
             });
         }
@@ -454,21 +508,6 @@ public partial class Home
         OnFolderItemClick(item);
     }
 
-    /// <summary>「親フォルダへ」。親を展開して一覧の選択行を子フォルダに合わせる。</summary>
-    private void GoToParentFolder()
-    {
-        if (isIndexing || selectedFolder?.Parent == null) return;
-        var fromChild = selectedFolder;
-        var parent = selectedFolder.Parent;
-        parent.IsExpanded = true;
-        selectedFile = null;
-        selectedFolder = parent;
-        var list = GetSortedAndFilteredItems(parent.Children ?? new List<TreeNode>()).ToList();
-        selectedFolderRowIndex = list.IndexOf(fromChild);
-        if (selectedFolderRowIndex < 0) selectedFolderRowIndex = 0;
-        StateHasChanged();
-    }
-
     /// <summary>パンくずから任意の祖先フォルダへ移動。</summary>
     private void NavigateToFolder(TreeNode folder)
     {
@@ -477,6 +516,89 @@ public partial class Home
         selectedFile = null;
         selectedFolder = folder;
         selectedFolderRowIndex = 0;
+        ScheduleFolderContentPreviewsLoad(folder);
         StateHasChanged();
+    }
+
+    /// <summary>フォルダ一覧のファイル名横プレビューを読み込む。</summary>
+    private void ScheduleFolderContentPreviewsLoad(TreeNode? folder)
+    {
+        if (folder?.Children == null)
+        {
+            _fileContentPreviews = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            return;
+        }
+
+        var paths = folder.Children
+            .Where(c => !c.IsFolder && !string.IsNullOrEmpty(c.FilePath))
+            .Select(c => c.FilePath!)
+            .ToList();
+        ScheduleFileContentPreviewsLoad(paths);
+    }
+
+    /// <summary>指定ファイルの先頭行プレビューをインデックス／ディスクから非同期取得する。</summary>
+    private void ScheduleFileContentPreviewsLoad(IReadOnlyList<string> filePaths)
+    {
+        _filePreviewCts?.Cancel();
+        _filePreviewCts?.Dispose();
+        _filePreviewCts = null;
+
+        if (filePaths.Count == 0)
+        {
+            _fileContentPreviews = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            return;
+        }
+
+        var paths = filePaths.Count <= MaxFileContentPreviews
+            ? filePaths
+            : filePaths.Take(MaxFileContentPreviews).ToList();
+
+        var generation = Interlocked.Increment(ref _filePreviewGeneration);
+        _fileContentPreviews = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        _filePreviewCts = new CancellationTokenSource();
+        var token = _filePreviewCts.Token;
+        var searchQuery = _lastExecutedSearchQuery;
+        var mode = searchMode;
+        IReadOnlyList<string> highlightTerms = string.IsNullOrWhiteSpace(searchQuery)
+            ? Array.Empty<string>()
+            : SearchService.GetHighlightTerms(searchQuery, mode);
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var previews = await SearchService.TryGetContentPreviewsAsync(
+                    paths, searchQuery, mode, token).ConfigureAwait(false);
+                var merged = new Dictionary<string, string>(
+                    previews.Count + paths.Count,
+                    StringComparer.OrdinalIgnoreCase);
+                foreach (var pair in previews)
+                    merged[pair.Key] = pair.Value;
+
+                foreach (var path in paths)
+                {
+                    if (merged.ContainsKey(path))
+                        continue;
+                    string? diskPreview = highlightTerms.Count > 0
+                        ? ContentPreviewHelper.TryReadSearchMatchLineFromDisk(path, highlightTerms, mode)
+                        : ContentPreviewHelper.TryReadFirstLineFromDisk(path);
+                    if (!string.IsNullOrEmpty(diskPreview))
+                        merged[path] = diskPreview;
+                }
+
+                if (token.IsCancellationRequested || generation != _filePreviewGeneration)
+                    return;
+                _fileContentPreviews = merged;
+                await InvokeAsync(StateHasChanged);
+            }
+            catch (OperationCanceledException)
+            {
+                // フォルダ切替・再検索でキャンセル
+            }
+            catch (Exception ex)
+            {
+                Logger.LogDebug(ex, "File content preview load failed");
+            }
+        }, token);
     }
 }

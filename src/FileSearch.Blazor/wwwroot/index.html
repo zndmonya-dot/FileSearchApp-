@@ -75,47 +75,37 @@
     <script src="js/preview.js?v=5"></script>
     <script src="_framework/blazor.webview.js"></script>
     <script>
-        // 領域別ズーム（Ctrl + ホイールで左サイドバー / 右メインを独立に拡大縮小）。
-        // ・WebView2 の既定 Ctrl+ホイール(全体ズーム)を preventDefault で抑止し、対象領域の CSS 変数を更新。
-        // ・倍率はメモリ保持のみ（永続化しない）。アプリ再起動・WebView 再読み込みで等倍に戻る。
-        // ・Ctrl+0 でフォーカス側の領域を等倍にリセット。
+        // プレビュー本文のみ拡大縮小（Ctrl + ホイール）。WebView2 既定の全体ズームは抑止。
         (function() {
-            var ZONES = [
-                { selector: '.sidebar', cssVar: '--zoom-sidebar', value: 1.0 },
-                { selector: '.main-content', cssVar: '--zoom-main', value: 1.0 }
-            ];
+            var SELECTOR = '.preview-zoom-wrap';
+            var CSS_VAR = '--zoom-preview';
+            var value = 1.0;
             var MIN = 0.5, MAX = 3.0, STEP = 0.1;
 
-            function setVar(zone, value) {
-                zone.value = value;
-                document.documentElement.style.setProperty(zone.cssVar, String(value));
+            function setZoom(v) {
+                value = v;
+                document.documentElement.style.setProperty(CSS_VAR, String(v));
             }
             function clamp(v) {
                 v = Math.round(v * 100) / 100;
                 return Math.max(MIN, Math.min(MAX, v));
             }
-            function findZone(target) {
-                if (!(target instanceof Element)) return null;
-                for (var i = 0; i < ZONES.length; i++) {
-                    if (target.closest(ZONES[i].selector)) return ZONES[i];
-                }
-                return null;
+            function isInPreview(target) {
+                return target instanceof Element && target.closest(SELECTOR);
             }
 
             document.addEventListener('wheel', function(e) {
                 if (!e.ctrlKey) return;
                 e.preventDefault();
-                var zone = findZone(e.target);
-                if (!zone) return;
-                setVar(zone, clamp(zone.value + (e.deltaY < 0 ? STEP : -STEP)));
+                if (!isInPreview(e.target)) return;
+                setZoom(clamp(value + (e.deltaY < 0 ? STEP : -STEP)));
             }, { passive: false, capture: true });
 
             document.addEventListener('keydown', function(e) {
                 if (!(e.ctrlKey && (e.key === '0' || e.code === 'Digit0' || e.code === 'Numpad0'))) return;
-                var zone = findZone(document.activeElement) || findZone(e.target);
-                if (!zone) return;
+                if (!isInPreview(document.activeElement) && !isInPreview(e.target)) return;
                 e.preventDefault();
-                setVar(zone, 1.0);
+                setZoom(1.0);
             }, true);
         })();
 

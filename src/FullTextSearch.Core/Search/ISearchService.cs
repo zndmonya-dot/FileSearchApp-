@@ -33,6 +33,13 @@ public interface ISearchService
     /// </summary>
     Task<string?> TryGetStoredContentAsync(string filePath, CancellationToken cancellationToken = default);
 
+    /// <summary>インデックスから本文抜粋をまとめて取得する。searchQuery 指定時はマッチ行、未指定時は先頭行。</summary>
+    Task<IReadOnlyDictionary<string, string>> TryGetContentPreviewsAsync(
+        IReadOnlyList<string> filePaths,
+        string? searchQuery = null,
+        SearchMode searchMode = SearchMode.Keyword,
+        CancellationToken cancellationToken = default);
+
     /// <summary>プレビューハイライト用の検索語。</summary>
     IReadOnlyList<string> GetHighlightTerms(string query, SearchMode mode);
 }

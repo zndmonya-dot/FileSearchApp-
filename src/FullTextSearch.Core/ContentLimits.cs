@@ -32,4 +32,7 @@ public static class ContentLimits
 
     /// <summary>Sudachi へ渡す 1 チャンクあたりの最大文字数（メモリ・ピーク抑制。境界は改行優先）。</summary>
     public const int SudachiTokenizeChunkChars = 100_000;
+
+    /// <summary>フォルダ一覧のファイル名横に表示する先頭行プレビューの最大文字数。</summary>
+    public const int FolderListPreviewMaxChars = 80;
 }

@@ -191,8 +191,9 @@ public class TreeBuilderTests
     public void GetFolderDisplayName_handles_drive_root_and_trailing_slash()
     {
         Assert.Equal("yamamoro", TreeBuilder.GetFolderDisplayName(@"C:\yamamoro\"));
-        Assert.Equal(@"C:\", TreeBuilder.GetFolderDisplayName(@"C:\"));
-        Assert.Equal(@"C:\", TreeBuilder.GetFolderDisplayName(@"C:"));
+        Assert.Equal("C", TreeBuilder.GetFolderDisplayName(@"C:\"));
+        Assert.Equal("C", TreeBuilder.GetFolderDisplayName(@"C:"));
+        Assert.Equal("D", TreeBuilder.GetFolderDisplayName(@"D:\"));
     }
 
     [Fact]

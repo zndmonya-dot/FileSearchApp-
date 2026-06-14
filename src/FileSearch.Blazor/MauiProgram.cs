@@ -27,6 +27,14 @@ public static class MauiProgram
                 fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
             });
 
+#if WINDOWS
+        Microsoft.Maui.Handlers.WindowHandler.Mapper.AppendToMapping("AppWindowLayout", (handler, _) =>
+        {
+            if (handler.PlatformView is Microsoft.UI.Xaml.Window win)
+                AppWindowLayout.ApplyToWinUiWindow(win);
+        });
+#endif
+
         builder.Services.AddMauiBlazorWebView();
 
 #if DEBUG

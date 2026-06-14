@@ -1,6 +1,7 @@
 // Lucene.NET による全文検索とハイライト。Sudachi でクエリをトークナイズし、設定のインデックスパスを参照。
 using System;
 using System.IO;
+using FullTextSearch.Core.Index;
 using System.Threading;
 using FullTextSearch.Core;
 using FullTextSearch.Core.Models;
@@ -418,12 +419,112 @@ public class LuceneSearchService : ISearchService, IDisposable
             if (searcher == null)
                 return null;
 
-            var query = new TermQuery(new Term(LuceneIndexService.FieldFilePath, filePath));
+            var query = new TermQuery(new Term(LuceneIndexService.FieldFilePath, IndexPaths.NormalizeFilePath(filePath)));
             var topDocs = searcher.Search(query, 1);
             if (topDocs.TotalHits == 0)
                 return null;
 
             return searcher.Doc(topDocs.ScoreDocs[0].Doc).Get(LuceneIndexService.FieldContent) ?? "";
+        }, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task<IReadOnlyDictionary<string, string>> TryGetContentPreviewsAsync(
+        IReadOnlyList<string> filePaths,
+        string? searchQuery = null,
+        SearchMode searchMode = SearchMode.Keyword,
+        CancellationToken cancellationToken = default)
+    {
+        if (filePaths == null || filePaths.Count == 0)
+            return Task.FromResult<IReadOnlyDictionary<string, string>>(new Dictionary<string, string>());
+
+        var highlightTerms = string.IsNullOrWhiteSpace(searchQuery)
+            ? Array.Empty<string>()
+            : GetHighlightTerms(searchQuery, searchMode);
+
+        return Task.Run(() =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            EnsureSearcherReady();
+
+            IndexSearcher? searcher;
+            lock (_lock)
+            {
+                searcher = _searcher;
+            }
+
+            if (searcher == null)
+                return (IReadOnlyDictionary<string, string>)new Dictionary<string, string>();
+
+            var pathEntries = new List<(string Original, string Normalized)>(filePaths.Count);
+            foreach (var path in filePaths)
+            {
+                if (string.IsNullOrWhiteSpace(path))
+                    continue;
+                pathEntries.Add((path, IndexPaths.NormalizeFilePath(path)));
+            }
+
+            if (pathEntries.Count == 0)
+                return (IReadOnlyDictionary<string, string>)new Dictionary<string, string>();
+
+            var useSearchMatchLine = highlightTerms.Count > 0;
+            var result = new Dictionary<string, string>(pathEntries.Count, StringComparer.OrdinalIgnoreCase);
+            const int chunkSize = 256;
+            for (var offset = 0; offset < pathEntries.Count; offset += chunkSize)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var bq = new BooleanQuery();
+                var chunkCount = 0;
+                for (var i = offset; i < pathEntries.Count && i < offset + chunkSize; i++)
+                {
+                    bq.Add(new TermQuery(new Term(LuceneIndexService.FieldFilePath, pathEntries[i].Normalized)), Occur.SHOULD);
+                    chunkCount++;
+                }
+
+                if (chunkCount == 0)
+                    continue;
+
+                bq.MinimumNumberShouldMatch = 1;
+                var topDocs = searcher.Search(bq, chunkCount);
+                foreach (var scoreDoc in topDocs.ScoreDocs)
+                {
+                    var doc = searcher.Doc(scoreDoc.Doc);
+                    var storedPath = doc.Get(LuceneIndexService.FieldFilePath);
+                    if (string.IsNullOrEmpty(storedPath))
+                        continue;
+
+                    var normalizedStored = IndexPaths.NormalizeFilePath(storedPath);
+                    string preview;
+                    if (useSearchMatchLine)
+                    {
+                        var content = doc.Get(LuceneIndexService.FieldContent);
+                        preview = ContentPreviewHelper.ExtractSearchMatchLine(content, highlightTerms, searchMode);
+                    }
+                    else
+                    {
+                        preview = doc.Get(LuceneIndexService.FieldContentPreview) ?? "";
+                        if (string.IsNullOrEmpty(preview))
+                        {
+                            var content = doc.Get(LuceneIndexService.FieldContent);
+                            preview = ContentPreviewHelper.ExtractFirstLine(content);
+                        }
+                    }
+
+                    if (string.IsNullOrEmpty(preview))
+                        continue;
+
+                    foreach (var (original, normalized) in pathEntries)
+                    {
+                        if (string.Equals(normalized, normalizedStored, StringComparison.OrdinalIgnoreCase))
+                        {
+                            result[original] = preview;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            return (IReadOnlyDictionary<string, string>)result;
         }, cancellationToken);
     }
 
