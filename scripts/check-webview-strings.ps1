@@ -26,10 +26,10 @@ if ($htmlText -notmatch [regex]::Escape("<title>$appTitle</title>")) {
 } else { Write-Host "OK: <title> matches AppTitle" }
 
 $previewLoading = Get-UserMessage 'PreviewLoading'
-if ($htmlText -notmatch [regex]::Escape($previewLoading)) {
-    Write-Warning "index.html should contain loading text '$previewLoading' (PreviewLoading)"
+if ($htmlText -notmatch ('aria-label="' + [regex]::Escape($previewLoading) + '"')) {
+    Write-Warning "index.html boot loader aria-label should be '$previewLoading' (PreviewLoading)"
     $ok = $false
-} else { Write-Host "OK: index.html contains PreviewLoading text" }
+} else { Write-Host "OK: index.html boot loader aria-label matches PreviewLoading" }
 
 $webViewError = Get-UserMessage 'WebViewLoadError'
 if ($htmlText -notmatch [regex]::Escape($webViewError)) {

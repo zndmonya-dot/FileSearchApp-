@@ -1,7 +1,7 @@
 @namespace FileSearch.Blazor.Components.Shared
 @*
-  やわらかい3ドットローダー（初回フォルダスケルトン以外）。
-  ドット上・ラベル下の縦並び。Size: sm / md / lg
+  GitHub 風 3 ドットローダー（文言なし・アニメーションのみ）。
+  Size: sm / md / lg
 *@
 @if (Decorative)
 {
@@ -15,23 +15,19 @@
 }
 else
 {
-    <div class="@CssClass" role="status" aria-label="@EffectiveLabel">
-        <div class="cute-loader__dots">
+    <div class="@CssClass" role="status" aria-label="@EffectiveAriaLabel" aria-busy="true">
+        <div class="cute-loader__dots" aria-hidden="true">
             <span class="cute-loader__dot"></span>
             <span class="cute-loader__dot"></span>
             <span class="cute-loader__dot"></span>
         </div>
-        @if (ShowLabel && !string.IsNullOrEmpty(Label))
-        {
-            <span class="cute-loader__label">@Label</span>
-        }
     </div>
 }
 
 @code {
     [Parameter] public string Size { get; set; } = "md";
-    [Parameter] public string? Label { get; set; }
-    [Parameter] public bool ShowLabel { get; set; } = true;
+    /// <summary>スクリーンリーダー用（画面上には表示しない）。</summary>
+    [Parameter] public string? AriaLabel { get; set; }
     [Parameter] public bool Decorative { get; set; }
 
     private string CssClass => Size?.ToLowerInvariant() switch
@@ -41,5 +37,5 @@ else
         _ => "cute-loader cute-loader--md"
     };
 
-    private string? EffectiveLabel => Label ?? UserMessages.PreviewLoading;
+    private string EffectiveAriaLabel => AriaLabel ?? UserMessages.PreviewLoading;
 }

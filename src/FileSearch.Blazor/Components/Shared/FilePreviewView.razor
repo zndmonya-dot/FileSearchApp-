@@ -61,7 +61,7 @@
 
     <div class="preview-zoom-wrap @(IsLoadingPreview ? "is-rendering" : null)">
         <div class="loading-state loading-state-cute" style="@(IsLoadingPreview ? null : "display:none")" aria-busy="@IsLoadingPreview" aria-live="polite">
-            <CuteLoader Size="lg" Label="@UserMessages.PreviewLoading" />
+            <CuteLoader Size="lg" />
         </div>
         <div class="code-view" id="preview-code-view"></div>
     </div>

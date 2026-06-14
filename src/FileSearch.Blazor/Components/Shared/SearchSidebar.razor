@@ -70,7 +70,7 @@
         {
             @* M-06 検索実行中（Enter・検索ボタン・AND/OR 切替で共通） *@
             <div class="tree-status tree-status-cute" aria-busy="true" aria-live="polite">
-                <CuteLoader Size="md" Label="@UserMessages.Searching" />
+                <CuteLoader Size="md" AriaLabel="@UserMessages.Searching" />
             </div>
         }
         else if (TreeNodes.Count > 0)
