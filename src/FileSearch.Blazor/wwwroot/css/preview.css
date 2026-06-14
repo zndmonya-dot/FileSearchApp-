@@ -43,6 +43,28 @@
     line-height: 1.5;
 }
 
+.empty-state-blankslate {
+    padding: 32px 24px;
+}
+
+.empty-state-blankslate svg {
+    width: 40px;
+    height: 40px;
+    margin-bottom: 12px;
+    opacity: 0.35;
+}
+
+.empty-state-blankslate h3 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.empty-state-blankslate p {
+    font-size: 13px;
+    max-width: 280px;
+}
+
 /* ===== File Box (GitHub Blob Style) ===== */
 .file-box {
     flex: 1;

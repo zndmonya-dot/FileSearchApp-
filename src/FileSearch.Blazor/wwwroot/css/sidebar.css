@@ -210,6 +210,16 @@
     gap: 0;
 }
 
+.tree-status-blankslate {
+    height: auto;
+    min-height: 120px;
+    padding: 24px 16px;
+    font-size: 13px;
+    color: var(--color-fg-muted);
+    text-align: center;
+    line-height: 1.5;
+}
+
 /* 初回フォルダ読み込み: ツリースケルトン */
 .tree-status-folder-loading {
     align-items: stretch;

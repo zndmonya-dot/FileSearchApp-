@@ -15,11 +15,15 @@ public partial class App : Application
 		MainPage = new MainPage();
 	}
 
-	/// <summary>ウィンドウ作成時にタイトルを設定する。Windows では ContentPage.Title がタイトルバーに反映されないためここで設定する。</summary>
+	/// <summary>ウィンドウ作成時にタイトルと初期サイズを設定する。</summary>
 	protected override Window CreateWindow(IActivationState? activationState)
 	{
 		var window = base.CreateWindow(activationState);
 		window.Title = UserMessages.AppTitle;
+		window.Width = AppWindowDefaults.Width;
+		window.Height = AppWindowDefaults.Height;
+		window.MinimumWidth = AppWindowDefaults.MinimumWidth;
+		window.MinimumHeight = AppWindowDefaults.MinimumHeight;
 		return window;
 	}
 }

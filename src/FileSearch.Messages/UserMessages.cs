@@ -55,6 +55,8 @@ public static class UserMessages
 
     /// <summary>サイドバー・ツリー（メッセージ一覧 I-01〜I-05 相当）</summary>
     public const string SidebarTitleSearchResults = "検索結果";
+    /// <summary>サイドバー見出し（閲覧・未検索）。</summary>
+    public const string SidebarTitleFiles = "ファイル";
     /// <summary>検索ボックスのプレースホルダ。</summary>
     public const string SearchInputPlaceholder = "キーワードを入力…";
     /// <summary>検索ボタンのラベル。</summary>
@@ -128,8 +130,10 @@ public static class UserMessages
 
     /// <summary>メインエリア未選択時のタイトル</summary>
     public const string EmptyMainSelectFileTitle = "ファイルを選択";
+    /// <summary>メインエリア未選択時のヒント（対象フォルダ未設定）</summary>
+    public const string EmptyMainNoFoldersHint = "設定から検索対象フォルダを追加してください";
     /// <summary>メインエリア未選択時のヒント</summary>
-    public const string EmptyMainSelectFileHint = "左側のツリーからファイルをクリック";
+    public const string EmptyMainSelectFileHint = "左のツリーからファイルを選ぶとプレビューが表示されます";
 
     /// <summary>フッター：スキップログを開くボタンの title</summary>
     public static string SkippedLogOpenTooltip(string logFileName) =>

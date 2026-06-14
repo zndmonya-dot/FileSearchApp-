@@ -103,7 +103,20 @@ public partial class Home
         isLoadingFolderTree = false;
         _lastTreeSyncFilePath = null;
         _lastTreeSyncFolderPath = null;
+        TrySelectInitialBrowseFolder(built);
         await InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>閲覧モードで最初のルートフォルダを右ペインに表示する（GitHub の repo ルート相当）。</summary>
+    private void TrySelectInitialBrowseFolder(IReadOnlyList<TreeNode> roots)
+    {
+        if (_lastExecutedSearchQuery != null || selectedFile != null || selectedFolder != null || roots.Count == 0)
+            return;
+
+        var root = roots[0];
+        root.IsExpanded = true;
+        selectedFolder = root;
+        selectedFolderRowIndex = 0;
     }
 
     /// <summary>バックグラウンドのフォルダツリー読み込みを中断する（検索割り込み時）。</summary>
@@ -153,6 +166,8 @@ public partial class Home
         searchErrorMessage = null;
         isSearching = true;
         selectedFile = null;
+        selectedFolder = null;
+        selectedFolderRowIndex = -1;
         StateHasChanged();
         try
         {
