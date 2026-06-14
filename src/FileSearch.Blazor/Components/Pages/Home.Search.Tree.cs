@@ -7,6 +7,7 @@
 // =============================================================================
 using FileSearch.Messages;
 using FullTextSearch.Core;
+using FullTextSearch.Core.Index;
 using FullTextSearch.Core.Models;
 using FullTextSearch.Core.Preview;
 using FullTextSearch.Core.Search;
@@ -49,7 +50,7 @@ public partial class Home
         _lastSearchActivityUtc = DateTime.UtcNow;
         if (e.Key == "Enter" && !isIndexing)
             await ExecuteSearch();
-        if (e.Key == "Escape")
+        if (e.Key == "Escape" && !isIndexing)
         {
             searchQuery = string.Empty;
             searchErrorMessage = null;
@@ -193,7 +194,7 @@ public partial class Home
     /// <summary>フォルダの展開/折りたたみ。展開時はフォルダビューに切り替え。</summary>
     private void ToggleNode(TreeNode node)
     {
-        if (!node.IsFolder) return;
+        if (isIndexing || !node.IsFolder) return;
 
         var expanding = !node.IsExpanded;
         node.IsExpanded = expanding;
@@ -250,6 +251,56 @@ public partial class Home
 
         var extensions = GetBrowseExtensionSet();
         await Task.Run(() => TreeBuilder.LoadDirectFolderChildren(node, extensions));
+    }
+
+    /// <summary>ツリー上のフォルダノードを解決する（必要なら遅延読み込み）。</summary>
+    private async Task<TreeNode?> ResolveFolderNodeAsync(string folderPath)
+    {
+        var normalized = IndexPaths.NormalizeFolderPath(folderPath).TrimEnd('\\', '/');
+        TreeBuilder.ExpandPathToFolder(treeNodes, normalized);
+
+        var found = TreeBuilder.FindFolderNode(treeNodes, normalized);
+        if (found != null)
+        {
+            if (!found.FolderChildrenLoaded)
+                await EnsureFolderChildrenLoadedAsync(found);
+            return found;
+        }
+
+        if (_lastExecutedSearchQuery != null)
+            return null;
+
+        foreach (var root in treeNodes)
+        {
+            var rootPath = IndexPaths.NormalizeFolderPath(root.FullPath).TrimEnd('\\', '/');
+            if (!normalized.Equals(rootPath, StringComparison.OrdinalIgnoreCase)
+                && !normalized.StartsWith(rootPath + "\\", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var current = root;
+            while (true)
+            {
+                var currentPath = IndexPaths.NormalizeFolderPath(current.FullPath).TrimEnd('\\', '/');
+                if (!current.FolderChildrenLoaded)
+                    await EnsureFolderChildrenLoadedAsync(current);
+
+                if (normalized.Equals(currentPath, StringComparison.OrdinalIgnoreCase))
+                    return current;
+
+                if (!normalized.StartsWith(currentPath + "\\", StringComparison.OrdinalIgnoreCase))
+                    break;
+
+                var relative = normalized[(currentPath.Length + 1)..];
+                var nextName = relative.Contains('\\') ? relative[..relative.IndexOf('\\')] : relative;
+                var child = current.Children?.FirstOrDefault(c => c.IsFolder
+                    && c.Name.Equals(nextName, StringComparison.OrdinalIgnoreCase));
+                if (child == null)
+                    break;
+                current = child;
+            }
+        }
+
+        return TreeBuilder.FindFolderNode(treeNodes, normalized);
     }
 
     /// <summary>インデックス対象と同じ拡張子集合（個人設定の TargetExtensions を反映）。</summary>
@@ -332,6 +383,7 @@ public partial class Home
     /// <summary>ファイル選択。ツリー展開・全ファイルフラットリスト・プレビュー読み込みを連動。</summary>
     private void SelectFile(TreeNode node)
     {
+        if (isIndexing) return;
         if (node.IsFolder || string.IsNullOrEmpty(node.FilePath))
             return;
 
@@ -352,6 +404,7 @@ public partial class Home
     /// <summary>フォルダなら階層に入る。ファイルなら SelectFile。</summary>
     private void OnFolderItemClick(TreeNode item)
     {
+        if (isIndexing) return;
         if (item.IsFolder)
         {
             var generation = Interlocked.Increment(ref _folderNavigationGeneration);
@@ -389,7 +442,7 @@ public partial class Home
     /// <summary>「親フォルダへ」。親を展開して一覧の選択行を子フォルダに合わせる。</summary>
     private void GoToParentFolder()
     {
-        if (selectedFolder?.Parent == null) return;
+        if (isIndexing || selectedFolder?.Parent == null) return;
         var fromChild = selectedFolder;
         var parent = selectedFolder.Parent;
         parent.IsExpanded = true;
@@ -398,6 +451,17 @@ public partial class Home
         var list = GetSortedAndFilteredItems(parent.Children ?? new List<TreeNode>()).ToList();
         selectedFolderRowIndex = list.IndexOf(fromChild);
         if (selectedFolderRowIndex < 0) selectedFolderRowIndex = 0;
+        StateHasChanged();
+    }
+
+    /// <summary>パンくずから任意の祖先フォルダへ移動。</summary>
+    private void NavigateToFolder(TreeNode folder)
+    {
+        if (isIndexing || folder == null || !folder.IsFolder || folder == selectedFolder) return;
+        folder.IsExpanded = true;
+        selectedFile = null;
+        selectedFolder = folder;
+        selectedFolderRowIndex = 0;
         StateHasChanged();
     }
 }

@@ -1,0 +1,45 @@
+@namespace FileSearch.Blazor.Components.Shared
+@*
+  やわらかい3ドットローダー（初回フォルダスケルトン以外）。
+  ドット上・ラベル下の縦並び。Size: sm / md / lg
+*@
+@if (Decorative)
+{
+    <div class="@CssClass" aria-hidden="true">
+        <div class="cute-loader__dots">
+            <span class="cute-loader__dot"></span>
+            <span class="cute-loader__dot"></span>
+            <span class="cute-loader__dot"></span>
+        </div>
+    </div>
+}
+else
+{
+    <div class="@CssClass" role="status" aria-label="@EffectiveLabel">
+        <div class="cute-loader__dots">
+            <span class="cute-loader__dot"></span>
+            <span class="cute-loader__dot"></span>
+            <span class="cute-loader__dot"></span>
+        </div>
+        @if (ShowLabel && !string.IsNullOrEmpty(Label))
+        {
+            <span class="cute-loader__label">@Label</span>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public string Size { get; set; } = "md";
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public bool ShowLabel { get; set; } = true;
+    [Parameter] public bool Decorative { get; set; }
+
+    private string CssClass => Size?.ToLowerInvariant() switch
+    {
+        "sm" => "cute-loader cute-loader--sm",
+        "lg" => "cute-loader cute-loader--lg",
+        _ => "cute-loader cute-loader--md"
+    };
+
+    private string? EffectiveLabel => Label ?? UserMessages.PreviewLoading;
+}

@@ -10,7 +10,13 @@ namespace FileSearch.Blazor.Components.Pages;
 public partial class Home
 {
     /// <summary>サイドバー右端ドラッグ開始。</summary>
-    private void StartResize(MouseEventArgs e) { isResizing = true; resizeStartX = e.ClientX; resizeStartWidth = sidebarWidth; }
+    private void StartResize(MouseEventArgs e)
+    {
+        if (isIndexing) return;
+        isResizing = true;
+        resizeStartX = e.ClientX;
+        resizeStartWidth = sidebarWidth;
+    }
 
     /// <summary>幅を 240〜600px にクランプ。</summary>
     private void OnResize(MouseEventArgs e)

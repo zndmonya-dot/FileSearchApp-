@@ -1,40 +1,62 @@
 @namespace FileSearch.Blazor.Components.Shared
 @*
-  選択フォルダ配下の子一覧テーブル（ソート・拡張子フィルター・行選択・親へ移動）。
+  選択フォルダ配下の子一覧（GitHub リポジトリブラウザ風: パンくず + 名前/更新日時/サイズ）。
 *@
 @using FileSearch.Blazor.Components.Shared
 @using Microsoft.AspNetCore.Components.Web
 @using Microsoft.AspNetCore.Components
 @if (SelectedFolder != null)
 {
-<div class="file-box">
-    <div class="file-header">
-        <span class="file-icon folder">
-            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M.513 1.513A1.75 1.75 0 0 1 1.75 1h3.5c.55 0 1.07.26 1.4.7l.9 1.2a.25.25 0 0 0 .2.1H13a1 1 0 0 1 1 1v.5H2.75a.75.75 0 0 0 0 1.5h11.978a1 1 0 0 1 .994 1.117L15 13.25A1.75 1.75 0 0 1 13.25 15H1.75A1.75 1.75 0 0 1 0 13.25V2.75c0-.464.184-.91.513-1.237Z"/></svg>
-        </span>
-        <div class="file-info">
-            <span class="file-name">@SelectedFolder.Name</span>
-            @if (!string.IsNullOrEmpty(SelectedFolder.FullPath))
+<div class="file-box folder-browser">
+    <div class="folder-browser-header">
+        <nav class="folder-breadcrumb" aria-label="@UserMessages.FolderListBreadcrumbLabel">
+            @foreach (var (segment, index) in GetBreadcrumb().Select((s, i) => (s, i)))
             {
-                <span class="file-path-breadcrumb" title="@SelectedFolder.FullPath">@SelectedFolder.FullPath</span>
-            }
-        </div>
-        <div class="file-meta">
-            <span class="file-meta-item">@UserMessages.FormatChildCount(SelectedFolder.Children?.Count ?? 0)</span>
-        </div>
-        <div class="file-actions">
-            @if (SelectedFolder.Parent != null)
-            {
-                <div class="btn-group">
-                    <button class="action-btn" @onclick="OnGoToParent" title="@UserMessages.FolderListGoParentTitle">
-                        <svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16"><path d="M4.22 10.5L8 6.72l3.78 3.78a.75.75 0 1 1-1.06 1.06L8 8.845 5.28 11.56a.75.75 0 1 1-1.06-1.06z"/></svg>
-                        <span>@UserMessages.FolderListGoParent</span>
+                @if (index > 0)
+                {
+                    <span class="folder-breadcrumb-sep" aria-hidden="true">/</span>
+                }
+                @if (segment == SelectedFolder)
+                {
+                    <span class="folder-breadcrumb-current" title="@segment.FullPath">@segment.Name</span>
+                }
+                else
+                {
+                    <button type="button"
+                            class="folder-breadcrumb-link"
+                            title="@segment.FullPath"
+                            @onclick="() => OnNavigateToFolder.InvokeAsync(segment)">
+                        @segment.Name
                     </button>
-                </div>
+                }
             }
+        </nav>
+        <div class="folder-browser-toolbar">
+            <span class="folder-browser-count">@UserMessages.FormatChildCount(SelectedFolder.Children?.Count ?? 0)</span>
+            <div class="filter-dropdown">
+                <button class="filter-btn @(string.IsNullOrEmpty(FilterType) ? "" : "active")"
+                        @onclick="OnToggleFilterMenu"
+                        @onclick:stopPropagation="true"
+                        title="@UserMessages.FilterTitle">
+                    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M.75 3h14.5a.75.75 0 0 1 0 1.5H.75a.75.75 0 0 1 0-1.5ZM3 7.75A.75.75 0 0 1 3.75 7h8.5a.75.75 0 0 1 0 1.5h-8.5A.75.75 0 0 1 3 7.75Zm3 4a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1-.75-.75Z"/></svg>
+                </button>
+                @if (ShowFilterMenu && SelectedFolder.Children != null)
+                {
+                    <div class="filter-menu" @onclick:stopPropagation="true">
+                        <div class="filter-option @(FilterType == "" ? "selected" : "")" @onclick='() => OnFilter.InvokeAsync("")'>@UserMessages.FilterAll</div>
+                        @if (SelectedFolder.Children.Any(c => c.IsFolder))
+                        {
+                            <div class="filter-option @(FilterType == "folder" ? "selected" : "")" @onclick='() => OnFilter.InvokeAsync("folder")'>@UserMessages.KindFolder</div>
+                        }
+                        @foreach (var ext in GetUniqueExtensions(SelectedFolder.Children))
+                        {
+                            <div class="filter-option @(FilterType == ext ? "selected" : "")" @onclick="() => OnFilter.InvokeAsync(ext)">@ext.ToUpperInvariant()</div>
+                        }
+                    </div>
+                }
+            </div>
         </div>
     </div>
-    @* M-08 フォルダ内ファイル一覧（ソート・拡張子フィルター対応） *@
     <div id="folder-list" class="folder-list">
         <table class="folder-table">
             <thead>
@@ -45,35 +67,22 @@
                     <th class="col-date sortable @(SortColumn == "date" ? "sorted" : "")" @onclick='() => OnSort.InvokeAsync("date")'>
                         @UserMessages.ColumnDate @GetSortIcon("date")
                     </th>
-                    <th class="col-type sortable @(SortColumn == "type" ? "sorted" : "")">
-                        <span @onclick='() => OnSort.InvokeAsync("type")'>@UserMessages.ColumnExtension @GetSortIcon("type")</span>
-                        <div class="filter-dropdown">
-                            <button class="filter-btn @(string.IsNullOrEmpty(FilterType) ? "" : "active")" @onclick="OnToggleFilterMenu" @onclick:stopPropagation="true" title="@UserMessages.FilterTitle">
-                                <svg viewBox="0 0 16 16" fill="currentColor"><path d="M.75 3h14.5a.75.75 0 0 1 0 1.5H.75a.75.75 0 0 1 0-1.5ZM3 7.75A.75.75 0 0 1 3.75 7h8.5a.75.75 0 0 1 0 1.5h-8.5A.75.75 0 0 1 3 7.75Zm3 4a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1-.75-.75Z"/></svg>
-                            </button>
-                            @if (ShowFilterMenu && SelectedFolder?.Children != null)
-                            {
-                                <div class="filter-menu" @onclick:stopPropagation="true">
-                                    <div class="filter-option @(FilterType == "" ? "selected" : "")" @onclick='() => OnFilter.InvokeAsync("")'>@UserMessages.FilterAll</div>
-                                    @if (SelectedFolder.Children.Any(c => c.IsFolder))
-                                    {
-                                        <div class="filter-option @(FilterType == "folder" ? "selected" : "")" @onclick='() => OnFilter.InvokeAsync("folder")'>@UserMessages.KindFolder</div>
-                                    }
-                                    @foreach (var ext in GetUniqueExtensions(SelectedFolder.Children))
-                                    {
-                                        <div class="filter-option @(FilterType == ext ? "selected" : "")" @onclick="() => OnFilter.InvokeAsync(ext)">@ext.ToUpperInvariant()</div>
-                                    }
-                                </div>
-                            }
-                        </div>
-                    </th>
                     <th class="col-size sortable @(SortColumn == "size" ? "sorted" : "")" @onclick='() => OnSort.InvokeAsync("size")'>
                         @UserMessages.ColumnSize @GetSortIcon("size")
                     </th>
                 </tr>
             </thead>
             <tbody>
-                @if (SelectedFolder!.Children != null)
+                @if (SelectedFolder.Parent != null)
+                {
+                    <tr class="folder-row folder-row-parent" @onclick="OnGoToParent" title="@UserMessages.FolderListGoParentTitle">
+                        <td class="col-name" colspan="3">
+                            <svg class="item-icon folder" viewBox="0 0 16 16" fill="currentColor"><path d="M.513 1.513A1.75 1.75 0 0 1 1.75 1h3.5c.55 0 1.07.26 1.4.7l.9 1.2a.25.25 0 0 0 .2.1H13a1 1 0 0 1 1 1v.5H2.75a.75.75 0 0 0 0 1.5h11.978a1 1 0 0 1 .994 1.117L15 13.25A1.75 1.75 0 0 1 13.25 15H1.75A1.75 1.75 0 0 1 0 13.25V2.75c0-.464.184-.91.513-1.237Z"/></svg>
+                            <span class="item-name item-name-parent">@UserMessages.FolderListParentDir</span>
+                        </td>
+                    </tr>
+                }
+                @if (SelectedFolder.Children != null)
                 {
                     var folderListItems = SortedAndFilteredItems.ToList();
                     @for (var i = 0; i < folderListItems.Count; i++)
@@ -92,7 +101,6 @@
                                 <span class="item-name">@item.Name</span>
                             </td>
                             <td class="col-date">@(item.LastModified.HasValue ? DisplayFormatters.FormatDate(item.LastModified.Value) : "-")</td>
-                            <td class="col-type">@(item.IsFolder ? UserMessages.KindFolder : Path.GetExtension(item.Name).ToUpperInvariant())</td>
                             <td class="col-size">@(item.IsFolder ? "-" : DisplayFormatters.FormatSize(item.FileSize))</td>
                         </tr>
                     }
@@ -104,33 +112,28 @@
 }
 
 @code {
-    /// <summary>表示対象のフォルダ（子がテーブル行になる）。</summary>
     [Parameter] public TreeNode? SelectedFolder { get; set; }
-    /// <summary>親でソート・フィルター済みの子ノード列。</summary>
     [Parameter] public IEnumerable<TreeNode> SortedAndFilteredItems { get; set; } = Enumerable.Empty<TreeNode>();
-    /// <summary>ソート列キー（name / date / type / size）。</summary>
     [Parameter] public string SortColumn { get; set; } = "name";
-    /// <summary>昇順ソートか。</summary>
     [Parameter] public bool SortAscending { get; set; } = true;
-    /// <summary>拡張子フィルター（空は全件、folder はフォルダのみ）。</summary>
     [Parameter] public string FilterType { get; set; } = "";
-    /// <summary>拡張子ドロップダウンの表示状態。</summary>
     [Parameter] public bool ShowFilterMenu { get; set; }
-    /// <summary>キーボード/クリックで選択中の行インデックス。</summary>
     [Parameter] public int SelectedRowIndex { get; set; }
-    /// <summary>列ヘッダクリックでソート列を変更。</summary>
     [Parameter] public EventCallback<string> OnSort { get; set; }
-    /// <summary>フィルターメニュー開閉。</summary>
     [Parameter] public EventCallback OnToggleFilterMenu { get; set; }
-    /// <summary>フィルター種別の変更。</summary>
     [Parameter] public EventCallback<string> OnFilter { get; set; }
-    /// <summary>行クリックで子フォルダへ潜る or ファイル選択。</summary>
     [Parameter] public EventCallback<TreeNode> OnRowClick { get; set; }
-    /// <summary>親フォルダへ移動ボタン。</summary>
     [Parameter] public EventCallback OnGoToParent { get; set; }
-    /// <summary>列名に応じたソート方向アイコン（MarkupString）。</summary>
+    [Parameter] public EventCallback<TreeNode> OnNavigateToFolder { get; set; }
     [Parameter] public Func<string, MarkupString> GetSortIcon { get; set; } = _ => (MarkupString)"";
-    /// <summary>子一覧からユニークな拡張子一覧を列挙（フィルター用）。</summary>
     [Parameter] public Func<List<TreeNode>, IEnumerable<string>> GetUniqueExtensions { get; set; } = _ => Enumerable.Empty<string>();
 
+    private List<TreeNode> GetBreadcrumb()
+    {
+        var list = new List<TreeNode>();
+        for (var node = SelectedFolder; node != null; node = node.Parent)
+            list.Add(node);
+        list.Reverse();
+        return list;
+    }
 }

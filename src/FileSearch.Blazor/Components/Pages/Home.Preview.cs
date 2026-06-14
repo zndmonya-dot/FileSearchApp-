@@ -4,7 +4,10 @@
 // 役割: プレビューのデバウンス読み込み、ハイライト行の前後（JS 連携）、既定アプリでファイル/フォルダを開く。
 // =============================================================================
 using System.Diagnostics;
+using FileSearch.Blazor.Components.Shared;
+using FileSearch.Blazor.Services;
 using FileSearch.Messages;
+using FullTextSearch.Core.Index;
 using FullTextSearch.Core.Models;
 using Microsoft.AspNetCore.Components;
 namespace FileSearch.Blazor.Components.Pages;
@@ -172,6 +175,53 @@ public partial class Home
     {
         if (selectedFile != null)
             Process.Start(new ProcessStartInfo { FileName = "explorer.exe", Arguments = $"/select,\"{selectedFile.FilePath}\"", UseShellExecute = true });
+    }
+
+    /// <summary>プレビューヘッダーのパンくず用セグメント。</summary>
+    private IReadOnlyList<(string FullPath, string DisplayName)> GetPreviewFolderPathSegments()
+    {
+        if (selectedFile == null || string.IsNullOrWhiteSpace(selectedFile.FolderPath))
+            return Array.Empty<(string, string)>();
+        return TreeBuilder.GetFolderPathSegments(selectedFile.FolderPath, SettingsService.Settings.TargetFolders);
+    }
+
+    /// <summary>プレビュー中のパスクリックでフォルダ一覧へ戻る。</summary>
+    private async Task NavigateToFolderFromPreview(string folderPath)
+    {
+        if (isIndexing || string.IsNullOrWhiteSpace(folderPath))
+            return;
+
+        var normalized = IndexPaths.NormalizeFolderPath(folderPath).TrimEnd('\\', '/');
+        var currentFile = selectedFile;
+        var folderNode = await ResolveFolderNodeAsync(normalized);
+        if (folderNode == null)
+            return;
+
+        Interlocked.Increment(ref _folderNavigationGeneration);
+        folderNode.IsExpanded = true;
+        TreeBuilder.ExpandPathToFolder(treeNodes, normalized);
+
+        selectedFile = null;
+        _previewCts?.Cancel();
+        selectedFolder = folderNode;
+
+        var list = GetSortedAndFilteredItems(folderNode.Children ?? new List<TreeNode>()).ToList();
+        if (currentFile != null
+            && string.Equals(
+                normalized,
+                IndexPaths.NormalizeFolderPath(currentFile.FolderPath).TrimEnd('\\', '/'),
+                StringComparison.OrdinalIgnoreCase))
+        {
+            var idx = list.FindIndex(n => !n.IsFolder
+                && string.Equals(n.FilePath, currentFile.FilePath, StringComparison.OrdinalIgnoreCase));
+            selectedFolderRowIndex = idx >= 0 ? idx : 0;
+        }
+        else
+        {
+            selectedFolderRowIndex = 0;
+        }
+
+        StateHasChanged();
     }
 }
 

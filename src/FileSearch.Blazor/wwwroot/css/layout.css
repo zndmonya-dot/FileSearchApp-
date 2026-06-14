@@ -71,6 +71,20 @@
     height: 18px;
 }
 
+.header-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.header-btn:disabled:hover {
+    background: transparent;
+}
+
+.app.light .header-btn:disabled:hover {
+    background: transparent;
+}
+
 /* ===== Main Container ===== */
 .app-container {
     flex: 1;
@@ -87,3 +101,9 @@
  */
 .sidebar { zoom: var(--zoom-sidebar, 1); }
 .main-content { zoom: var(--zoom-main, 1); }
+
+/* インデックス再構築中: 右メイン領域の操作を無効化 */
+.main-content--locked {
+    pointer-events: none;
+    user-select: none;
+}

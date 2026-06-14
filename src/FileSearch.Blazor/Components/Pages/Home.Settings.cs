@@ -23,6 +23,7 @@ public partial class Home
     /// <summary>現在の設定を編集用状態にコピーしてモーダルを開く。</summary>
     private void OpenSettings()
     {
+        if (isIndexing) return;
         _settingsEdit.TargetFolders = SettingsService.Settings.TargetFolders.ToList();
         _settingsEdit.IndexPath = SettingsService.Settings.IndexPath;
         _settingsEdit.TargetExtensions = SettingsService.Settings.TargetExtensions.ToList();

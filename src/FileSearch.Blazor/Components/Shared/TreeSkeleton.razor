@@ -1,0 +1,23 @@
+@namespace FileSearch.Blazor.Components.Shared
+@* 初回フォルダ読み込み用ツリースケルトン *@
+<div class="folder-tree-skeleton" aria-hidden="true">
+    @foreach (var row in Rows)
+    {
+        <div class="skeleton-row" style="padding-left: @(row.Indent)px">
+            <span class="skeleton-icon @(row.IsFile ? "skeleton-icon-file" : null)"></span>
+            <span class="skeleton-line" style="width: @row.Width"></span>
+        </div>
+    }
+</div>
+
+@code {
+    private static readonly (int Indent, string Width, bool IsFile)[] Rows =
+    [
+        (8, "58%", false),
+        (24, "72%", false),
+        (40, "48%", true),
+        (40, "64%", true),
+        (24, "52%", false),
+        (40, "44%", true),
+    ];
+}

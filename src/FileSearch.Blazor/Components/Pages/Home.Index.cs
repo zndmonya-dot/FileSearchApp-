@@ -112,6 +112,8 @@ public partial class Home
         indexErrorMessage = null;
         indexSkipCount = 0;
         isIndexing = true;
+        showSettings = false;
+        _showRebuildConfirm = false;
         indexProgressPercent = 0;
         indexProgressText = initialMessage;
         _indexCts?.Dispose();

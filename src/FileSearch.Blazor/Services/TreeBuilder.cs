@@ -294,6 +294,93 @@ public static class TreeBuilder
         return false;
     }
 
+    /// <summary>パンくず表示用にフォルダパスをルートからのセグメント列に分解する。anchorFolders があれば最も近い対象ルートから表示する。</summary>
+    public static IReadOnlyList<(string FullPath, string DisplayName)> GetFolderPathSegments(
+        string folderPath,
+        IReadOnlyList<string>? anchorFolders = null)
+    {
+        if (string.IsNullOrWhiteSpace(folderPath))
+            return Array.Empty<(string, string)>();
+
+        try
+        {
+            var stack = new Stack<(string FullPath, string DisplayName)>();
+            for (var dir = new DirectoryInfo(IndexPaths.NormalizeFolderPath(folderPath)); dir != null; dir = dir.Parent)
+            {
+                var full = IndexPaths.NormalizeFolderPath(dir.FullName).TrimEnd('\\', '/');
+                stack.Push((full, GetFolderDisplayName(dir.FullName)));
+            }
+
+            var segments = stack.ToList();
+            if (anchorFolders is { Count: > 0 })
+            {
+                var folderNorm = IndexPaths.NormalizeFolderPath(folderPath).TrimEnd('\\', '/');
+                var anchor = anchorFolders
+                    .Select(f => IndexPaths.NormalizeFolderPath(f).TrimEnd('\\', '/'))
+                    .Where(a => folderNorm.Equals(a, StringComparison.OrdinalIgnoreCase)
+                        || folderNorm.StartsWith(a + "\\", StringComparison.OrdinalIgnoreCase))
+                    .OrderByDescending(a => a.Length)
+                    .FirstOrDefault();
+                if (anchor != null)
+                {
+                    var idx = segments.FindIndex(s => s.FullPath.Equals(anchor, StringComparison.OrdinalIgnoreCase));
+                    if (idx >= 0)
+                        segments = segments.Skip(idx).ToList();
+                }
+            }
+
+            return segments;
+        }
+        catch
+        {
+            return Array.Empty<(string, string)>();
+        }
+    }
+
+    /// <summary>ツリーから指定フォルダパスに一致するフォルダノードを探す。</summary>
+    public static TreeNode? FindFolderNode(IReadOnlyList<TreeNode> roots, string folderPath)
+    {
+        if (roots == null || string.IsNullOrWhiteSpace(folderPath))
+            return null;
+
+        var target = IndexPaths.NormalizeFolderPath(folderPath).TrimEnd('\\', '/');
+        foreach (var root in roots)
+        {
+            var found = FindFolderNodeRec(root, target);
+            if (found != null)
+                return found;
+        }
+
+        return null;
+    }
+
+    private static TreeNode? FindFolderNodeRec(TreeNode node, string target)
+    {
+        if (!node.IsFolder)
+            return null;
+
+        var nodePath = IndexPaths.NormalizeFolderPath(node.FullPath).TrimEnd('\\', '/');
+        if (string.Equals(nodePath, target, StringComparison.OrdinalIgnoreCase))
+            return node;
+
+        foreach (var child in node.Children ?? Enumerable.Empty<TreeNode>())
+        {
+            if (!child.IsFolder)
+                continue;
+
+            var childPath = IndexPaths.NormalizeFolderPath(child.FullPath).TrimEnd('\\', '/');
+            if (target.Equals(childPath, StringComparison.OrdinalIgnoreCase)
+                || target.StartsWith(childPath + "\\", StringComparison.OrdinalIgnoreCase))
+            {
+                var found = FindFolderNodeRec(child, target);
+                if (found != null)
+                    return found;
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>指定ファイルへ至るフォルダをすべて展開する（プレビュー中ファイルが閉じたフォルダ内にあっても行が表示されるように）。1つでも展開したら true。</summary>
     public static bool ExpandPathToFile(List<TreeNode> roots, string filePath)
     {

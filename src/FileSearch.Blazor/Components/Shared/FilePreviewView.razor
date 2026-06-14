@@ -15,7 +15,24 @@
         </span>
         <div class="file-info">
             <span class="file-name">@SelectedFile.FileName</span>
-            <span class="file-path-breadcrumb" title="@SelectedFile.FolderPath">@SelectedFile.FolderPath</span>
+            @if (FolderPathSegments.Count > 0)
+            {
+                <nav class="folder-breadcrumb file-path-breadcrumb-nav" aria-label="@UserMessages.PreviewFolderPathLabel">
+                    @foreach (var (segment, index) in FolderPathSegments.Select((s, i) => (s, i)))
+                    {
+                        @if (index > 0)
+                        {
+                            <span class="folder-breadcrumb-sep" aria-hidden="true">/</span>
+                        }
+                        <button type="button"
+                                class="folder-breadcrumb-link"
+                                title="@segment.FullPath"
+                                @onclick="() => OnNavigateToFolderPath.InvokeAsync(segment.FullPath)">
+                            @segment.DisplayName
+                        </button>
+                    }
+                </nav>
+            }
         </div>
         <div class="preview-toolbar">
             @if (ShowNavButtons)
@@ -43,9 +60,8 @@
     </div>
 
     <div class="preview-zoom-wrap @(IsLoadingPreview ? "is-rendering" : null)">
-        <div class="loading-state" style="@(IsLoadingPreview ? null : "display:none")">
-            <div class="spinner-ring large"></div>
-            <span class="loading-state-text">@UserMessages.PreviewLoading</span>
+        <div class="loading-state loading-state-cute" style="@(IsLoadingPreview ? null : "display:none")" aria-busy="@IsLoadingPreview" aria-live="polite">
+            <CuteLoader Size="lg" Label="@UserMessages.PreviewLoading" />
         </div>
         <div class="code-view" id="preview-code-view"></div>
     </div>
@@ -54,6 +70,7 @@
 
 @code {
     [Parameter] public SearchResultItem? SelectedFile { get; set; }
+    [Parameter] public IReadOnlyList<(string FullPath, string DisplayName)> FolderPathSegments { get; set; } = Array.Empty<(string, string)>();
     [Parameter] public bool IsLoadingPreview { get; set; }
     [Parameter] public PreviewResult? Preview { get; set; }
     [Parameter] public bool ShowNavButtons { get; set; }
@@ -61,6 +78,7 @@
     [Parameter] public EventCallback OnGoNext { get; set; }
     [Parameter] public EventCallback OnOpenFile { get; set; }
     [Parameter] public EventCallback OnOpenFolder { get; set; }
+    [Parameter] public EventCallback<string> OnNavigateToFolderPath { get; set; }
     [Parameter] public Func<string, string>? GetFileIconClass { get; set; }
     [Parameter] public EventCallback<string?> OnPreviewRendered { get; set; }
 

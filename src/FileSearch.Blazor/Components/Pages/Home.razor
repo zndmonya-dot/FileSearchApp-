@@ -20,7 +20,7 @@
 @inject IEnumerable<ITextExtractor> TextExtractors
 
 <div class="app @(isDarkMode ? "dark" : "light")">
-    <AppHeader OnOpenSettings="OpenSettings" />
+    <AppHeader OnOpenSettings="OpenSettings" IsIndexing="isIndexing" />
 
     <div class="app-container">
         <SearchSidebar SidebarWidth="sidebarWidth"
@@ -58,10 +58,11 @@
                       OnOpenSkippedLog="OpenSkippedLog" />
 
         @* M-07 右メイン領域（プレビュー優先 → フォルダ一覧 → 空状態） *@
-        <main class="main-content">
+        <main class="main-content @(isIndexing ? "main-content--locked" : null)">
             @if (selectedFile != null)
             {
                 <FilePreviewView SelectedFile="selectedFile"
+                                 FolderPathSegments="@GetPreviewFolderPathSegments()"
                                  IsLoadingPreview="isLoadingPreview"
                                  Preview="_previewResult"
                                  ShowNavButtons="ShowNavButtons"
@@ -70,6 +71,7 @@
                                  OnGoNext="GoNext"
                                  OnOpenFile="OpenFile"
                                  OnOpenFolder="OpenFolder"
+                                 OnNavigateToFolderPath="NavigateToFolderFromPreview"
                                  GetFileIconClass="DisplayFormatters.GetFileIconClass" />
             }
             else if (selectedFolder != null)
@@ -86,6 +88,7 @@
                                OnFilter="SetFilter"
                                OnRowClick="OnFolderRowClick"
                                OnGoToParent="GoToParentFolder"
+                               OnNavigateToFolder="NavigateToFolder"
                                GetSortIcon="GetSortIcon"
                                GetUniqueExtensions="GetUniqueExtensions" />
             }
@@ -107,7 +110,7 @@
                        OnConfirm="ConfirmIndexUpdateAsync"
                        OnCancel="CancelRebuildConfirm" />
 
-    <SettingsModal Visible="showSettings"
+    <SettingsModal Visible="showSettings && !isIndexing"
                    State="_settingsEdit"
                    IsAdmin="isAdmin"
                    AvailableExtensions="BuildAvailableExtensions()"

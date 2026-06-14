@@ -56,7 +56,7 @@ public static class UserMessages
     /// <summary>サイドバー・ツリー（メッセージ一覧 I-01〜I-05 相当）</summary>
     public const string SidebarTitleSearchResults = "検索結果";
     /// <summary>検索ボックスのプレースホルダ。</summary>
-    public const string SearchInputPlaceholder = "検索キーワードを入力";
+    public const string SearchInputPlaceholder = "キーワードを入力…";
     /// <summary>検索ボタンのラベル。</summary>
     public const string SearchButtonLabel = "検索";
     /// <summary>検索ボタンのツールチップ。</summary>
@@ -270,6 +270,12 @@ public static class UserMessages
     public const string FolderListGoParentTitle = "親フォルダへ戻る";
     /// <summary>親フォルダへラベル</summary>
     public const string FolderListGoParent = "親フォルダへ";
+    /// <summary>パンくずナビの aria-label</summary>
+    public const string FolderListBreadcrumbLabel = "フォルダの場所";
+    /// <summary>プレビュー中ファイルのパンくず aria-label</summary>
+    public const string PreviewFolderPathLabel = "ファイルの場所";
+    /// <summary>親ディレクトリ行（..）</summary>
+    public const string FolderListParentDir = "..";
     /// <summary>列：名前</summary>
     public const string ColumnName = "名前";
     /// <summary>列：更新日時</summary>
