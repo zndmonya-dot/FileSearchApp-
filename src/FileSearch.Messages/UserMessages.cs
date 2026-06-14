@@ -121,13 +121,6 @@ public static class UserMessages
             ? $"{processed:N0} / {total:N0} {countUnit}（スキップ {skipCount:N0} 件）"
             : $"{processed:N0} / {total:N0} {countUnit}";
 
-    /// <summary>ハイライトナビ：JS から返る行番号付き</summary>
-    public static string FormatHighlightNavWithLine(int lineNum, int current, int total) =>
-        $"{lineNum} 行目 ({current}/{total})";
-
-    /// <summary>ハイライト位置のみ（current/total）。</summary>
-    public static string FormatHighlightNavCountsOnly(int current, int total) => $"{current}/{total}";
-
     /// <summary>メインエリア未選択時のヒント（対象フォルダ未設定）</summary>
     public const string EmptyMainNoFoldersHint = "設定から検索対象フォルダを追加してください";
 
@@ -238,8 +231,6 @@ public static class UserMessages
     /// <summary>実行</summary>
     public const string Execute = "実行";
 
-    /// <summary>プレビュー：行数表示</summary>
-    public static string FormatLineCount(int lines) => $"{lines} 行";
     /// <summary>フォルダ一覧：子件数</summary>
     public static string FormatChildCount(int count) => $"{count} 件";
     /// <summary>ハイライト前へボタン title</summary>
@@ -250,12 +241,6 @@ public static class UserMessages
     public const string PreviewNavGroupLabel = "検索一致の移動";
     /// <summary>プレビューツールバー・ファイル操作グループ aria-label</summary>
     public const string PreviewOpenGroupLabel = "ファイル操作";
-    /// <summary>ナビ位置の title</summary>
-    public const string PreviewNavPositionTitle = "現在位置";
-    /// <summary>前へ</summary>
-    public const string Prev = "前へ";
-    /// <summary>次へ</summary>
-    public const string Next = "次へ";
     /// <summary>ファイルを開く</summary>
     public const string OpenFile = "開く";
     /// <summary>フォルダを開く（短縮）</summary>
@@ -266,10 +251,6 @@ public static class UserMessages
     public const string OpenFolderTitle = "フォルダを開く";
     /// <summary>プレビュー読み込み中</summary>
     public const string PreviewLoading = "読み込み中...";
-    /// <summary>親フォルダへ title</summary>
-    public const string FolderListGoParentTitle = "親フォルダへ戻る";
-    /// <summary>親フォルダへラベル</summary>
-    public const string FolderListGoParent = "親フォルダへ";
     /// <summary>パンくずナビの aria-label</summary>
     public const string FolderListBreadcrumbLabel = "フォルダの場所";
     /// <summary>プレビュー中ファイルのパンくず aria-label</summary>
@@ -282,8 +263,6 @@ public static class UserMessages
     public const string ColumnResizeHandleTitle = "ドラッグして列幅を変更";
     /// <summary>列：更新日時</summary>
     public const string ColumnDate = "更新日時";
-    /// <summary>列：拡張子</summary>
-    public const string ColumnExtension = "拡張子";
     /// <summary>フィルターボタン title</summary>
     public const string FilterTitle = "フィルター";
     /// <summary>フィルター：すべて</summary>

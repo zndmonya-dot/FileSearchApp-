@@ -405,22 +405,6 @@ public partial class Home
         selectedFolderRowIndex = 0;
     }
 
-    /// <summary>フィルタードロップダウン用の拡張子一覧（重複除去・ソート）。</summary>
-    private IEnumerable<string> GetUniqueExtensions(List<TreeNode> items) => items
-        .Where(i => !i.IsFolder && !string.IsNullOrEmpty(Path.GetExtension(i.Name)))
-        .Select(i => Path.GetExtension(i.Name).ToLowerInvariant())
-        .Distinct()
-        .OrderBy(e => e);
-
-    /// <summary>ソート中の列に矢印 SVG を返す。</summary>
-    private MarkupString GetSortIcon(string column)
-    {
-        if (sortColumn != column) return new MarkupString("");
-        return new MarkupString(sortAscending
-            ? "<svg class='sort-icon' viewBox='0 0 16 16' fill='currentColor'><path d='m4.427 7.427 3.396 3.396a.25.25 0 0 0 .354 0l3.396-3.396A.25.25 0 0 0 11.396 7H4.604a.25.25 0 0 0-.177.427Z'/></svg>"
-            : "<svg class='sort-icon' viewBox='0 0 16 16' fill='currentColor'><path d='m4.427 9.573 3.396-3.396a.25.25 0 0 1 .354 0l3.396 3.396a.25.25 0 0 1-.177.427H4.604a.25.25 0 0 1-.177-.427Z'/></svg>");
-    }
-
     /// <summary>現在の filterType / sortColumn に応じて子ノードを並べ替え。</summary>
     private IEnumerable<TreeNode> GetSortedAndFilteredItems(List<TreeNode> items)
     {
@@ -435,7 +419,6 @@ public partial class Home
             "name" => sortAscending ? filtered.OrderBy(i => !i.IsFolder).ThenBy(i => i.Name) : filtered.OrderBy(i => !i.IsFolder).ThenByDescending(i => i.Name),
             "preview" => sortAscending ? filtered.OrderBy(i => GetPreviewSortKey(i)) : filtered.OrderByDescending(i => GetPreviewSortKey(i)),
             "date" => sortAscending ? filtered.OrderBy(i => i.LastModified) : filtered.OrderByDescending(i => i.LastModified),
-            "type" => sortAscending ? filtered.OrderBy(i => i.IsFolder ? "" : Path.GetExtension(i.Name)) : filtered.OrderByDescending(i => i.IsFolder ? "" : Path.GetExtension(i.Name)),
             _ => filtered.OrderBy(i => !i.IsFolder).ThenBy(i => i.Name)
         };
         return filtered;
@@ -559,32 +542,13 @@ public partial class Home
         var token = _filePreviewCts.Token;
         var searchQuery = _lastExecutedSearchQuery;
         var mode = searchMode;
-        IReadOnlyList<string> highlightTerms = string.IsNullOrWhiteSpace(searchQuery)
-            ? Array.Empty<string>()
-            : SearchService.GetHighlightTerms(searchQuery, mode);
 
         _ = Task.Run(async () =>
         {
             try
             {
-                var previews = await SearchService.TryGetContentPreviewsAsync(
+                var merged = await SearchService.TryGetContentPreviewsAsync(
                     paths, searchQuery, mode, token).ConfigureAwait(false);
-                var merged = new Dictionary<string, string>(
-                    previews.Count + paths.Count,
-                    StringComparer.OrdinalIgnoreCase);
-                foreach (var pair in previews)
-                    merged[pair.Key] = pair.Value;
-
-                foreach (var path in paths)
-                {
-                    if (merged.ContainsKey(path))
-                        continue;
-                    string? diskPreview = highlightTerms.Count > 0
-                        ? ContentPreviewHelper.TryReadSearchMatchLineFromDisk(path, highlightTerms, mode)
-                        : ContentPreviewHelper.TryReadFirstLineFromDisk(path);
-                    if (!string.IsNullOrEmpty(diskPreview))
-                        merged[path] = diskPreview;
-                }
 
                 if (token.IsCancellationRequested || generation != _filePreviewGeneration)
                     return;

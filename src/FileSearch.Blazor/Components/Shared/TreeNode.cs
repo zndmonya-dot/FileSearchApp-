@@ -29,6 +29,4 @@ public class TreeNode
     public SearchResultItem? FileData { get; set; }
     /// <summary>最終更新日時（表示・ソート用）</summary>
     public DateTime? LastModified { get; set; }
-    /// <summary>ファイルサイズ（バイト）。フォルダ時は 0</summary>
-    public long FileSize { get; set; }
 }

@@ -99,6 +99,26 @@ public static class ContentPreviewHelper
         return string.IsNullOrEmpty(preview) ? null : preview;
     }
 
+    /// <summary>インデックス未取得分をディスクから補完する。</summary>
+    public static void MergeDiskFallbackPreviews(
+        IDictionary<string, string> previews,
+        IReadOnlyList<string> filePaths,
+        IReadOnlyList<string> highlightTerms,
+        SearchMode searchMode)
+    {
+        foreach (var path in filePaths)
+        {
+            if (string.IsNullOrWhiteSpace(path) || previews.ContainsKey(path))
+                continue;
+
+            string? diskPreview = highlightTerms.Count > 0
+                ? TryReadSearchMatchLineFromDisk(path, highlightTerms, searchMode)
+                : TryReadFirstLineFromDisk(path);
+            if (!string.IsNullOrEmpty(diskPreview))
+                previews[path] = diskPreview;
+        }
+    }
+
     private static string? TryReadPreviewTextFromDisk(string filePath)
     {
         if (string.IsNullOrWhiteSpace(filePath))

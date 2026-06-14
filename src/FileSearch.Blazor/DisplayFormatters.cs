@@ -3,15 +3,11 @@ using FileSearch.Messages;
 namespace FileSearch.Blazor;
 
 /// <summary>
-/// 日付・サイズ・ファイル種別・アイコン分類の表示用フォーマット。他コンポーネントから再利用する。
+/// 日付・ファイル種別アイコン分類の表示用フォーマット。
 /// インデックス「最終更新」の相対表示（たった今／分前…）は <see cref="FileSearch.Messages.UserMessages"/> の文言に依存する。
 /// </summary>
 public static class DisplayFormatters
 {
-    /// <summary>バイト数を B / KB / MB で短く表示する。</summary>
-    public static string FormatSize(long b) =>
-        b < 1024 ? $"{b} B" : b < 1048576 ? $"{b / 1024} KB" : $"{b / 1048576.0:F1} MB";
-
     /// <summary>日付を yyyy/MM/dd HH:mm で表示する。</summary>
     public static string FormatDate(DateTime d) =>
         d.ToLocalTime().ToString("yyyy/MM/dd HH:mm");

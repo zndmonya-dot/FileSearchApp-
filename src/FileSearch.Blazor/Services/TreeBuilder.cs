@@ -138,7 +138,6 @@ public static class TreeBuilder
                     IsFolder = false,
                     FileData = item,
                     LastModified = item.LastModified,
-                    FileSize = item.FileSize,
                     Parent = parent
                 });
             }
@@ -256,7 +255,6 @@ public static class TreeBuilder
                         IsFolder = false,
                         FileData = item,
                         LastModified = item.LastModified,
-                        FileSize = item.FileSize,
                         Parent = current
                     });
                 }

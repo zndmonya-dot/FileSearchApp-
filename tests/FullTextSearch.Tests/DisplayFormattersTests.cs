@@ -7,15 +7,6 @@ namespace FullTextSearch.Tests;
 /// <summary>UT-UI-01, UT-UI-02, UT-UI-03, UT-UI-04</summary>
 public class DisplayFormattersTests
 {
-    [Theory]
-    [InlineData(0, "0 B")]
-    [InlineData(1023, "1023 B")]
-    [InlineData(1024, "1 KB")]
-    [InlineData(1048575, "1023 KB")]
-    [InlineData(1048576, "1.0 MB")]
-    public void FormatSize_scales_at_boundaries(long bytes, string expected) =>
-        Assert.Equal(expected, DisplayFormatters.FormatSize(bytes));
-
     [Fact]
     public void FormatDate_converts_to_local_display()
     {

@@ -48,7 +48,7 @@
                         {
                             <div class="filter-option @(FilterType == "folder" ? "selected" : "")" @onclick='() => OnFilter.InvokeAsync("folder")'>@UserMessages.KindFolder</div>
                         }
-                        @foreach (var ext in GetUniqueExtensions(SelectedFolder.Children))
+                        @foreach (var ext in GetUniqueExtensions())
                         {
                             <div class="filter-option @(FilterType == ext ? "selected" : "")" @onclick="() => OnFilter.InvokeAsync(ext)">@ext.ToUpperInvariant()</div>
                         }
@@ -151,8 +151,6 @@
     [Parameter] public EventCallback<TreeNode> OnRowClick { get; set; }
     [Parameter] public EventCallback<TreeNode> OnNavigateToFolder { get; set; }
     [Parameter] public IReadOnlyDictionary<string, string>? FileContentPreviews { get; set; }
-    [Parameter] public Func<string, MarkupString> GetSortIcon { get; set; } = _ => (MarkupString)"";
-    [Parameter] public Func<List<TreeNode>, IEnumerable<string>> GetUniqueExtensions { get; set; } = _ => Enumerable.Empty<string>();
 
     private enum FolderTableColumn { Name, Preview, Date }
 
@@ -188,6 +186,26 @@
         return FileContentPreviews.TryGetValue(item.FilePath, out var preview) && !string.IsNullOrEmpty(preview)
             ? preview
             : null;
+    }
+
+    private IEnumerable<string> GetUniqueExtensions()
+    {
+        if (SelectedFolder?.Children == null)
+            return Enumerable.Empty<string>();
+        return SelectedFolder.Children
+            .Where(i => !i.IsFolder && !string.IsNullOrEmpty(Path.GetExtension(i.Name)))
+            .Select(i => Path.GetExtension(i.Name).ToLowerInvariant())
+            .Distinct()
+            .OrderBy(e => e);
+    }
+
+    private MarkupString GetSortIcon(string column)
+    {
+        if (SortColumn != column)
+            return new MarkupString("");
+        return new MarkupString(SortAscending
+            ? "<svg class='sort-icon' viewBox='0 0 16 16' fill='currentColor'><path d='m4.427 7.427 3.396 3.396a.25.25 0 0 0 .354 0l3.396-3.396A.25.25 0 0 0 11.396 7H4.604a.25.25 0 0 0-.177.427Z'/></svg>"
+            : "<svg class='sort-icon' viewBox='0 0 16 16' fill='currentColor'><path d='m4.427 9.573 3.396-3.396a.25.25 0 0 1 .354 0l3.396 3.396a.25.25 0 0 1-.177.427H4.604a.25.25 0 0 1-.177-.427Z'/></svg>");
     }
 
     private void StartColumnResize(MouseEventArgs e, FolderTableColumn column)

@@ -1,3 +1,4 @@
+using System.Text;
 using FullTextSearch.Core;
 using FullTextSearch.Core.Search;
 using Xunit;

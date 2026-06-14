@@ -6,7 +6,6 @@
 //   Home.Preview      … プレビュー・ハイライト移動・ファイル/フォルダを開く
 //   Home.Index        … インデックス差分/再構築・進捗・スキップログ・更新ダイアログ
 //   Home.Settings     … 設定モーダル・フォルダ/拡張子・保存
-//   Home.Resize       … サイドバー幅ドラッグ
 //
 // 【文言】画面の日本語は FileSearch.Messages.UserMessages。変更時は docs/メッセージ一覧.md の ID を更新。
 // 【設計メモ】docs/静的定義一覧.md・docs/外部設計.md
@@ -270,4 +269,25 @@ public partial class Home : IDisposable
         var scheme = await JSRuntime.InvokeAsync<string>("getPreferredColorScheme");
         return string.Equals(scheme, "dark", StringComparison.OrdinalIgnoreCase);
     }
+
+    /// <summary>サイドバー右端ドラッグ開始。</summary>
+    private void StartResize(MouseEventArgs e)
+    {
+        if (isIndexing) return;
+        isResizing = true;
+        resizeStartX = e.ClientX;
+        resizeStartWidth = sidebarWidth;
+    }
+
+    /// <summary>幅を 240〜600px にクランプ。</summary>
+    private void OnResize(MouseEventArgs e)
+    {
+        if (!isResizing) return;
+        var delta = e.ClientX - resizeStartX;
+        sidebarWidth = Math.Max(240, Math.Min(600, resizeStartWidth + (int)delta));
+        StateHasChanged();
+    }
+
+    /// <summary>ドラッグ終了（オーバーレイの mouseup / leave）。</summary>
+    private void StopResize(MouseEventArgs _) => isResizing = false;
 }

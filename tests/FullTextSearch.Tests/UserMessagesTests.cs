@@ -56,15 +56,6 @@ public class UserMessagesTests
     public void FormatRegisteredCount_uses_N0() =>
         Assert.Equal("1,000 件登録済み", UserMessages.FormatRegisteredCount(1000));
 
-    [Fact]
-    public void FormatHighlightNav_includes_separators()
-    {
-        var line = UserMessages.FormatHighlightNavWithLine(3, 2, 4);
-        Assert.Contains("3", line);
-        Assert.Contains("2/4", line);
-        Assert.Equal("1/1", UserMessages.FormatHighlightNavCountsOnly(1, 1));
-    }
-
     [Theory]
     [InlineData(nameof(UserMessages.SearchFailed), UserMessages.SearchFailed)]
     [InlineData(nameof(UserMessages.NoTargetFolders), UserMessages.NoTargetFolders)]

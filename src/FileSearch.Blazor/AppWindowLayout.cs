@@ -22,7 +22,7 @@ internal static class AppWindowLayout
     private const int CenterOffsetYPx = 32;
 
     /// <summary>作業領域（px）から Win11 メモ帳相当サイズを算出する。</summary>
-    public static (int Width, int Height) ComputeInitialSize(int workAreaWidth, int workAreaHeight)
+    private static (int Width, int Height) ComputeInitialSize(int workAreaWidth, int workAreaHeight)
     {
         var w = Math.Clamp((int)(workAreaWidth * WidthRatio), MinWidthPx, workAreaWidth - EdgeMarginPx);
         var h = Math.Clamp((int)(workAreaHeight * HeightRatio), MinHeightPx, workAreaHeight - EdgeMarginPx);
@@ -59,17 +59,4 @@ internal static class AppWindowLayout
         _initialLayoutDone = true;
     }
 #endif
-
-    /// <summary>MAUI Window 経由のフォールバック。</summary>
-    public static bool TryApplyPlatformLayout(Window window)
-    {
-#if WINDOWS
-        if (window.Handler?.PlatformView is not Microsoft.UI.Xaml.Window nativeWindow)
-            return false;
-        ApplyToWinUiWindow(nativeWindow);
-        return true;
-#else
-        return false;
-#endif
-    }
 }

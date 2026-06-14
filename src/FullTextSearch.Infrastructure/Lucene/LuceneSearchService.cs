@@ -524,6 +524,12 @@ public class LuceneSearchService : ISearchService, IDisposable
                 }
             }
 
+            ContentPreviewHelper.MergeDiskFallbackPreviews(
+                result,
+                pathEntries.Select(e => e.Original).ToList(),
+                highlightTerms,
+                searchMode);
+
             return (IReadOnlyDictionary<string, string>)result;
         }, cancellationToken);
     }

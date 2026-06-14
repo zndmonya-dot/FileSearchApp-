@@ -8,8 +8,6 @@ namespace FileSearch.Blazor;
 /// </summary>
 public partial class App : Application
 {
-	private bool _initialWindowLayoutApplied;
-
 	/// <summary>XAML を初期化し、ルートに <see cref="MainPage"/> を設定する。</summary>
 	public App()
 	{
@@ -26,15 +24,6 @@ public partial class App : Application
 		window.MinimumHeight = AppWindowLayout.MinimumHeight;
 		window.Width = AppWindowLayout.FallbackWidth;
 		window.Height = AppWindowLayout.FallbackHeight;
-
-		window.HandlerChanged += (_, _) =>
-		{
-			if (_initialWindowLayoutApplied || window.Handler is null)
-				return;
-			if (AppWindowLayout.TryApplyPlatformLayout(window))
-				_initialWindowLayoutApplied = true;
-		};
-
 		return window;
 	}
 }
