@@ -34,19 +34,25 @@ Windows向けの高速全文検索アプリケーション **Panoleon**（Panopt
 
 ## セットアップ（開発者向け環境構築）
 
-### 1. .NET 8 SDKのインストール
+### 1. .NET 8 SDK と MAUI ワークロード
 
-https://dotnet.microsoft.com/download/dotnet/8.0 から.NET 8 SDKをダウンロードしてインストールしてください。
+https://dotnet.microsoft.com/download/dotnet/8.0 から .NET 8 SDK をインストールし、MAUI ワークロードを入れる。
+
+```powershell
+dotnet workload install maui
+```
 
 ### 2. ビルド
 
 ```powershell
 cd C:\全文検索システム
+git clone <リポジトリURL> .   # 未入手の場合
 dotnet restore
 dotnet build
 ```
 
-環境構築の詳細（Sudachi 同梱物など）は [docs/インストールと環境構築.md](docs/インストールと環境構築.md) を参照。
+初回ビルド時に Sudachi 辞書 ZIP（`tools/sudachi/resources/system_core.dic.zip`）が自動展開される。  
+環境構築の詳細（トラブルシュート含む）は [docs/インストールと環境構築.md](docs/インストールと環境構築.md) を参照。
 
 ### 3. 実行
 
