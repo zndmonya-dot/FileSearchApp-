@@ -12,8 +12,7 @@ using FullTextSearch.Core.Models;
 using FullTextSearch.Core.Preview;
 using FullTextSearch.Core.Search;
 using FullTextSearch.Infrastructure.Settings;
-using FileSearch.Blazor.Components.Shared;
-using FileSearch.Blazor.Services;
+using FullTextSearch.Core.UI;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
@@ -357,23 +356,10 @@ public partial class Home
     /// <summary>インデックス対象と同じ拡張子集合（個人設定の TargetExtensions を反映）。</summary>
     private HashSet<string>? GetBrowseExtensionSet()
     {
-        var allowed = TextExtractors
-            .SelectMany(e => e.SupportedExtensions)
-            .Select(PreviewHelper.NormalizeExtension)
-            .Where(e => !string.IsNullOrEmpty(e))
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        var target = SettingsService.Settings.TargetExtensions;
-        if (target is { Count: > 0 })
-        {
-            var filtered = target
-                .Select(PreviewHelper.NormalizeExtension)
-                .Where(e => !string.IsNullOrEmpty(e) && allowed.Contains(e))
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
-            return filtered.Count > 0 ? filtered : allowed;
-        }
-
-        return allowed.Count > 0 ? allowed : null;
+        var set = PreviewHelper.BuildTargetExtensionSet(
+            TextExtractors.SelectMany(e => e.SupportedExtensions),
+            SettingsService.Settings.TargetExtensions);
+        return set.Count > 0 ? set : null;
     }
 
     /// <summary>内容列ソート用。プレビュー未取得・フォルダは空文字。</summary>

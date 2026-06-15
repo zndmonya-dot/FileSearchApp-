@@ -4,8 +4,7 @@
 // 役割: プレビューのデバウンス読み込み、ハイライト行の前後（JS 連携）、既定アプリでファイル/フォルダを開く。
 // =============================================================================
 using System.Diagnostics;
-using FileSearch.Blazor.Components.Shared;
-using FileSearch.Blazor.Services;
+using FullTextSearch.Core.UI;
 using FileSearch.Messages;
 using FullTextSearch.Core.Index;
 using FullTextSearch.Core.Models;

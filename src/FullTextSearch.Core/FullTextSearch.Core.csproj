@@ -8,6 +8,10 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\FileSearch.Messages\FileSearch.Messages.csproj" />
+  </ItemGroup>
+
 </Project>
 
 

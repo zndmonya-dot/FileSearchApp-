@@ -4,6 +4,7 @@
 // 役割: 設定モーダルの開閉、フォルダ/拡張子の追加・バリデーション、保存と IndexService 初期化。
 // 文言: UserMessages。
 // =============================================================================
+using FullTextSearch.Core.UI;
 using FileSearch.Messages;
 using FullTextSearch.Core.Extractors;
 using FullTextSearch.Core.Index;

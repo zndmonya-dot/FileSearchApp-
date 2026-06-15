@@ -1,4 +1,4 @@
-using FileSearch.Blazor.Services;
+using FullTextSearch.Core.UI;
 using FullTextSearch.Core.Models;
 using Xunit;
 

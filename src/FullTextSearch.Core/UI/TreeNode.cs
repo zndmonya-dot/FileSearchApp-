@@ -1,6 +1,6 @@
 using FullTextSearch.Core.Models;
 
-namespace FileSearch.Blazor.Components.Shared;
+namespace FullTextSearch.Core.UI;
 
 /// <summary>
 /// 検索結果ツリーの 1 ノード。フォルダまたはファイルを表し、子ノード・ファイル件数・メタ情報を持つ。
@@ -21,7 +21,7 @@ public class TreeNode
     public bool IsExpanded { get; set; } = true;
     /// <summary>子ノード（フォルダまたはファイル）</summary>
     public List<TreeNode>? Children { get; set; }
-    /// <summary>フォルダの直下サブフォルダを読み込み済みか（遅延読み込み用。検索結果ツリーは true）。</summary>
+    /// <summary>フォルダの直下サブフォルダを読み込み済みか（遅延読み込み用）。</summary>
     public bool FolderChildrenLoaded { get; set; } = true;
     /// <summary>配下のファイル数（フォルダノード時）</summary>
     public int FileCount { get; set; }

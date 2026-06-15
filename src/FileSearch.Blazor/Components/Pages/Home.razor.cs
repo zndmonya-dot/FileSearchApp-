@@ -15,8 +15,8 @@ using FullTextSearch.Core.Models;
 using FullTextSearch.Core.Preview;
 using FullTextSearch.Core.Search;
 using FullTextSearch.Infrastructure.Settings;
+using FullTextSearch.Core.UI;
 using FileSearch.Blazor.Components.Shared;
-using FileSearch.Blazor.Services;
 using FileSearch.Messages;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
@@ -285,7 +285,9 @@ public partial class Home : IDisposable
     {
         if (!isResizing) return;
         var delta = e.ClientX - resizeStartX;
-        sidebarWidth = Math.Max(240, Math.Min(600, resizeStartWidth + (int)delta));
+        var next = Math.Max(240, Math.Min(600, resizeStartWidth + (int)delta));
+        if (next == sidebarWidth) return;
+        sidebarWidth = next;
         StateHasChanged();
     }
 

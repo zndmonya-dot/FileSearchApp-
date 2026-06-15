@@ -10,7 +10,6 @@ using FullTextSearch.Infrastructure.Settings;
 using FullTextSearch.Infrastructure.Sudachi;
 using Lucene.Net.Analysis;
 using Lucene.Net.Index;
-using Lucene.Net.QueryParsers.Classic;
 using Lucene.Net.Search;
 using Lucene.Net.Store;
 using Lucene.Net.Util;
@@ -150,10 +149,6 @@ public class LuceneSearchService : ISearchService, IDisposable
                     }
 
                     return new SearchResult { Items = results };
-                }
-                catch (ParseException)
-                {
-                    return new SearchResult { Items = [] };
                 }
                 catch (IOException)
                 {

@@ -1,10 +1,10 @@
 using FileSearch.Messages;
+using FullTextSearch.Core.Preview;
 
-namespace FileSearch.Blazor;
+namespace FullTextSearch.Core.UI;
 
 /// <summary>
 /// 日付・ファイル種別アイコン分類の表示用フォーマット。
-/// インデックス「最終更新」の相対表示（たった今／分前…）は <see cref="FileSearch.Messages.UserMessages"/> の文言に依存する。
 /// </summary>
 public static class DisplayFormatters
 {
@@ -24,15 +24,6 @@ public static class DisplayFormatters
         return lastUpdate.Value.ToString("MM/dd HH:mm");
     }
 
-    /// <summary>ファイル名の拡張子からプレビュー用のアイコン CSS クラス（word / excel / ppt / pdf / code / text）を返す。</summary>
-    public static string GetFileIconClass(string name) =>
-        Path.GetExtension(name).ToLowerInvariant() switch
-        {
-            ".doc" or ".docx" => "word",
-            ".xls" or ".xlsx" or ".xlsm" => "excel",
-            ".pptx" => "ppt",
-            ".pdf" => "pdf",
-            ".cs" or ".py" or ".pas" or ".dfm" or ".sql" or ".html" or ".xml" or ".css" => "code",
-            _ => "text"
-        };
+    /// <summary>ファイル名の拡張子からプレビュー用のアイコン CSS クラスを返す。</summary>
+    public static string GetFileIconClass(string name) => PreviewHelper.GetFileIconClass(name);
 }

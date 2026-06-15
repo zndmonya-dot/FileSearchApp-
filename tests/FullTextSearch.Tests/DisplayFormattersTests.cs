@@ -1,4 +1,4 @@
-using FileSearch.Blazor;
+using FullTextSearch.Core.UI;
 using FileSearch.Messages;
 using Xunit;
 

@@ -2,9 +2,8 @@
 using FullTextSearch.Core.Index;
 using FullTextSearch.Core.Models;
 using FullTextSearch.Core.Preview;
-using FileSearch.Blazor.Components.Shared;
 
-namespace FileSearch.Blazor.Services;
+namespace FullTextSearch.Core.UI;
 
 /// <summary>
 /// 検索結果からツリー構造を構築する静的ヘルパー。フォルダ別グルーピング・ソート・ファイル件数集計を行う。

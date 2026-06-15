@@ -15,7 +15,7 @@
 
 ```powershell
 pwsh -File scripts/build-dist.ps1
-# → installers\dist\FileSearch_win-x64.zip
+# → installers\dist\Panoleon_win-x64.zip
 ```
 
 ## Sudachi 同梱物の更新

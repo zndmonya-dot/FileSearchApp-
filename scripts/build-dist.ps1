@@ -7,7 +7,7 @@ $root = Get-RepoRoot
 $project = Get-BlazorProject -Root $root
 $publishDir = Join-Path $root "publish\win10-x64"
 $distDir = Join-Path $root "installers\dist"
-$zipPath = Join-Path $distDir "FileSearch_win-x64.zip"
+$zipPath = Join-Path $distDir "Panoleon_win-x64.zip"
 
 Assert-SudachiBundle -Root $root
 

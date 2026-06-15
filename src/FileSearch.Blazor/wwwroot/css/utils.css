@@ -1,3 +1,11 @@
+/* ===== File type icon colors (sidebar / preview 共通) ===== */
+.node-icon.text, .file-icon.text { color: var(--color-icon-text); }
+.node-icon.code, .file-icon.code { color: var(--color-icon-code); }
+.node-icon.word, .file-icon.word { color: var(--color-icon-word); }
+.node-icon.excel, .file-icon.excel { color: var(--color-icon-excel); }
+.node-icon.ppt, .file-icon.ppt { color: var(--color-icon-ppt); }
+.node-icon.pdf, .file-icon.pdf { color: var(--color-icon-pdf); }
+
 /* ===== Disabled controls（非活性: クリック不可をカーソル・透明度で明示） ===== */
 button:disabled,
 input:disabled,

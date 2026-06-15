@@ -116,13 +116,6 @@
     height: 100%;
 }
 
-.file-icon.text { color: var(--color-icon-text); }
-.file-icon.code { color: var(--color-icon-code); }
-.file-icon.word { color: var(--color-icon-word); }
-.file-icon.excel { color: var(--color-icon-excel); }
-.file-icon.ppt { color: var(--color-icon-ppt); }
-.file-icon.pdf { color: var(--color-icon-pdf); }
-
 .file-info {
     flex: 1;
     min-width: 0;

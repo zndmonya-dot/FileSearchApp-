@@ -117,10 +117,7 @@ public class AppSettingsService : IAppSettingsService
     }
 
     private HashSet<string> GetAllowedExtensionSet() =>
-        _extractorFactory.GetAllSupportedExtensions()
-            .Select(PreviewHelper.NormalizeExtension)
-            .Where(e => !string.IsNullOrEmpty(e))
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        PreviewHelper.BuildTargetExtensionSet(_extractorFactory.GetAllSupportedExtensions());
 
     /// <summary>拡張子を「.」+ 小文字に正規化し重複を除く</summary>
     private static List<string> NormalizeExtensions(List<string> extensions)

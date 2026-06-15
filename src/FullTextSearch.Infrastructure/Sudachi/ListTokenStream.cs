@@ -6,7 +6,7 @@ using Lucene.Net.Util;
 namespace FullTextSearch.Infrastructure.Sudachi;
 
 /// <summary>
-/// 既に取得したトークン列をそのまま返す TokenStream。検索ハイライトの一括トークン化結果を Highlighter に渡すために使用。
+/// 既に取得したトークン列をそのまま返す TokenStream。
 /// </summary>
 public sealed class ListTokenStream : TokenStream
 {

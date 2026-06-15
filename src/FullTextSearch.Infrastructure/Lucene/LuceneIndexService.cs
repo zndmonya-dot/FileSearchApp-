@@ -79,6 +79,15 @@ public class LuceneIndexService : IIndexService, IDisposable
     /// <summary>完全一致検索の候補絞り込み用の文字バイグラム索引（本文＋ファイル名、非格納）。<see cref="ContentNGram"/> 参照。</summary>
     public const string FieldContentNGram = "content_ngram";
 
+    private static readonly HashSet<string> DiffMetadataFields = new(StringComparer.Ordinal)
+    {
+        FieldFilePath,
+        FieldLastModified,
+        FieldIndexVersion
+    };
+
+    private const int ProgressReportInterval = 20;
+
     /// <summary>テキスト抽出に使うファクトリを注入する。</summary>
     public LuceneIndexService(TextExtractorFactory extractorFactory)
     {
@@ -249,13 +258,7 @@ public class LuceneIndexService : IIndexService, IDisposable
                         }
                     }
                     var done = Interlocked.Increment(ref processed);
-                    progress?.Report(new IndexProgress
-                    {
-                        ProcessedFiles = progressOffset + done,
-                        TotalFiles = totalForProgress,
-                        CurrentFile = path,
-                        ErrorCount = Volatile.Read(ref errorCount)
-                    });
+                    ReportIndexProgress(progress, progressOffset + done, totalForProgress, path, Volatile.Read(ref errorCount));
                 }
                 finally
                 {
@@ -434,7 +437,7 @@ public class LuceneIndexService : IIndexService, IDisposable
                     cancellationToken.ThrowIfCancellationRequested();
                     _writer!.DeleteDocuments(new Term(FieldFilePath, storedPath));
                     processed++;
-                    progress?.Report(new IndexProgress { ProcessedFiles = processed, TotalFiles = total, CurrentFile = storedPath, ErrorCount = errorCount });
+                    ReportIndexProgress(progress, processed, total, storedPath, errorCount);
                 }
             }
 
@@ -496,7 +499,7 @@ public class LuceneIndexService : IIndexService, IDisposable
             var topDocs = searcher.Search(new MatchAllDocsQuery(), reader.NumDocs);
             foreach (var scoreDoc in topDocs.ScoreDocs)
             {
-                var doc = reader.Document(scoreDoc.Doc);
+                var doc = reader.Document(scoreDoc.Doc, DiffMetadataFields);
                 var storedPath = doc.Get(FieldFilePath);
                 if (string.IsNullOrEmpty(storedPath)) continue;
                 var normalizedPath = IndexPaths.NormalizeFilePath(storedPath);
@@ -641,23 +644,10 @@ public class LuceneIndexService : IIndexService, IDisposable
         SafeEnumerateFiles(folderPath, GetSupportedExtensionSet());
 
     /// <summary>現在の再構築オプションに基づく対象拡張子集合。</summary>
-    private HashSet<string> GetSupportedExtensionSet()
-    {
-        var allowed = _extractorFactory.GetAllSupportedExtensions()
-            .Select(PreviewHelper.NormalizeExtension)
-            .Where(e => !string.IsNullOrEmpty(e))
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        if (_currentRebuildOptions?.TargetExtensions is { Count: > 0 } targetExtensions)
-        {
-            return targetExtensions
-                .Select(PreviewHelper.NormalizeExtension)
-                .Where(e => !string.IsNullOrEmpty(e) && allowed.Contains(e))
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        }
-
-        return allowed;
-    }
+    private HashSet<string> GetSupportedExtensionSet() =>
+        PreviewHelper.BuildTargetExtensionSet(
+            _extractorFactory.GetAllSupportedExtensions(),
+            _currentRebuildOptions?.TargetExtensions);
 
     /// <summary>ファイル／ディレクトリ列挙の例外を握りつぶし、失敗時は null。</summary>
     private static IEnumerable<string>? TryEnumerateOrNull(Func<IEnumerable<string>> enumerate)
@@ -815,6 +805,27 @@ public class LuceneIndexService : IIndexService, IDisposable
 
         _disposed = true;
         GC.SuppressFinalize(this);
+    }
+
+    private static void ReportIndexProgress(
+        IProgress<IndexProgress>? progress,
+        int processed,
+        int total,
+        string? currentFile,
+        int errorCount)
+    {
+        if (progress == null || total <= 0)
+            return;
+        if (processed % ProgressReportInterval != 0 && processed != total)
+            return;
+
+        progress.Report(new IndexProgress
+        {
+            ProcessedFiles = processed,
+            TotalFiles = total,
+            CurrentFile = currentFile,
+            ErrorCount = errorCount
+        });
     }
 }
 

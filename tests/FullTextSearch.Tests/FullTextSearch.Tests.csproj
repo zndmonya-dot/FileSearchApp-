@@ -1,16 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <TargetFramework>net8.0-windows</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
-    <!-- FileSearch.Blazor (MAUI) 参照時: WindowsAppSDK の win10-* RID を .NET 8 で解決する -->
-    <UseRidGraph>true</UseRidGraph>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\FileSearch.Blazor\FileSearch.Blazor.csproj" />
     <ProjectReference Include="..\..\src\FileSearch.Messages\FileSearch.Messages.csproj" />
     <ProjectReference Include="..\..\src\FullTextSearch.Core\FullTextSearch.Core.csproj" />
     <ProjectReference Include="..\..\src\FullTextSearch.Infrastructure\FullTextSearch.Infrastructure.csproj" />

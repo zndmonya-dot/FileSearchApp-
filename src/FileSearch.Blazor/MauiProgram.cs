@@ -21,11 +21,7 @@ public static class MauiProgram
     {
         var builder = MauiApp.CreateBuilder();
         builder
-            .UseMauiApp<App>()
-            .ConfigureFonts(fonts =>
-            {
-                fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
-            });
+            .UseMauiApp<App>();
 
 #if WINDOWS
         Microsoft.Maui.Handlers.WindowHandler.Mapper.AppendToMapping("AppWindowLayout", (handler, _) =>
