@@ -44,9 +44,10 @@ dotnet workload install maui
 
 ### 2. ビルド
 
+ソースは社内 SVN で **checkout / update** 済みであること（手順は [docs/インストールと環境構築.md](docs/インストールと環境構築.md) の 2.4）。
+
 ```powershell
 cd C:\全文検索システム
-git clone <リポジトリURL> .   # 未入手の場合
 dotnet restore
 dotnet build
 ```
