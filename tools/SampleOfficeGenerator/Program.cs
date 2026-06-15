@@ -35,7 +35,7 @@ static void CreateSampleDocx(string filePath)
             new Paragraph(new W.Run(new W.Text("消費税について"))),
             new Paragraph(new W.Run(new W.Text("消費税は10%です。軽減税率は8%です。"))),
             new Paragraph(new W.Run(new W.Text(""))),
-            new Paragraph(new W.Run(new W.Text("全文検索システムのテスト用サンプルです。")))));
+            new Paragraph(new W.Run(new W.Text("Panoleon のテスト用サンプルです。")))));
     mainPart.Document.Save();
 }
 

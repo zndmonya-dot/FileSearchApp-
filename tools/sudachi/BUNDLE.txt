@@ -1,0 +1,13 @@
+Sudachi 同梱パック（リポジトリに含める）
+sudachi.rs: v0.6.11
+mode: C
+platform: win-x64
+
+含めるファイル:
+  sudachi_ffi.dll
+  resources/system_core.dic.zip  （ビルド時に system_core.dic へ展開）
+  resources/sudachi.json
+  resources/char.def
+  resources/unk.def
+
+更新時: scripts/build-sudachi-native.ps1 を実行後、リポジトリにコミットする。

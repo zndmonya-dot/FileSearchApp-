@@ -50,8 +50,7 @@ installers/win10-x64/
 .DS_Store
 Thumbs.db
 
-# Sudachi native (辞書・ビルド成果物)
-tools/sudachi/resources/system_core.dic
-tools/sudachi/sudachi_ffi.dll
+# Sudachi native (Rust ビルド中間物・展開済み辞書は除外。リポジトリには ZIP のみ)
 native/sudachi-ffi/target/
 native/sudachi-ffi/target*/
+tools/sudachi/resources/system_core.dic

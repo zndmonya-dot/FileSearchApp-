@@ -47,7 +47,43 @@
 .sidebar-header-actions {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 4px;
+}
+
+.sidebar-settings-btn {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    color: var(--color-fg-muted);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s, color 0.15s;
+}
+
+.sidebar-settings-btn:hover {
+    background: var(--color-neutral-muted);
+    color: var(--color-fg-default);
+}
+
+.sidebar-settings-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+.sidebar-settings-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.sidebar-settings-btn:disabled:hover {
+    background: transparent;
+    color: var(--color-fg-muted);
 }
 
 .sidebar-badge {
@@ -764,7 +800,8 @@
     transition: opacity 0.15s, background 0.15s;
 }
 
-.resize-handle:hover::before {
+.resize-handle:hover::before,
+.resize-handle--active::before {
     opacity: 1;
     background: var(--color-fg-muted);
 }
@@ -773,5 +810,5 @@
     position: fixed;
     inset: 0;
     z-index: 9999;
-    cursor: col-resize;
+    cursor: ew-resize;
 }

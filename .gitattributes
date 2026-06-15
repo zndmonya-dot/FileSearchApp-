@@ -1,0 +1,3 @@
+# バイナリ同梱物（差分・改行の正規化を抑止）
+tools/sudachi/sudachi_ffi.dll binary
+tools/sudachi/resources/system_core.dic.zip binary

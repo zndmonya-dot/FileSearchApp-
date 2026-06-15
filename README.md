@@ -1,10 +1,10 @@
-# 社内ファイルサーバ向け全文検索システム
+# Panoleon（社内ファイルサーバ向け全文検索）
 
-Windows向けの高速全文検索アプリケーションです。ファイルサーバ内のWord、Excel、PDF、テキストファイルなどをキーワードで検索し、ツリーでファイルを選ぶと右側にテキスト抽出プレビューが表示され、目的のファイルを見つけることができます。
+Windows向けの高速全文検索アプリケーション **Panoleon**（Panoptic + Chameleon）です。ファイルサーバ内のWord、Excel、PDF、テキストファイルなどをキーワードで検索し、ツリーでファイルを選ぶと右側にテキスト抽出プレビューが表示され、目的のファイルを見つけることができます。
 
 ## 機能
 
-- **ウィンドウタイトル**: アプリ名「全文検索システム」をウィンドウのタイトルバーおよび Alt+Tab に表示
+- **ウィンドウタイトル**: アプリ名「Panoleon」をウィンドウのタイトルバーおよび Alt+Tab に表示
 - **高速全文検索**: Lucene.NET + 日本語形態素解析（Sudachi・モード C）による高速検索
 - **テキスト抽出プレビュー**: 全形式（Word/Excel/PDF/テキスト）をテキスト抽出した行表示でプレビュー。表形式・ネイティブプレビューは行わない
 - **ツリー操作**: 検索結果ツリーでフォルダをクリックして開閉。フォルダを開くと右側にフォルダ一覧が表示される
@@ -26,7 +26,7 @@ Windows向けの高速全文検索アプリケーションです。ファイル�
 ## 動作要件
 
 - **Windows 専用**（Windows 10/11）
-- **開発・実行時**: .NET 8 SDK、Rust（Sudachi ネイティブ DLL 初回ビルド用。`dotnet build` 時に自動ビルド）
+- **開発・実行時**: .NET 8 SDK（Sudachi 同梱物は `tools/sudachi/`。手順は [docs/インストールと環境構築.md](docs/インストールと環境構築.md)）
 - **配布版 MSIX / ZIP の利用時**: 利用者 PC に Python / Rust は不要（辞書・`sudachi_ffi.dll` は同梱）
 - （任意）Microsoft Office … 検索・プレビューはテキスト抽出のため不要。ファイルを開く際に利用
 
@@ -46,11 +46,7 @@ dotnet restore
 dotnet build
 ```
 
-初回ビルド時、Sudachi ネイティブ DLL と辞書（約 70MB）が自動取得・ビルドされます。手動で行う場合:
-
-```powershell
-pwsh -File scripts/build-sudachi-native.ps1
-```
+環境構築の詳細（Sudachi 同梱物など）は [docs/インストールと環境構築.md](docs/インストールと環境構築.md) を参照。
 
 ### 3. 実行
 
@@ -91,13 +87,13 @@ dotnet run --project src\FileSearch.Blazor
 ```
 （リポジトリルート）/
 ├── native/sudachi-ffi/               # Sudachi ネイティブ FFI（Rust）
-├── scripts/build-sudachi-native.ps1  # Sudachi DLL・辞書のビルド
+├── scripts/                          # ビルド・配布・検証（一覧は scripts/README.md）
 ├── tools/sudachi/                    # sudachi_ffi.dll・辞書リソース（publish 同梱）
 ├── src/
 │   ├── FileSearch.Blazor/            # Blazor Hybrid (MAUI) アプリ（メインUI）
 │   ├── FullTextSearch.Core/           # コアロジック（インターフェース、モデル）
 │   ├── FullTextSearch.Infrastructure/  # インフラ実装（Lucene、Sudachi、抽出器）
-│   └── SudachiNative.targets          # MSBuild: Sudachi 同梱・初回ビルド
+│   └── SudachiNative.targets          # MSBuild: Sudachi 同梱
 └── tests/
     └── FullTextSearch.Tests/          # ユニットテスト
 ```

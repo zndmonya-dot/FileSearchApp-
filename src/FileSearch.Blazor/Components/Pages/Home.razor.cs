@@ -255,7 +255,8 @@ public partial class Home : IDisposable
     private void ApplyThemeFromSettings()
     {
         var mode = SettingsService.Settings.ThemeMode ?? "System";
-        if (string.Equals(mode, "Dark", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(mode, "Dark", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(mode, "Chameleon", StringComparison.OrdinalIgnoreCase))
             isDarkMode = true;
         else if (string.Equals(mode, "Light", StringComparison.OrdinalIgnoreCase))
             isDarkMode = false;

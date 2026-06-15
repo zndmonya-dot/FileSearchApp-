@@ -17,6 +17,12 @@ internal static class SupportedExtensionSets
         ".pdf",
     };
 
+    /// <summary>Outlook メール。</summary>
+    internal static readonly HashSet<string> OutlookMsg = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".msg",
+    };
+
     /// <summary>プレーンテキスト・スクリプト。</summary>
     internal static readonly HashSet<string> TextAndScript = new(StringComparer.OrdinalIgnoreCase)
     {

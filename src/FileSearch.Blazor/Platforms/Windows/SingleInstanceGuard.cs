@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using FileSearch.Messages;
 
 namespace FileSearch.Blazor.Platforms.Windows;
 
@@ -46,7 +45,7 @@ internal static class SingleInstanceGuard
 
         if (found == IntPtr.Zero)
         {
-            found = FindWindow(null, UserMessages.AppTitle);
+            found = FindWindow(null, AppWindowTitle.Current);
         }
 
         if (found != IntPtr.Zero)

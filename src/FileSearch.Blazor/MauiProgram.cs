@@ -45,6 +45,7 @@ public static class MauiProgram
         // テキスト抽出器（Office / PDF / テキスト）
         builder.Services.AddSingleton<ITextExtractor, OfficeExtractor>();
         builder.Services.AddSingleton<ITextExtractor, PdfExtractor>();
+        builder.Services.AddSingleton<ITextExtractor, MsgExtractor>();
         builder.Services.AddSingleton<ITextExtractor, TextFileExtractor>();
         builder.Services.AddSingleton<TextExtractorFactory>();
 

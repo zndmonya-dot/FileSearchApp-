@@ -1,14 +1,11 @@
-# リポジトリルートから: pwsh -File scripts/check-webview-strings.ps1
-# UserMessages の AppTitle / PreviewLoading / WebViewLoadError / WebViewReload と
-# wwwroot/index.html の一致をざっくり検査する。
-# （静的 HTML は C# と自動同期されないため、文言変更後は必ず実行。build-dist.bat からも呼ばれる）
-$ErrorActionPreference = 'Stop'
-$root = Split-Path $PSScriptRoot -Parent
-$um = Join-Path $root 'src\FileSearch.Messages\UserMessages.cs'
-$html = Join-Path $root 'src\FileSearch.Blazor\wwwroot\index.html'
-if (-not (Test-Path $um) -or -not (Test-Path $html)) {
-    Write-Error "Paths not found. um=$um html=$html"
-}
+# index.html と UserMessages の文言一致を検査
+# 用法: pwsh -File scripts/check-webview-strings.ps1
+$ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "_repo.ps1")
+
+$root = Get-RepoRoot
+$um = Join-Path $root "src\FileSearch.Messages\UserMessages.cs"
+$html = Join-Path $root "src\FileSearch.Blazor\wwwroot\index.html"
 
 function Get-UserMessage([string]$name) {
     $line = Select-String -Path $um -Pattern "${name}\s*=\s*""([^""]+)""" | Select-Object -First 1
@@ -19,29 +16,21 @@ function Get-UserMessage([string]$name) {
 $htmlText = Get-Content $html -Raw
 $ok = $true
 
-$appTitle = Get-UserMessage 'AppTitle'
-if ($htmlText -notmatch [regex]::Escape("<title>$appTitle</title>")) {
-    Write-Warning "index.html <title> should be '$appTitle' (UserMessages.AppTitle)"
-    $ok = $false
-} else { Write-Host "OK: <title> matches AppTitle" }
+$checks = @(
+    @{ Name = "AppTitle";       Test = { $htmlText -match [regex]::Escape("<title>$(Get-UserMessage 'AppTitle')</title>") }; Label = "<title> matches AppTitle" },
+    @{ Name = "PreviewLoading"; Test = { $htmlText -match ('aria-label="' + [regex]::Escape((Get-UserMessage 'PreviewLoading')) + '"') }; Label = "boot loader aria-label matches PreviewLoading" },
+    @{ Name = "WebViewLoadError"; Test = { $htmlText -match [regex]::Escape((Get-UserMessage 'WebViewLoadError')) }; Label = "contains WebViewLoadError text" },
+    @{ Name = "WebViewReload";  Test = { $htmlText -match [regex]::Escape((Get-UserMessage 'WebViewReload')) }; Label = "contains WebViewReload text" }
+)
 
-$previewLoading = Get-UserMessage 'PreviewLoading'
-if ($htmlText -notmatch ('aria-label="' + [regex]::Escape($previewLoading) + '"')) {
-    Write-Warning "index.html boot loader aria-label should be '$previewLoading' (PreviewLoading)"
-    $ok = $false
-} else { Write-Host "OK: index.html boot loader aria-label matches PreviewLoading" }
+foreach ($c in $checks) {
+    if (& $c.Test) {
+        Write-Host "OK: $($c.Label)"
+    }
+    else {
+        Write-Warning "NG: $($c.Label) (UserMessages.$($c.Name))"
+        $ok = $false
+    }
+}
 
-$webViewError = Get-UserMessage 'WebViewLoadError'
-if ($htmlText -notmatch [regex]::Escape($webViewError)) {
-    Write-Warning "index.html should contain '$webViewError' (WebViewLoadError)"
-    $ok = $false
-} else { Write-Host "OK: index.html contains WebViewLoadError text" }
-
-$webViewReload = Get-UserMessage 'WebViewReload'
-if ($htmlText -notmatch [regex]::Escape($webViewReload)) {
-    Write-Warning "index.html should contain '$webViewReload' (WebViewReload)"
-    $ok = $false
-} else { Write-Host "OK: index.html contains WebViewReload text" }
-
-if (-not $ok) { exit 1 }
-exit 0
+exit $(if ($ok) { 0 } else { 1 })

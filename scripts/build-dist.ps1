@@ -1,23 +1,31 @@
-# Build standalone exe for internal distribution and create ZIP
-# Run from repo root: .\scripts\build-dist.ps1
+# スタンドアロン exe の publish と配布 ZIP 作成
+# 用法: pwsh -File scripts/build-dist.ps1
 $ErrorActionPreference = "Stop"
-$root = Resolve-Path (Join-Path $PSScriptRoot "..")
-$project = Join-Path $root "src\FileSearch.Blazor\FileSearch.Blazor.csproj"
+. (Join-Path $PSScriptRoot "_repo.ps1")
+
+$root = Get-RepoRoot
+$project = Get-BlazorProject -Root $root
 $publishDir = Join-Path $root "publish\win10-x64"
 $distDir = Join-Path $root "installers\dist"
-$zipName = "FileSearch_win-x64.zip"
-$zipPath = Join-Path $distDir $zipName
+$zipPath = Join-Path $distDir "FileSearch_win-x64.zip"
 
-Write-Host "Building standalone exe for distribution..."
+Assert-SudachiBundle -Root $root
+
+Write-Host "Checking wwwroot strings vs UserMessages..."
+& (Join-Path $PSScriptRoot "check-webview-strings.ps1")
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+Write-Host "Publishing standalone exe..."
 if (Test-Path $publishDir) { Remove-Item $publishDir -Recurse -Force }
 New-Item -ItemType Directory -Path $publishDir -Force | Out-Null
 
-$checkScript = Join-Path $root "scripts\check-webview-strings.ps1"
-Write-Host "Checking wwwroot strings vs UserMessages..."
-& $checkScript
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-dotnet publish $project -f net8.0-windows10.0.19041.0 -c Release -p:RuntimeIdentifierOverride=win-x64 -p:WindowsPackageType=None --self-contained true -o $publishDir
+dotnet publish $project `
+    -f net8.0-windows10.0.19041.0 `
+    -c Release `
+    -p:RuntimeIdentifierOverride=win-x64 `
+    -p:WindowsPackageType=None `
+    --self-contained true `
+    -o $publishDir
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 $readmeSrc = Join-Path $root "installers\社内配布\インストール手順.txt"
@@ -26,7 +34,7 @@ if (Test-Path $readmeSrc) {
 }
 
 if (-not (Test-Path (Join-Path $publishDir "sudachi_ffi.dll"))) {
-    Write-Warning "sudachi_ffi.dll not found in publish output. Run scripts/build-sudachi-native.ps1 and rebuild."
+    Write-Warning "sudachi_ffi.dll not found in publish output."
 }
 
 New-Item -ItemType Directory -Path $distDir -Force | Out-Null
@@ -34,4 +42,3 @@ if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
 Compress-Archive -Path (Join-Path $publishDir "*") -DestinationPath $zipPath -Force
 
 Write-Host "Done: $zipPath"
-Write-Host 'Share this ZIP; users extract and run FileSearch.Blazor.exe'

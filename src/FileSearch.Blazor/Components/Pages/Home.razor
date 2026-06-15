@@ -20,8 +20,6 @@
 @inject IEnumerable<ITextExtractor> TextExtractors
 
 <div class="app @(isDarkMode ? "dark" : "light")">
-    <AppHeader OnOpenSettings="OpenSettings" IsIndexing="isIndexing" />
-
     <div class="app-container">
         <SearchSidebar SidebarWidth="sidebarWidth"
                       SearchQuery="@searchQuery"

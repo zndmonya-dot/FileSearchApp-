@@ -14,7 +14,10 @@
   <Import Project="..\SudachiNative.targets" />
 
   <ItemGroup>
+    <!-- 6.x は Microsoft.Maui.Graphics 10.x を引き込み MAUI 8 アプリが起動時クラッシュするため 5.6.2 に固定 -->
+    <PackageReference Include="MsgReader" Version="5.6.2" />
     <PackageReference Include="NPOI" Version="2.5.6" />
+    <PackageReference Include="RtfPipe" Version="2.0.7677.4303" />
     <PackageReference Include="ScratchPad.NPOI.HWPF" Version="2.5.6" />
     <PackageReference Include="UTF.Unknown" Version="2.6.0" />
     <PackageReference Include="Lucene.Net" Version="4.8.0-beta00016" />

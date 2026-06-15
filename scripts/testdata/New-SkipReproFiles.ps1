@@ -31,7 +31,7 @@ if (-not (Test-Path $OutputPath)) {
 $small = Join-Path $OutputPath "small_searchable.txt"
 $utf8NoBom = New-Object System.Text.UTF8Encoding $false
 [System.IO.File]::WriteAllText($small, @"
-全文検索システム 手動テスト用
+Panoleon 手動テスト用
 キーワード: スキップ再現用の小さなファイル
 検索語サンプル: 再現用
 "@, $utf8NoBom)

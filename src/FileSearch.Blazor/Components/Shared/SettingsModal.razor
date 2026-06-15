@@ -184,7 +184,7 @@
             </div>
             <div class="settings-footer">
                 <button class="settings-btn" type="button" @onclick="OnCloseRequested">@UserMessages.Cancel</button>
-                <button class="settings-btn settings-btn-primary" type="button" @onclick="OnSaveRequested">@UserMessages.Save</button>
+                <button class="settings-btn settings-btn-primary" type="button" @onclick="HandleSave">@UserMessages.Save</button>
             </div>
         </div>
     </div>
@@ -204,6 +204,7 @@
     [Parameter] public EventCallback<string> OnToggleTargetExtension { get; set; }
 
     private async Task HandleBrowseFolder() => await OnBrowseFolder.InvokeAsync();
+    private async Task HandleSave() => await OnSaveRequested.InvokeAsync();
     private async Task ToggleExtension(string ext) => await OnToggleTargetExtension.InvokeAsync(ext);
     private async Task RemoveFolder(string folder) => await OnRemoveFolder.InvokeAsync(folder);
     private async Task HandleBrowseIndexPath() => await OnBrowseIndexPath.InvokeAsync();

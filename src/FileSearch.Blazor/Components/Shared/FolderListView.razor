@@ -69,13 +69,13 @@
             <colgroup>
                 <col style="width: @($"{_colNameWidth}px")" />
                 <col style="width: @($"{_colPreviewWidth}px")" />
-                <col style="width: @($"{_colDateWidth}px")" />
+                <col />
             </colgroup>
             <thead>
                 <tr>
                     <th class="col-name sortable @(SortColumn == "name" ? "sorted" : "")" @onclick='() => OnSort.InvokeAsync("name")'>
                         <span class="col-header-label">@UserMessages.ColumnName @GetSortIcon("name")</span>
-                        <span class="col-resize-handle"
+                        <span class="resize-handle @GetColumnResizeActiveClass(FolderTableColumn.Name)"
                               title="@UserMessages.ColumnResizeHandleTitle"
                               @onmousedown="@(e => StartColumnResize(e, FolderTableColumn.Name))"
                               @onmousedown:stopPropagation="true"
@@ -83,7 +83,7 @@
                     </th>
                     <th class="col-preview sortable @(SortColumn == "preview" ? "sorted" : "")" @onclick='() => OnSort.InvokeAsync("preview")'>
                         <span class="col-header-label">@UserMessages.ColumnPreview @GetSortIcon("preview")</span>
-                        <span class="col-resize-handle"
+                        <span class="resize-handle @GetColumnResizeActiveClass(FolderTableColumn.Preview)"
                               title="@UserMessages.ColumnResizeHandleTitle"
                               @onmousedown="@(e => StartColumnResize(e, FolderTableColumn.Preview))"
                               @onmousedown:stopPropagation="true"
@@ -91,11 +91,6 @@
                     </th>
                     <th class="col-date sortable @(SortColumn == "date" ? "sorted" : "")" @onclick='() => OnSort.InvokeAsync("date")'>
                         <span class="col-header-label">@UserMessages.ColumnDate @GetSortIcon("date")</span>
-                        <span class="col-resize-handle"
-                              title="@UserMessages.ColumnResizeHandleTitle"
-                              @onmousedown="@(e => StartColumnResize(e, FolderTableColumn.Date))"
-                              @onmousedown:stopPropagation="true"
-                              @onclick:stopPropagation="true"></span>
                     </th>
                 </tr>
             </thead>
@@ -156,19 +151,17 @@
 
     private const int ColNameDefault = 220;
     private const int ColPreviewDefault = 320;
-    private const int ColDateDefault = 140;
     private const int ColMinName = 96;
     private const int ColMinPreview = 80;
-    private const int ColMinDate = 108;
     private const int ColMax = 640;
 
     private int _colNameWidth = ColNameDefault;
     private int _colPreviewWidth = ColPreviewDefault;
-    private int _colDateWidth = ColDateDefault;
     private bool _isColumnResizing;
     private FolderTableColumn _resizeColumn;
     private double _columnResizeStartX;
-    private int _columnResizeStartWidth;
+    private int _columnResizeStartPrimary;
+    private int _columnResizeStartSecondary;
 
     private List<TreeNode> GetBreadcrumb()
     {
@@ -213,7 +206,12 @@
         _isColumnResizing = true;
         _resizeColumn = column;
         _columnResizeStartX = e.ClientX;
-        _columnResizeStartWidth = GetColumnWidth(column);
+        _columnResizeStartPrimary = GetColumnWidth(column);
+        _columnResizeStartSecondary = column switch
+        {
+            FolderTableColumn.Name => _colPreviewWidth,
+            _ => 0,
+        };
     }
 
     private void OnColumnResize(MouseEventArgs e)
@@ -222,38 +220,55 @@
             return;
 
         var delta = (int)(e.ClientX - _columnResizeStartX);
-        SetColumnWidth(_resizeColumn, ClampColumnWidth(_resizeColumn, _columnResizeStartWidth + delta));
+        switch (_resizeColumn)
+        {
+            case FolderTableColumn.Name:
+            {
+                var (name, preview) = ResizePair(
+                    _columnResizeStartPrimary, _columnResizeStartSecondary, delta,
+                    ColMinName, ColMinPreview);
+                _colNameWidth = name;
+                _colPreviewWidth = preview;
+                break;
+            }
+            case FolderTableColumn.Preview:
+                _colPreviewWidth = Math.Clamp(
+                    _columnResizeStartPrimary + delta, ColMinPreview, ColMax);
+                break;
+        }
     }
 
     private void StopColumnResize(MouseEventArgs _) => _isColumnResizing = false;
+
+    /// <summary>隣接2列の合計幅を保ったまま境界を動かす（名前｜内容）。</summary>
+    private static (int Primary, int Secondary) ResizePair(
+        int startPrimary, int startSecondary, int delta,
+        int minPrimary, int minSecondary)
+    {
+        var total = startPrimary + startSecondary;
+        var primary = Math.Clamp(startPrimary + delta, minPrimary, ColMax);
+        var secondary = total - primary;
+        if (secondary < minSecondary)
+        {
+            secondary = minSecondary;
+            primary = total - secondary;
+        }
+        else if (secondary > ColMax)
+        {
+            secondary = ColMax;
+            primary = total - secondary;
+        }
+        primary = Math.Clamp(primary, minPrimary, ColMax);
+        return (primary, secondary);
+    }
+
+    private string? GetColumnResizeActiveClass(FolderTableColumn column) =>
+        _isColumnResizing && _resizeColumn == column ? "resize-handle--active" : null;
 
     private int GetColumnWidth(FolderTableColumn column) => column switch
     {
         FolderTableColumn.Name => _colNameWidth,
         FolderTableColumn.Preview => _colPreviewWidth,
-        FolderTableColumn.Date => _colDateWidth,
         _ => ColNameDefault,
     };
-
-    private void SetColumnWidth(FolderTableColumn column, int width)
-    {
-        switch (column)
-        {
-            case FolderTableColumn.Name: _colNameWidth = width; break;
-            case FolderTableColumn.Preview: _colPreviewWidth = width; break;
-            case FolderTableColumn.Date: _colDateWidth = width; break;
-        }
-    }
-
-    private int ClampColumnWidth(FolderTableColumn column, int width)
-    {
-        var min = column switch
-        {
-            FolderTableColumn.Name => ColMinName,
-            FolderTableColumn.Preview => ColMinPreview,
-            FolderTableColumn.Date => ColMinDate,
-            _ => 80,
-        };
-        return Math.Clamp(width, min, ColMax);
-    }
 }

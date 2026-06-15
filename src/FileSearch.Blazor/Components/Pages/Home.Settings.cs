@@ -149,6 +149,7 @@ public partial class Home
             await SettingsService.SaveAsync();
             await ApplyThemeAfterSettingsSaveAsync();
             showSettings = false;
+            await InvokeAsync(StateHasChanged);
             return;
         }
 
@@ -157,11 +158,13 @@ public partial class Home
         if (string.IsNullOrWhiteSpace(indexPath))
         {
             _settingsEdit.IndexPathMessage = UserMessages.IndexPathRequired;
+            await InvokeAsync(StateHasChanged);
             return;
         }
         if (!Directory.Exists(indexPath))
         {
             _settingsEdit.IndexPathMessage = UserMessages.IndexPathNotFoundSaveError;
+            await InvokeAsync(StateHasChanged);
             return;
         }
 
@@ -174,27 +177,34 @@ public partial class Home
         SettingsService.Settings.AutoRebuildIntervalMinutes = _settingsEdit.AutoRebuildIntervalMinutes;
         SettingsService.Settings.ThemeMode = _settingsEdit.ThemeMode ?? "System";
         await SettingsService.SaveAsync();
+
         try
         {
             await IndexService.InitializeAsync(SettingsService.Settings.IndexPath);
             if (IndexService.LastInitializeFailed)
             {
+                indexErrorMessage = UserMessages.IndexLoadFailed;
                 _settingsEdit.IndexPathMessage = UserMessages.IndexLoadFailed;
-                return;
             }
-            indexCount = IndexService.GetStats().DocumentCount;
-            SearchService.RefreshIndex();
-            indexErrorMessage = null;
+            else
+            {
+                indexCount = IndexService.GetStats().DocumentCount;
+                SearchService.RefreshIndex();
+                indexErrorMessage = null;
+                _settingsEdit.IndexPathMessage = null;
+            }
         }
         catch (Exception ex)
         {
+            indexErrorMessage = UserMessages.IndexLoadFailed;
             _settingsEdit.IndexPathMessage = UserMessages.IndexLoadFailed;
             Logger.LogError(ex, "Failed to re-initialize index at {IndexPath}", SettingsService.Settings.IndexPath);
-            return;
         }
+
         await ApplyThemeAfterSettingsSaveAsync();
-        await RefreshFolderSkeletonTreeAsync();
         showSettings = false;
+        await InvokeAsync(StateHasChanged);
+        _ = RefreshFolderSkeletonTreeAsync();
     }
 
     /// <summary>設定保存後のテーマ反映。</summary>

@@ -2,13 +2,23 @@
 <Project>
   <PropertyGroup>
     <SudachiRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\tools\sudachi\'))</SudachiRoot>
-    <SudachiBuildScript>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\scripts\build-sudachi-native.ps1'))</SudachiBuildScript>
+    <SudachiDicPath>$(SudachiRoot)resources\system_core.dic</SudachiDicPath>
+    <SudachiDicZipPath>$(SudachiRoot)resources\system_core.dic.zip</SudachiDicZipPath>
   </PropertyGroup>
 
-  <Target Name="BuildSudachiNativeIfMissing" BeforeTargets="BeforeBuild"
-          Condition="!Exists('$(SudachiRoot)sudachi_ffi.dll') AND Exists('$(SudachiBuildScript)')">
-    <Message Importance="high" Text="Building Sudachi native DLL (first time or missing)..." />
-    <Exec Command="pwsh -NoProfile -ExecutionPolicy Bypass -File &quot;$(SudachiBuildScript)&quot;" />
+  <!-- リポジトリには ZIP のみ同梱。初回ビルド時に resources へ展開する -->
+  <Target Name="EnsureSudachiDictionaryExtracted" BeforeTargets="EnsureSudachiNativePresent">
+    <Error Condition="!Exists('$(SudachiDicPath)') AND !Exists('$(SudachiDicZipPath)')"
+           Importance="high"
+           Text="Sudachi 辞書がありません。tools\sudachi\resources\system_core.dic.zip を確認してください。" />
+    <Exec Condition="!Exists('$(SudachiDicPath)') AND Exists('$(SudachiDicZipPath)')"
+          Command="powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command &quot;Expand-Archive -LiteralPath '$(SudachiDicZipPath)' -DestinationPath '$(SudachiRoot)resources' -Force&quot;" />
+  </Target>
+
+  <Target Name="EnsureSudachiNativePresent" BeforeTargets="BeforeBuild" DependsOnTargets="EnsureSudachiDictionaryExtracted"
+          Condition="!Exists('$(SudachiRoot)sudachi_ffi.dll') OR !Exists('$(SudachiDicPath)')">
+    <Error Importance="high"
+           Text="Sudachi 同梱物 (tools\sudachi\) がありません。リポジトリを最新に更新するか tools\sudachi\README.md を参照してください。" />
   </Target>
 
   <ItemGroup Condition="Exists('$(SudachiRoot)sudachi_ffi.dll')">
@@ -17,6 +27,7 @@
              CopyToPublishDirectory="PreserveNewest"
              Link="sudachi_ffi.dll" />
     <Content Include="$(SudachiRoot)resources\**\*"
+             Exclude="$(SudachiRoot)resources\**\*.zip"
              CopyToOutputDirectory="PreserveNewest"
              CopyToPublishDirectory="PreserveNewest"
              Link="sudachi\resources\%(RecursiveDir)%(Filename)%(Extension)" />

@@ -18,8 +18,6 @@ internal static class AppWindowLayout
     private const int EdgeMarginPx = 40;
     private const int MinWidthPx = 800;
     private const int MinHeightPx = 560;
-    private const int CenterOffsetXPx = 28;
-    private const int CenterOffsetYPx = 32;
 
     /// <summary>作業領域（px）から Win11 メモ帳相当サイズを算出する。</summary>
     private static (int Width, int Height) ComputeInitialSize(int workAreaWidth, int workAreaHeight)
@@ -38,10 +36,18 @@ internal static class AppWindowLayout
         if (_initialLayoutDone)
             return;
         var appWindow = nativeWindow.AppWindow;
+        ApplyWindowIcon(appWindow);
         var displayArea = Microsoft.UI.Windowing.DisplayArea.GetFromWindowId(
             appWindow.Id,
             Microsoft.UI.Windowing.DisplayAreaFallback.Primary);
         ApplyToAppWindow(appWindow, displayArea.WorkArea);
+    }
+
+    private static void ApplyWindowIcon(Microsoft.UI.Windowing.AppWindow appWindow)
+    {
+        var iconPath = Path.Combine(AppContext.BaseDirectory, "appicon.ico");
+        if (File.Exists(iconPath))
+            appWindow.SetIcon(iconPath);
     }
 
     private static void ApplyToAppWindow(
@@ -51,8 +57,8 @@ internal static class AppWindowLayout
         var (width, height) = ComputeInitialSize(work.Width, work.Height);
         appWindow.Resize(new Windows.Graphics.SizeInt32(width, height));
 
-        var x = work.X + (work.Width - width) / 2 - CenterOffsetXPx;
-        var y = work.Y + (work.Height - height) / 2 - CenterOffsetYPx;
+        var x = work.X + (work.Width - width) / 2;
+        var y = work.Y + (work.Height - height) / 2;
         x = Math.Max(work.X, Math.Min(x, work.X + work.Width - width));
         y = Math.Max(work.Y, Math.Min(y, work.Y + work.Height - height));
         appWindow.Move(new Windows.Graphics.PointInt32(x, y));

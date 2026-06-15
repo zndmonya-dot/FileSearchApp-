@@ -1,6 +1,6 @@
 # UML 図・シーケンス図
 
-本ドキュメントは、全文検索システムの構造と振る舞いを UML 図で表現する。  
+本ドキュメントは、Panoleon の構造と振る舞いを UML 図で表現する。  
 図は Mermaid 記法で記述しており、GitHub や VS Code のプレビューで表示可能。
 
 ---
@@ -11,7 +11,7 @@
 graph LR
     User((利用者))
 
-    subgraph 全文検索システム
+    subgraph Panoleon
         UC1[キーワード検索]
         UC2[検索結果の閲覧]
         UC3[ファイルプレビュー]

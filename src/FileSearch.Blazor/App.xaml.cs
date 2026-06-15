@@ -19,7 +19,7 @@ public partial class App : Application
 	protected override Window CreateWindow(IActivationState? activationState)
 	{
 		var window = base.CreateWindow(activationState);
-		window.Title = UserMessages.AppTitle;
+		window.Title = AppWindowTitle.Current;
 		window.MinimumWidth = AppWindowLayout.MinimumWidth;
 		window.MinimumHeight = AppWindowLayout.MinimumHeight;
 		window.Width = AppWindowLayout.FallbackWidth;

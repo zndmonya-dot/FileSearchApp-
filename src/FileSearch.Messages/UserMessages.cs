@@ -11,8 +11,10 @@ namespace FileSearch.Messages;
 /// </remarks>
 public static class UserMessages
 {
-    /// <summary>アプリ名（<c>App.xaml.cs</c> / ヘッダー / <c>index.html</c> の title と揃える。<c>ApplicationTitle</c> も同文言）</summary>
-    public const string AppTitle = "全文検索システム";
+    /// <summary>アプリ名（Panoptic + Chameleon）。ウィンドウタイトル・パッケージ表示等。</summary>
+    public const string AppTitle = "Panoleon";
+    /// <summary>アプリ名の読み（ウィンドウタイトル用）。</summary>
+    public const string AppTitleReading = "パノレオン";
 
     /// <summary>検索 API 失敗時（E-01）。</summary>
     public const string SearchFailed = "検索に失敗しました。";

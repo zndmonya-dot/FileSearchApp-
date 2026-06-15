@@ -1,5 +1,4 @@
 // メインの ContentPage。Blazor WebView をホストし、表示時に WebView にフォーカスしてキー入力を有効にする。
-using FileSearch.Messages;
 
 namespace FileSearch.Blazor;
 
@@ -12,7 +11,7 @@ public partial class MainPage : ContentPage
 	public MainPage()
 	{
 		InitializeComponent();
-		Title = UserMessages.AppTitle;
+		Title = AppWindowTitle.Current;
 	}
 
 	/// <summary>表示時に Blazor WebView にフォーカスし、キーボード入力を有効にする。</summary>

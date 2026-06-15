@@ -1,6 +1,4 @@
-/* GitHub-Inspired Full UI Design */
-
-/* GitHub-style full-text search UI. Theme variables in .app.dark / .app.light. */
+/* アプリ UI テーマ変数（.app.dark / .app.light） */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 html, body {
