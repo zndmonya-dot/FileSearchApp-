@@ -51,6 +51,23 @@ public class AppModeService : IAppModeService
         _initialized = true;
     }
 
+    /// <inheritdoc />
+    public bool Reload()
+    {
+        var config = LoadAppModeConfig();
+        var newIndex = config?.IndexPath;
+        var newFolders = config?.TargetFolders as IReadOnlyList<string> ?? Array.Empty<string>();
+
+        var indexChanged = !string.Equals(SharedIndexPath, newIndex, StringComparison.OrdinalIgnoreCase);
+        var foldersChanged = !newFolders.SequenceEqual(SharedTargetFolders, StringComparer.OrdinalIgnoreCase);
+
+        if (!indexChanged && !foldersChanged) return false;
+
+        SharedIndexPath = newIndex;
+        SharedTargetFolders = newFolders;
+        return true;
+    }
+
     /// <summary>appmode.json を読み込む。読めない場合は null。</summary>
     private AppModeConfig? LoadAppModeConfig()
     {

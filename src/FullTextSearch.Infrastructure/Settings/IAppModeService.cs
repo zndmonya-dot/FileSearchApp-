@@ -18,4 +18,10 @@ public interface IAppModeService
 
     /// <summary>appmode.json の読み込みと管理者判定を行う（冪等）。</summary>
     void Initialize();
+
+    /// <summary>
+    /// appmode.json を再読み込みする。<see cref="SharedIndexPath"/> / <see cref="SharedTargetFolders"/> が
+    /// 変化した場合は true を返す。管理者判定はログイン種別に依存するため変化しない。
+    /// </summary>
+    bool Reload();
 }
