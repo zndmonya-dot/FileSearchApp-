@@ -29,13 +29,10 @@ internal static class AppWindowLayout
 
 #if WINDOWS
     private static bool _initialLayoutDone;
-    private static bool _iconApplied;
 
     /// <summary>WinUI ウィンドウ作成直後に呼ぶ。</summary>
     public static void ApplyToWinUiWindow(Microsoft.UI.Xaml.Window nativeWindow)
     {
-        ScheduleWindowIcon(nativeWindow);
-
         if (_initialLayoutDone)
             return;
 
@@ -44,83 +41,6 @@ internal static class AppWindowLayout
             appWindow.Id,
             Microsoft.UI.Windowing.DisplayAreaFallback.Primary);
         ApplyToAppWindow(appWindow, displayArea.WorkArea);
-    }
-
-    /// <summary>タイトルバー左のアイコンを設定する（Activated 後に適用）。</summary>
-    public static void ApplyWindowIcon(Microsoft.UI.Xaml.Window nativeWindow)
-    {
-        var iconPath = ResolveIconPath();
-        if (iconPath == null)
-            return;
-
-        var fullPath = Path.GetFullPath(iconPath);
-
-        if (Platforms.Windows.Win32WindowIcon.TrySetAppWindowIcon(nativeWindow.AppWindow, fullPath))
-        {
-            _iconApplied = true;
-            return;
-        }
-
-        try
-        {
-            nativeWindow.AppWindow.SetIcon(fullPath);
-            _iconApplied = true;
-        }
-        catch
-        {
-            /* SetIcon(string) 失敗時は Win32 へ */
-        }
-
-        try
-        {
-            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(nativeWindow);
-            Platforms.Windows.Win32WindowIcon.ApplyTitleBarIcon(hwnd, fullPath);
-            _iconApplied = true;
-        }
-        catch
-        {
-            /* HWND 未準備 */
-        }
-    }
-
-    private static void ScheduleWindowIcon(Microsoft.UI.Xaml.Window nativeWindow)
-    {
-        void ApplyWhenReady()
-        {
-            if (_iconApplied)
-                return;
-            ApplyWindowIcon(nativeWindow);
-        }
-
-        nativeWindow.Activated += (_, args) =>
-        {
-            if (args.WindowActivationState == Microsoft.UI.Xaml.WindowActivationState.Deactivated)
-                return;
-
-            var queue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
-            if (queue != null)
-                queue.TryEnqueue(ApplyWhenReady);
-            else
-                ApplyWhenReady();
-        };
-
-        ApplyWhenReady();
-    }
-
-    private static string? ResolveIconPath()
-    {
-        var baseDir = AppContext.BaseDirectory;
-        foreach (var path in new[]
-        {
-            Path.Combine(baseDir, "appicon.ico"),
-            Path.Combine(baseDir, "Resources", "AppIcon", "appicon.ico"),
-        })
-        {
-            if (File.Exists(path))
-                return path;
-        }
-
-        return null;
     }
 
     private static void ApplyToAppWindow(
