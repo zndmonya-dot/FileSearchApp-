@@ -178,6 +178,11 @@
                                     <option value="10080">@UserMessages.AutoRebuild1w</option>
                                 </select>
                             </div>
+                            <div class="settings-field">
+                                <label>@UserMessages.LabelIndexMaxFileMegabytes</label>
+                                <input class="settings-select" type="number" min="0" step="1" @bind="State.IndexMaxFileMegabytes" disabled="@(!IsAdmin)" />
+                                <p class="settings-desc settings-desc--field">@UserMessages.SettingsDescriptionIndexMaxFileMegabytes</p>
+                            </div>
                         </div>
                     </div>
                 </div>

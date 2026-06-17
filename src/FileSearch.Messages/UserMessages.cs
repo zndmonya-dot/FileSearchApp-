@@ -183,6 +183,10 @@ public static class UserMessages
     public const string SettingsSectionIndexPath = "インデックス保存先";
     /// <summary>インデックス保存先説明</summary>
     public const string SettingsDescriptionIndexPath = "インデックスを保存するフォルダを1つ指定します。変更後は再構築が必要です";
+    /// <summary>インデックス対象の最大ファイルサイズ（MB）。0 は無制限。</summary>
+    public const string LabelIndexMaxFileMegabytes = "スキップするファイルサイズ上限（MB）";
+    /// <summary>スキップ上限の説明。</summary>
+    public const string SettingsDescriptionIndexMaxFileMegabytes = "このサイズを超えるファイルはインデックスしません（読み込み効率化）。0 で無制限";
     /// <summary>インデックス保存先未設定時（設定画面）</summary>
     public const string IndexPathEmpty = "未設定";
     /// <summary>インデックス状態セクション見出し</summary>

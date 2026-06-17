@@ -6,6 +6,11 @@ namespace FullTextSearch.Tests;
 /// <summary>スキップログ文言のフォーマット。</summary>
 public class IndexMessagesTests
 {
+    public IndexMessagesTests()
+    {
+        ContentLimits.ConfigureIndexMaxFileBytes(null);
+    }
+
     [Fact]
     public void SkippedLogHeaderLine_contains_label_and_timestamp_pattern()
     {

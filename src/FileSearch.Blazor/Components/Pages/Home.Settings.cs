@@ -6,6 +6,7 @@
 // =============================================================================
 using FullTextSearch.Core.UI;
 using FileSearch.Messages;
+using FullTextSearch.Core;
 using FullTextSearch.Core.Extractors;
 using FullTextSearch.Core.Index;
 using FullTextSearch.Core.Preview;
@@ -30,6 +31,7 @@ public partial class Home
         _settingsEdit.TargetExtensions = SettingsService.Settings.TargetExtensions.ToList();
         _settingsEdit.AutoRebuildIntervalMinutes = SettingsService.Settings.AutoRebuildIntervalMinutes;
         _settingsEdit.ThemeMode = SettingsService.Settings.ThemeMode ?? "System";
+        _settingsEdit.IndexMaxFileMegabytes = ToMegabytes(SettingsService.Settings.IndexMaxFileBytes);
         _settingsEdit.IndexPathMessage = null;
         showSettings = true;
     }
@@ -177,7 +179,12 @@ public partial class Home
         SettingsService.Settings.TargetExtensions = _settingsEdit.TargetExtensions.ToList();
         SettingsService.Settings.AutoRebuildIntervalMinutes = _settingsEdit.AutoRebuildIntervalMinutes;
         SettingsService.Settings.ThemeMode = _settingsEdit.ThemeMode ?? "System";
+        SettingsService.Settings.IndexMaxFileBytes = FromMegabytes(_settingsEdit.IndexMaxFileMegabytes);
+        ContentLimits.ConfigureIndexMaxFileBytes(SettingsService.Settings.IndexMaxFileBytes);
         await SettingsService.SaveAsync();
+
+        // 共有設定ファイルへ書き込み（利用者は起動時にここから読む）。
+        AppMode.TrySaveSharedConfig(indexPath, SettingsService.Settings.TargetFolders, SettingsService.Settings.IndexMaxFileBytes);
 
         try
         {
@@ -220,4 +227,18 @@ public partial class Home
             ApplyThemeFromSettings();
         }
     }
+
+    private static int ToMegabytes(long? bytes)
+    {
+        if (bytes is null) return 10;
+        if (bytes <= 0) return 0;
+        return (int)Math.Min(bytes.Value / (1024 * 1024), int.MaxValue);
+    }
+
+    private static long? FromMegabytes(int megabytes) => megabytes switch
+    {
+        < 0 => 0,
+        0 => 0,
+        _ => (long)megabytes * 1024 * 1024
+    };
 }

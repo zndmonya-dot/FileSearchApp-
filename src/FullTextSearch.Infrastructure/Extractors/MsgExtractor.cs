@@ -2,9 +2,9 @@
 using System.Text;
 using System.Text.RegularExpressions;
 using FullTextSearch.Core.Extractors;
+using MsgReader;
 using MsgReader.Outlook;
 using OutlookMessage = MsgReader.Outlook.Storage.Message;
-using OutlookAttachment = MsgReader.Outlook.Storage.Attachment;
 using OutlookSender = MsgReader.Outlook.Storage.Sender;
 using RtfPipe;
 
@@ -16,6 +16,9 @@ namespace FullTextSearch.Infrastructure.Extractors;
 public class MsgExtractor : ITextExtractor
 {
     private static readonly Regex HtmlTagRegex = new("<[^>]+>", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+    private static readonly Reader BodyReader = new();
+
+    static MsgExtractor() => MsgEncodingBootstrap.EnsureRegistered();
 
     /// <inheritdoc />
     public IEnumerable<string> SupportedExtensions => SupportedExtensionSets.OutlookMsg;
@@ -46,7 +49,7 @@ public class MsgExtractor : ITextExtractor
             sb.AppendLine(body.Trim());
         }
 
-        var attachmentNames = CollectAttachmentNames(message, cancellationToken);
+        var attachmentNames = CollectAttachmentNames(message);
         if (attachmentNames.Count > 0)
         {
             sb.AppendLine();
@@ -79,22 +82,57 @@ public class MsgExtractor : ITextExtractor
         return name ?? email ?? string.Empty;
     }
 
+    /// <summary>
+    /// MsgReader の統合 API で RTF 内 HTML 等も含めて本文を取得する。
+    /// 失敗時のみ個別プロパティへフォールバックする。
+    /// </summary>
     private static string GetBodyText(OutlookMessage message)
     {
-        if (!string.IsNullOrWhiteSpace(message.BodyText))
-            return message.BodyText;
-
-        if (!string.IsNullOrWhiteSpace(message.BodyHtml))
-            return StripHtml(message.BodyHtml);
-
-        if (!string.IsNullOrWhiteSpace(message.BodyRtf))
+        try
         {
-            var html = Rtf.ToHtml(message.BodyRtf);
-            if (!string.IsNullOrWhiteSpace(html))
-                return StripHtml(html);
+            var extracted = BodyReader.ExtractMsgEmailBody(message, ReaderHyperLinks.None, null, false, false);
+            var fromReader = NormalizeBody(extracted);
+            if (!string.IsNullOrWhiteSpace(fromReader))
+                return fromReader;
+        }
+        catch
+        {
+            // フォールバックへ
+        }
+
+        var plain = NormalizeBody(message.BodyText);
+        if (!string.IsNullOrWhiteSpace(plain))
+            return plain;
+
+        var html = NormalizeBody(message.BodyHtml, stripHtml: true);
+        if (!string.IsNullOrWhiteSpace(html))
+            return html;
+
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(message.BodyRtf))
+            {
+                var rtfHtml = Rtf.ToHtml(message.BodyRtf);
+                var fromRtf = NormalizeBody(rtfHtml, stripHtml: true);
+                if (!string.IsNullOrWhiteSpace(fromRtf))
+                    return fromRtf;
+            }
+        }
+        catch
+        {
+            // 本文なしとして扱う
         }
 
         return string.Empty;
+    }
+
+    private static string NormalizeBody(string? raw, bool stripHtml = false)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return string.Empty;
+
+        var text = stripHtml ? StripHtml(raw) : raw;
+        return text.Trim();
     }
 
     private static string StripHtml(string html) =>
@@ -104,27 +142,21 @@ public class MsgExtractor : ITextExtractor
             .Replace("&gt;", ">", StringComparison.OrdinalIgnoreCase)
             .Replace("&amp;", "&", StringComparison.OrdinalIgnoreCase);
 
-    private static List<string> CollectAttachmentNames(OutlookMessage message, CancellationToken cancellationToken)
+    private static List<string> CollectAttachmentNames(OutlookMessage message)
     {
-        var names = new List<string>();
-        if (message.Attachments == null)
-            return names;
-
-        foreach (var attachment in message.Attachments)
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            var names = message.GetAttachmentNames();
+            if (string.IsNullOrWhiteSpace(names))
+                return [];
 
-            switch (attachment)
-            {
-                case OutlookAttachment file when !string.IsNullOrWhiteSpace(file.FileName):
-                    names.Add(file.FileName.Trim());
-                    break;
-                case OutlookMessage embedded when !string.IsNullOrWhiteSpace(embedded.Subject):
-                    names.Add(embedded.Subject.Trim());
-                    break;
-            }
+            return names.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(n => !string.IsNullOrWhiteSpace(n))
+                .ToList();
         }
-
-        return names;
+        catch
+        {
+            return [];
+        }
     }
 }

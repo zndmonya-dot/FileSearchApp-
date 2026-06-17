@@ -75,7 +75,7 @@ public class LuceneIndexService : IIndexService, IDisposable
     /// <summary>インデックス登録ロジックの版（差分更新で再インデックス判定に使用）。</summary>
     public const string FieldIndexVersion = "indexversion";
     /// <summary>現在のインデックス版。<see cref="FieldIndexVersion"/> と不一致のドキュメントは差分更新で再登録する。</summary>
-    public const int CurrentIndexVersion = 1;
+    public const int CurrentIndexVersion = 2;
     /// <summary>完全一致検索の候補絞り込み用の文字バイグラム索引（本文＋ファイル名、非格納）。<see cref="ContentNGram"/> 参照。</summary>
     public const string FieldContentNGram = "content_ngram";
 

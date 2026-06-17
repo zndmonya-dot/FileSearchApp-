@@ -82,9 +82,6 @@ public partial class Home : IDisposable
     private Timer? _previewDebounceTimer;
     private string? _pendingPreviewPath;
     private Timer? _autoRebuildTimer;
-    /// <summary>appmode.json の変更を定期的に検知して母体設定（インデックスパス・フォルダ）を同期するタイマー。</summary>
-    private Timer? _appModeSyncTimer;
-    private const int AppModeSyncIntervalSeconds = 60;
     private const int PreviewDebounceMs = 200;
     private const int ProgressReportInterval = 500;
     private const int ProgressReportThrottleMs = 250;
@@ -185,24 +182,31 @@ public partial class Home : IDisposable
         // 動作モードの確定: 共有インデックスパスの反映と管理者判定。
         AppMode.Initialize();
         isAdmin = AppMode.IsAdmin;
-        if (!string.IsNullOrWhiteSpace(AppMode.SharedIndexPath))
-        {
-            // 共有インデックスを参照する。インストール先は基本このインデックスのみを使う。
-            SettingsService.Settings.IndexPath = AppMode.SharedIndexPath;
-            if (AppMode.SharedTargetFolders.Count > 0)
-            {
-                // 共有インデックスを使うときは、対象フォルダも母体設定を優先して同期する。
-                SettingsService.Settings.TargetFolders = AppMode.SharedTargetFolders.ToList();
-            }
-        }
+        ApplySharedSettingsFromAppMode();
 
         ApplyThemeFromSettings();
         _ = RefreshFolderSkeletonTreeAsync();
         await InitializeIndexIfConfiguredAsync();
         _autoRebuildTimer = new Timer(OnAutoRebuildTick, null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
-        // appmode.json の変更を定期的に検知して母体設定（インデックスパス・フォルダ）を同期する。
-        var syncInterval = TimeSpan.FromSeconds(AppModeSyncIntervalSeconds);
-        _appModeSyncTimer = new Timer(OnAppModeSyncTick, null, syncInterval, syncInterval);
+    }
+
+    /// <summary>
+    /// 参照モード、または sharedConfig 利用時は起動時に母体設定（インデックス/フォルダ）を反映する。
+    /// リアルタイム同期は行わない。管理者が sharedConfig を更新したあとは利用者がアプリを再起動する。
+    /// </summary>
+    private void ApplySharedSettingsFromAppMode()
+    {
+        if (isAdmin && string.IsNullOrWhiteSpace(AppMode.SharedConfigPath))
+            return;
+
+        if (!string.IsNullOrWhiteSpace(AppMode.SharedIndexPath))
+            SettingsService.Settings.IndexPath = AppMode.SharedIndexPath;
+        if (AppMode.SharedTargetFolders.Count > 0)
+            SettingsService.Settings.TargetFolders = AppMode.SharedTargetFolders.ToList();
+        if (AppMode.SharedIndexMaxFileBytes.HasValue)
+            SettingsService.Settings.IndexMaxFileBytes = AppMode.SharedIndexMaxFileBytes;
+
+        ContentLimits.ConfigureIndexMaxFileBytes(SettingsService.Settings.IndexMaxFileBytes);
     }
 
     /// <summary>設定のインデックス保存先を開く。失敗してもアプリ全体は落とさない。</summary>
@@ -236,62 +240,9 @@ public partial class Home : IDisposable
 
     #endregion
 
-    /// <summary>
-    /// 60 秒ごとに appmode.json を再読み込みして母体設定が変わっていたらインデックス・フォルダを同期する。
-    /// インデックスパスが変わった場合は IndexService を再初期化する。フォルダのみ変更の場合はフォルダツリーを更新する。
-    /// </summary>
-    private void OnAppModeSyncTick(object? _)
-    {
-        try
-        {
-            if (!AppMode.Reload()) return;
-            _ = InvokeAsync(SyncAppModeAsync);
-        }
-        catch { /* timer thread: ignore */ }
-    }
-
-    /// <summary>母体設定（appmode.json）の変更をメモリとインデックスサービスに反映する。</summary>
-    private async Task SyncAppModeAsync()
-    {
-        var newIndexPath = AppMode.SharedIndexPath;
-        var newFolders = AppMode.SharedTargetFolders;
-
-        // インデックスパスを母体設定で上書き（設定されていない場合は現状維持）。
-        if (!string.IsNullOrWhiteSpace(newIndexPath))
-            SettingsService.Settings.IndexPath = newIndexPath;
-
-        // 対象フォルダも常に母体設定で上書き。
-        if (newFolders.Count > 0)
-            SettingsService.Settings.TargetFolders = newFolders.ToList();
-
-        // インデックスパスが変化していたら再初期化。
-        var currentIndexPath = SettingsService.Settings.IndexPath;
-        if (!string.IsNullOrWhiteSpace(currentIndexPath))
-        {
-            try
-            {
-                await IndexService.InitializeAsync(currentIndexPath, readOnly: !isAdmin);
-                indexCount = IndexService.LastInitializeFailed ? 0 : IndexService.GetStats().DocumentCount;
-                indexErrorMessage = IndexService.LastInitializeFailed ? UserMessages.IndexLoadFailed : null;
-                if (!IndexService.LastInitializeFailed) SearchService.RefreshIndex();
-            }
-            catch (Exception ex)
-            {
-                indexCount = 0;
-                indexErrorMessage = UserMessages.IndexLoadFailed;
-                Logger.LogError(ex, "Failed to re-initialize index after appmode.json change: {IndexPath}", currentIndexPath);
-            }
-        }
-
-        _ = RefreshFolderSkeletonTreeAsync();
-        StateHasChanged();
-    }
-
     /// <summary>タイマーとキャンセルトークンを解放。</summary>
     public void Dispose()
     {
-        _appModeSyncTimer?.Dispose();
-        _appModeSyncTimer = null;
         _autoRebuildTimer?.Dispose();
         _autoRebuildTimer = null;
         _previewDebounceTimer?.Dispose();

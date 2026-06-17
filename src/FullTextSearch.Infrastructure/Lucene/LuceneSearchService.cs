@@ -114,7 +114,7 @@ public class LuceneSearchService : ISearchService, IDisposable
                     }
                     else
                     {
-                        var fetchLimit = Math.Min(Math.Max(options.MaxResults * 10, options.MaxResults), 10_000);
+                        var fetchLimit = ComputeFetchLimit(options.MaxResults);
                         var topDocs = searcher.Search(boolQuery, fetchLimit);
                         hitDocIds = topDocs.ScoreDocs.Select(sd => sd.Doc).ToList();
                     }
@@ -288,6 +288,17 @@ public class LuceneSearchService : ISearchService, IDisposable
     /// MUST 節を減らしても候補集合は広がるだけで取りこぼしは起きない（完全性は保たれる）ため、上限で打ち切ってよい。
     /// </summary>
     private const int ExactNGramMaxClauses = 64;
+
+    /// <summary>スコア順検索で Lucene に渡す取得件数。検索結果件数上限の撤廃に合わせオーバーフローだけ抑える。</summary>
+    private static int ComputeFetchLimit(int maxResults)
+    {
+        if (maxResults <= 0)
+            return ContentLimits.UnlimitedSearchResults;
+        if (maxResults >= ContentLimits.UnlimitedSearchResults / 10)
+            return ContentLimits.UnlimitedSearchResults;
+        var fetchLimit = (long)maxResults * 10;
+        return fetchLimit > int.MaxValue ? int.MaxValue : (int)fetchLimit;
+    }
 
     /// <summary>
     /// 完全一致検索の候補絞り込みクエリを作る。

@@ -2,26 +2,36 @@
 namespace FullTextSearch.Infrastructure.Settings;
 
 /// <summary>
-/// アプリの動作モードを提供する。共有インデックスのパスと、実行ユーザーが管理者かどうかを保持する。
-/// 管理者判定は「ローカルアカウント＝管理者／ドメインアカウント＝非管理者」で動的に行う。
+/// アプリの動作モードを提供する。appmode.json（および任意の共有設定ファイル）から
+/// インデックスパス・対象フォルダを読み、管理者/参照モードを決める。
 /// </summary>
 public interface IAppModeService
 {
-    /// <summary>実行ユーザーが管理者か（ローカルアカウントなら true）。<see cref="Initialize"/> 後に有効。</summary>
+    /// <summary>管理者モードか。<see cref="Initialize"/> 後に有効。</summary>
     bool IsAdmin { get; }
 
-    /// <summary>appmode.json で指定された共有インデックスのパス（未指定なら null）。</summary>
+    /// <summary>共有インデックスのパス（未指定なら null）。</summary>
     string? SharedIndexPath { get; }
 
-    /// <summary>appmode.json で指定された検索対象フォルダ（未指定なら空）。共有インデックス配布時に管理者が記載。</summary>
+    /// <summary>検索対象フォルダ（未指定なら空）。</summary>
     IReadOnlyList<string> SharedTargetFolders { get; }
 
-    /// <summary>appmode.json の読み込みと管理者判定を行う（冪等）。</summary>
+    /// <summary>
+    /// サーバ上の共有設定ファイルのパス（appmode.json の sharedConfig）。
+    /// 設定されているとき、インデックスパスと対象フォルダは起動時にここから読む。
+    /// </summary>
+    string? SharedConfigPath { get; }
+
+    /// <summary>appmode.json（と共有設定）の読み込みとモード判定を行う（冪等）。</summary>
     void Initialize();
 
     /// <summary>
-    /// appmode.json を再読み込みする。<see cref="SharedIndexPath"/> / <see cref="SharedTargetFolders"/> が
-    /// 変化した場合は true を返す。管理者判定はログイン種別に依存するため変化しない。
+    /// 共有設定のインデックス対象最大ファイルサイズ（バイト）。null=既定、0=無制限。
     /// </summary>
-    bool Reload();
+    long? SharedIndexMaxFileBytes { get; }
+
+    /// <summary>
+    /// 管理者が設定保存したとき、<see cref="SharedConfigPath"/> へ共有設定を書き込む。
+    /// </summary>
+    bool TrySaveSharedConfig(string indexPath, IReadOnlyList<string> targetFolders, long? indexMaxFileBytes);
 }

@@ -171,10 +171,9 @@ public partial class Home
         StateHasChanged();
         try
         {
-            const int searchLimit = 100_000; // 検索結果の最大件数
             var result = await SearchService.SearchAsync(query, new SearchOptions
             {
-                MaxResults = searchLimit,
+                MaxResults = ContentLimits.UnlimitedSearchResults,
                 SearchMode = searchMode,
             }, token);
             if (token.IsCancellationRequested) return;

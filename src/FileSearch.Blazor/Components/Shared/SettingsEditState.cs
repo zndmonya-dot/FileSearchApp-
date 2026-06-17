@@ -17,6 +17,8 @@ public class SettingsEditState
     public List<string> TargetExtensions { get; set; } = new();
     /// <summary>定期再構築間隔（分）。0 で無効</summary>
     public int AutoRebuildIntervalMinutes { get; set; }
+    /// <summary>インデックス対象の最大ファイルサイズ（MB）。0=無制限。</summary>
+    public int IndexMaxFileMegabytes { get; set; } = 10;
     /// <summary>テーマ: "Dark" / "Light" / "System"</summary>
     public string ThemeMode { get; set; } = "System";
 }

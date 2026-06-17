@@ -19,6 +19,8 @@ public static class MauiProgram
     /// <summary>アプリケーションのビルドと DI コンテナの構成を行う。</summary>
     public static MauiApp CreateMauiApp()
     {
+        FullTextSearch.Infrastructure.Extractors.MsgEncodingBootstrap.EnsureRegistered();
+
         var builder = MauiApp.CreateBuilder();
         builder
             .UseMauiApp<App>();

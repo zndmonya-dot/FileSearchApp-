@@ -23,9 +23,9 @@ public static class IndexMessages
     /// <summary>スキップログ 1 行分（パスと理由をタブ区切り）</summary>
     public static string SkippedLogLine(string path, string reason) => $"{path}\t{reason}";
 
-    /// <summary>ファイルサイズ超過（<see cref="ContentLimits.IndexMaxFileBytesDisplayLabel"/>）</summary>
+    /// <summary>ファイルサイズ超過</summary>
     public static string SkippedReasonFileTooLarge(long fileSizeBytes) =>
-        $"{ContentLimits.IndexMaxFileBytesDisplayLabel}を超えるため（{fileSizeBytes:N0} バイト）";
+        $"{ContentLimits.GetIndexMaxFileBytesDisplayLabel()}を超えるため（{fileSizeBytes:N0} バイト）";
 
     /// <summary>テキスト抽出失敗</summary>
     public const string SkippedReasonExtractFailed = "テキスト抽出に失敗";

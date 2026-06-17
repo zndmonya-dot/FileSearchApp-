@@ -32,6 +32,8 @@ Windows向けの高速全文検索アプリケーション **Panoleon**（Panopt
 
 **インストール（利用者）と環境構築（開発者）の違い**は [docs/インストールと環境構築.md](docs/インストールと環境構築.md) を参照。
 
+**管理者／利用者の配布設定（appmode.json）**は [docs/appmode設定.md](docs/appmode設定.md) を参照。
+
 ## セットアップ（開発者向け環境構築）
 
 ### 1. .NET 8 SDK と MAUI ワークロード

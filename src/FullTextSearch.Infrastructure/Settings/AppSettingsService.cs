@@ -67,8 +67,9 @@ public class AppSettingsService : IAppSettingsService
                     Settings = settings;
                     var before = NormalizeExtensions(Settings.TargetExtensions ?? new List<string>());
                     var sanitized = SanitizeTargetExtensions(before);
-                    Settings.TargetExtensions = sanitized;
-                    needsResave = sanitized.Count != before.Count;
+                    var merged = EnsureSupportedExtensionsPresent(sanitized);
+                    Settings.TargetExtensions = merged;
+                    needsResave = merged.Count != before.Count;
                 }
                 if (needsResave)
                     await SaveAsync(cancellationToken);
@@ -114,6 +115,25 @@ public class AppSettingsService : IAppSettingsService
         if (extensions.Count == 0) return extensions;
         var allowed = GetAllowedExtensionSet();
         return extensions.Where(allowed.Contains).ToList();
+    }
+
+    /// <summary>新規追加された抽出器拡張子を既存設定へ自動反映する（空リスト＝全対象の場合は触らない）。</summary>
+    private List<string> EnsureSupportedExtensionsPresent(List<string> extensions)
+    {
+        if (extensions.Count == 0) return extensions;
+
+        var allowed = GetAllowedExtensionSet();
+        var set = new HashSet<string>(extensions, StringComparer.OrdinalIgnoreCase);
+        var changed = false;
+        foreach (var ext in allowed)
+        {
+            if (set.Add(ext))
+                changed = true;
+        }
+
+        return changed
+            ? set.OrderBy(e => e, StringComparer.OrdinalIgnoreCase).ToList()
+            : extensions;
     }
 
     private HashSet<string> GetAllowedExtensionSet() =>

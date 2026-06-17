@@ -37,6 +37,12 @@ public class AppSettings
     /// テーマ: "Dark" / "Light" / "System"（システムに従う）
     /// </summary>
     public string ThemeMode { get; set; } = "System";
+
+    /// <summary>
+    /// インデックス対象の最大ファイルサイズ（バイト）。
+    /// null = 既定 10MB、0 = 無制限（サイズによるスキップなし）。
+    /// </summary>
+    public long? IndexMaxFileBytes { get; set; }
 }
 
 
