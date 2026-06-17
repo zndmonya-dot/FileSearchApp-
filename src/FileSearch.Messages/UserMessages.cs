@@ -81,6 +81,15 @@ public static class UserMessages
     public const string CannotSearchWhileIndexing = "再構築中は検索できません。";
     /// <summary>検索実行中表示。</summary>
     public const string Searching = "検索中...";
+
+    /// <summary>検索進捗（該当件数の先出し・読み込み件数）。</summary>
+    public static string FormatSearchProgress(int processed, int total)
+    {
+        if (total <= 0) return "";
+        return processed <= 0
+            ? $"（該当 {total:N0} 件）"
+            : $"（{processed:N0}/{total:N0} 件）";
+    }
     /// <summary>キーワード未入力時の空ツリー案内。</summary>
     public const string TreeEmptyKeywordPrompt = "検索キーワードを入力";
     /// <summary>検索済みで 0 件。</summary>
@@ -139,6 +148,41 @@ public static class UserMessages
 
     /// <summary>「構築中 N%」。</summary>
     public static string FormatBuildingPercent(int percent) => $"構築中 {percent}%";
+
+    /// <summary>読み込み・検索中の残り時間または経過時間（括弧付きサフィックス）。</summary>
+    public static string FormatLoadingEtaHint(TimeSpan? remaining, TimeSpan elapsed) =>
+        !string.IsNullOrEmpty(FormatRemainingApprox(remaining))
+            ? FormatRemainingApprox(remaining)
+            : FormatElapsedHint(elapsed);
+
+    /// <summary>残り時間のおおよその表示。</summary>
+    public static string FormatRemainingApprox(TimeSpan? remaining)
+    {
+        if (!remaining.HasValue)
+            return "";
+
+        var r = remaining.Value;
+        if (r.TotalHours >= 2)
+            return $"（あと約{(int)Math.Round(r.TotalHours)}時間）";
+        if (r.TotalMinutes >= 2)
+            return $"（あと約{(int)Math.Round(r.TotalMinutes)}分）";
+        if (r.TotalSeconds >= 30)
+            return $"（あと約{(int)Math.Round(r.TotalSeconds / 10.0) * 10}秒）";
+        if (r.TotalSeconds >= 10)
+            return $"（あと約{(int)Math.Ceiling(r.TotalSeconds)}秒）";
+        return "（あと少し）";
+    }
+
+    /// <summary>経過時間の表示（3秒未満は空）。</summary>
+    public static string FormatElapsedHint(TimeSpan elapsed)
+    {
+        if (elapsed.TotalSeconds < 3)
+            return "";
+        if (elapsed.TotalMinutes < 1)
+            return $"（{(int)elapsed.TotalSeconds}秒経過）";
+        return $"（{(int)elapsed.TotalMinutes}分{elapsed.Seconds}秒経過）";
+    }
+
     /// <summary>登録件数表示。</summary>
     public static string FormatRegisteredCount(int count) => $"{count:N0} 件登録済み";
 
@@ -265,7 +309,7 @@ public static class UserMessages
     /// <summary>列：先頭行プレビュー（検索時はマッチ行）</summary>
     public const string ColumnPreview = "内容";
     /// <summary>列幅リサイズハンドルの title</summary>
-    public const string ColumnResizeHandleTitle = "ドラッグして列幅を変更";
+    public const string ColumnResizeHandleTitle = "列の境界をドラッグして幅を変更";
     /// <summary>列：更新日時</summary>
     public const string ColumnDate = "更新日時";
     /// <summary>フィルターボタン title</summary>

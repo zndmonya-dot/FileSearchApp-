@@ -13,6 +13,7 @@ using FullTextSearch.Core.Preview;
 using FullTextSearch.Core.Search;
 using FullTextSearch.Infrastructure.Settings;
 using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
 using Microsoft.Extensions.Logging;
 
 namespace FileSearch.Blazor.Components.Pages;
@@ -237,5 +238,11 @@ public partial class Home
         {
             ApplyThemeFromSettings();
         }
+        try
+        {
+            BootThemeSync.WriteTheme(isDarkMode);
+            await JSRuntime.InvokeVoidAsync("setBootSplashTheme", isDarkMode ? "dark" : "light");
+        }
+        catch { /* WebView 未準備 */ }
     }
 }

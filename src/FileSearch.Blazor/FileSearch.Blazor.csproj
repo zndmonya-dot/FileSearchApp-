@@ -11,6 +11,9 @@
         <Nullable>enable</Nullable>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
 
+        <!-- EXE 埋め込み＋タイトルバー用 -->
+        <ApplicationIcon>Resources\AppIcon\appicon.ico</ApplicationIcon>
+
         <!-- 表示名。文言は UserMessages.AppTitle と揃えること -->
         <ApplicationTitle>Panoleon</ApplicationTitle>
         <ApplicationId>com.fulltext.filesearch</ApplicationId>
@@ -40,6 +43,10 @@
     <ItemGroup>
         <MauiIcon Include="Resources\AppIcon\appicon.png" />
         <MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#000000" BaseSize="128,128" />
+        <Content Include="Resources\AppIcon\appicon.ico">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <Link>appicon.ico</Link>
+        </Content>
     </ItemGroup>
 
     <ItemGroup>

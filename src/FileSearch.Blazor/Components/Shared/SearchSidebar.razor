@@ -14,15 +14,6 @@
             @UserMessages.SidebarTitleSearchResults
         </span>
         <div class="sidebar-header-actions">
-            @if (IsSearching)
-            {
-                <span class="sidebar-status">@UserMessages.Searching</span>
-            }
-            else if (!IsBrowseMode && TotalFileCount > 0)
-            {
-            @* M-04 検索結果件数（閲覧時はツリー・フッターに任せる） *@
-            <span class="sidebar-badge">@TotalFileCount</span>
-            }
             @* M-02 設定ボタン *@
             <button type="button" class="sidebar-settings-btn" disabled="@IsIndexing" @onclick="OnOpenSettings" title="@UserMessages.SettingsTitle">
                 <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0a8.2 8.2 0 0 1 .701.031C9.444.095 9.99.645 10.16 1.29l.288 1.107c.018.066.079.158.212.224.231.114.454.243.668.386.123.082.233.09.299.071l1.103-.303c.644-.176 1.392.021 1.82.63.27.385.506.792.704 1.218.315.675.111 1.422-.364 1.891l-.814.806c-.049.048-.098.147-.088.294.016.257.016.515 0 .772-.01.147.039.246.088.294l.814.806c.475.469.679 1.216.364 1.891a7.977 7.977 0 0 1-.704 1.217c-.428.61-1.176.807-1.82.63l-1.102-.302c-.067-.019-.177-.011-.3.071a5.909 5.909 0 0 1-.668.386c-.133.066-.194.158-.211.224l-.29 1.106c-.168.646-.715 1.196-1.458 1.26a8.006 8.006 0 0 1-1.402 0c-.743-.064-1.289-.614-1.458-1.26l-.289-1.106c-.018-.066-.079-.158-.212-.224a5.738 5.738 0 0 1-.668-.386c-.123-.082-.233-.09-.299-.071l-1.103.303c-.644.176-1.392-.021-1.82-.63a8.12 8.12 0 0 1-.704-1.218c-.315-.675-.111-1.422.363-1.891l.815-.806c.049-.048.098-.147.088-.294a6.214 6.214 0 0 1 0-.772c.01-.147-.039-.246-.088-.294l-.815-.806C.635 6.045.431 5.298.746 4.623a7.92 7.92 0 0 1 .704-1.217c.428-.61 1.176-.807 1.82-.63l1.102.302c.067.019.177.011.3-.071.214-.143.437-.272.668-.386.133-.066.194-.158.211-.224l.29-1.106C6.009.645 6.556.095 7.299.03 7.53.01 7.764 0 8 0Zm-.571 1.525c-.036.003-.108.036-.137.146l-.289 1.105c-.147.561-.549.967-.998 1.189-.173.086-.34.183-.5.29-.417.278-.97.423-1.529.27l-1.103-.303c-.109-.03-.175.016-.195.045-.22.312-.412.644-.573.99-.014.031-.021.11.059.19l.815.806c.411.406.562.957.53 1.456a4.709 4.709 0 0 0 0 .582c.032.499-.119 1.05-.53 1.456l-.815.806c-.081.08-.073.159-.059.19.162.346.353.677.573.989.02.03.085.076.195.046l1.102-.303c.56-.153 1.113-.008 1.53.27.161.107.328.204.501.29.447.222.85.629.997 1.189l.289 1.105c.029.109.101.143.137.146a6.6 6.6 0 0 0 1.142 0c.036-.003.108-.036.137-.146l.289-1.105c.147-.561.549-.967.998-1.189.173-.086.34-.183.5-.29.417-.278.97-.423 1.529-.27l1.103.303c.109.029.175-.016.195-.045.22-.313.411-.644.573-.99.014-.031.021-.11-.059-.19l-.815-.806c-.411-.406-.562-.957-.53-1.456a4.709 4.709 0 0 0 0-.582c-.032-.499.119-1.05.53-1.456l.815-.806c.081-.08.073-.159.059-.19a6.464 6.464 0 0 0-.573-.989c-.02-.03-.085-.076-.195-.046l-1.102.303c-.56.153-1.113.008-1.53-.27a4.44 4.44 0 0 0-.501-.29c-.447-.222-.85-.629-.997-1.189l-.289-1.105c-.029-.11-.101-.143-.137-.146a6.6 6.6 0 0 0-1.142 0ZM11 8a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM9.5 8a1.5 1.5 0 1 0-3.001.001A1.5 1.5 0 0 0 9.5 8Z"/></svg>
@@ -82,6 +73,10 @@
             @* M-06 検索実行中（Enter・検索ボタン・AND/OR 切替で共通） *@
             <div class="tree-status tree-status-cute" aria-busy="true" aria-live="polite">
                 <CuteLoader Size="md" AriaLabel="@UserMessages.Searching" />
+                @if (!string.IsNullOrEmpty(SearchProgressHint))
+                {
+                    <span class="loading-eta-hint">@SearchProgressHint</span>
+                }
             </div>
         }
         else if (TreeNodes.Count > 0)
@@ -99,7 +94,11 @@
             <div class="tree-status tree-status-folder-loading" aria-busy="true" aria-live="polite" aria-label="@GetFolderTreeLoadingLabel()">
                 @if (LoadingFolderTreeCount > 0)
                 {
-                    <span class="tree-loading-count">@UserMessages.FormatFolderTreeLoadingCount(LoadingFolderTreeCount)</span>
+                    <span class="tree-loading-count">@UserMessages.FormatFolderTreeLoadingCount(LoadingFolderTreeCount)@FolderTreeLoadingEtaHint</span>
+                }
+                else if (!string.IsNullOrEmpty(FolderTreeLoadingEtaHint))
+                {
+                    <span class="tree-loading-count">@UserMessages.FolderTreeLoading@FolderTreeLoadingEtaHint</span>
                 }
                 <TreeSkeleton />
             </div>
@@ -123,7 +122,7 @@
                         <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M1.705 8.005a.75.75 0 0 1 .834.656 5.5 5.5 0 0 0 9.592 2.97l-1.204-1.204a.25.25 0 0 1 .177-.427h3.646a.25.25 0 0 1 .25.25v3.646a.25.25 0 0 1-.427.177l-1.38-1.38A7.002 7.002 0 0 1 1.05 8.84a.75.75 0 0 1 .656-.834ZM8 2.5a5.487 5.487 0 0 0-4.131 1.869l1.204 1.204A.25.25 0 0 1 4.896 6H1.25A1.75 1.75 0 0 1 1 5.75V2.104a.25.25 0 0 1 .427-.177l1.38 1.38A7.002 7.002 0 0 1 14.95 7.16a.75.75 0 0 1-1.49.178A5.5 5.5 0 0 0 8 2.5Z"/></svg>
                     </div>
                     <div class="footer-text">
-                        <span class="footer-primary">@UserMessages.FormatBuildingPercent(IndexProgressPercent)</span>
+                        <span class="footer-primary">@UserMessages.FormatBuildingPercent(IndexProgressPercent)@IndexProgressEtaHint</span>
                         <span class="footer-secondary footer-secondary-building" title="@GetIndexProgressTitle()">@IndexProgressText</span>
                     </div>
                     @* M-16 キャンセルボタン（更新中） *@
@@ -201,6 +200,8 @@
     [Parameter] public IReadOnlyList<TreeNode> TreeNodes { get; set; } = Array.Empty<TreeNode>();
     /// <summary>検索実行中（スピナー表示）。</summary>
     [Parameter] public bool IsSearching { get; set; }
+    /// <summary>検索結果の読み込み進捗（括弧付き）。</summary>
+    [Parameter] public string SearchProgressHint { get; set; } = "";
     /// <summary>検索エラーメッセージ（あればバナー）。</summary>
     [Parameter] public string? SearchErrorMessage { get; set; }
     /// <summary>インデックス構築中（検索無効・進捗表示）。</summary>
@@ -211,6 +212,8 @@
     [Parameter] public string IndexProgressText { get; set; } = "";
     /// <summary>現在処理中ファイルのフルパス（ツールチップ用）。</summary>
     [Parameter] public string IndexProgressDetail { get; set; } = "";
+    /// <summary>インデックス構築の残り／経過時間ヒント。</summary>
+    [Parameter] public string IndexProgressEtaHint { get; set; } = "";
     /// <summary>登録ドキュメント件数。</summary>
     [Parameter] public int IndexCount { get; set; }
     /// <summary>インデックス系エラー（あればフッター赤字）。</summary>
@@ -239,6 +242,8 @@
     [Parameter] public bool IsLoadingFolderTree { get; set; }
     /// <summary>フォルダツリー読み込み中に表示する件数（0 のときは件数なし）。</summary>
     [Parameter] public int LoadingFolderTreeCount { get; set; }
+    /// <summary>フォルダツリー読み込みの残り／経過時間ヒント。</summary>
+    [Parameter] public string FolderTreeLoadingEtaHint { get; set; } = "";
     /// <summary>フォルダ行クリックで展開トグル。</summary>
     [Parameter] public EventCallback<TreeNode> OnToggleNode { get; set; }
     /// <summary>ファイル行クリックで選択。</summary>

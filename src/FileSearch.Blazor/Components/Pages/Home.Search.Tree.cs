@@ -85,6 +85,7 @@ public partial class Home
 
         folderTreeLoadingCount = indexCount;
         isLoadingFolderTree = true;
+        MarkFolderTreeLoadStarted();
         treeNodes = [];
         await InvokeAsync(StateHasChanged);
 
@@ -124,6 +125,7 @@ public partial class Home
         treeNodes = built;
         isLoadingFolderTree = false;
         folderTreeLoadingCount = 0;
+        MarkFolderTreeLoadEnded();
         _lastTreeSyncFilePath = null;
         _lastTreeSyncFolderPath = null;
         TrySelectInitialBrowseFolder(built);
@@ -164,6 +166,7 @@ public partial class Home
         _folderTreeLoadCts = null;
         isLoadingFolderTree = false;
         folderTreeLoadingCount = 0;
+        MarkFolderTreeLoadEnded();
     }
 
     /// <summary>検索欄の双方向バインド用。</summary>
@@ -203,6 +206,8 @@ public partial class Home
         var token = _searchCts.Token;
         searchErrorMessage = null;
         isSearching = true;
+        searchProgressProcessed = 0;
+        searchProgressTotal = 0;
         totalFileCount = 0;
         treeNodes = [];
         selectedFile = null;
@@ -211,11 +216,17 @@ public partial class Home
         StateHasChanged();
         try
         {
+            var progress = new Progress<SearchProgress>(p =>
+            {
+                searchProgressProcessed = p.Processed;
+                searchProgressTotal = p.Total;
+                InvokeAsync(StateHasChanged);
+            });
             var result = await SearchService.SearchAsync(query, new SearchOptions
             {
                 MaxResults = ContentLimits.UnlimitedSearchResults,
                 SearchMode = searchMode,
-            }, token);
+            }, progress, token);
             if (token.IsCancellationRequested) return;
             var items = FilterByTargetExtensions(result.Items);
             treeNodes = TreeBuilder.BuildTree(SettingsService.Settings.TargetFolders, items);
@@ -230,7 +241,13 @@ public partial class Home
             searchErrorMessage = UserMessages.SearchFailed;
             Logger.LogError(ex, "Search failed");
         }
-        finally { isSearching = false; StateHasChanged(); }
+        finally
+        {
+            isSearching = false;
+            searchProgressProcessed = 0;
+            searchProgressTotal = 0;
+            StateHasChanged();
+        }
     }
 
     /// <summary>

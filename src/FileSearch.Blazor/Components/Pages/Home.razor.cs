@@ -49,6 +49,8 @@ public partial class Home : IDisposable
     private string? searchErrorMessage = null;
     /// <summary>最後に実際に実行した検索クエリ（入力中は未実行と区別するため）</summary>
     private string? _lastExecutedSearchQuery;
+    private int searchProgressProcessed = 0;
+    private int searchProgressTotal = 0;
 
     // --- プレビュー ---
     private PreviewResult? _previewResult;
@@ -135,6 +137,9 @@ public partial class Home : IDisposable
 
     #endregion
 
+    private string SearchProgressHint =>
+        UserMessages.FormatSearchProgress(searchProgressProcessed, searchProgressTotal);
+
     #region ライフサイクル（初回テーマ・ハイライトスクロール）
 
     /// <summary>ツリー展開の同期、System テーマの初回取得、ファイル切替時のハイライトナビリセットと初回スクロール。</summary>
@@ -144,6 +149,8 @@ public partial class Home : IDisposable
         {
             _appStartupStarted = true;
             await RunAppStartupAsync();
+            try { await JSRuntime.InvokeVoidAsync("hideBootSplash"); }
+            catch { /* WebView 未準備 */ }
             StateHasChanged();
         }
 
@@ -195,6 +202,7 @@ public partial class Home : IDisposable
         isAdmin = AppMode.IsAdmin;
         ApplySharedSettingsFromAppMode();
         ApplyThemeFromSettings();
+        await ApplyBootSplashThemeAsync();
 
         await InitializeIndexIfConfiguredAsync();
         await RefreshFolderSkeletonTreeAsync();
@@ -271,6 +279,7 @@ public partial class Home : IDisposable
         _filePreviewCts?.Cancel();
         _filePreviewCts?.Dispose();
         _filePreviewCts = null;
+        DisposeLoadingEtaTimer();
     }
 
     /// <summary>ThemeMode に応じて isDarkMode を設定。System のときは OnAfterRender で JS から上書きしうる。</summary>
@@ -284,6 +293,22 @@ public partial class Home : IDisposable
             isDarkMode = false;
         else
             isDarkMode = true; // System: 初期値はダーク。OnAfterRenderAsync で JS から取得して更新
+    }
+
+    /// <summary>起動画面の配色をアプリ設定に合わせ、次回起動用に localStorage へ保存する。</summary>
+    private async Task ApplyBootSplashThemeAsync()
+    {
+        if (string.Equals(SettingsService.Settings.ThemeMode, "System", StringComparison.OrdinalIgnoreCase))
+        {
+            try { isDarkMode = await GetPreferredColorSchemeFromSystemAsync(); }
+            catch { /* JS 未準備 */ }
+        }
+        try
+        {
+            BootThemeSync.WriteTheme(isDarkMode);
+            await JSRuntime.InvokeVoidAsync("setBootSplashTheme", isDarkMode ? "dark" : "light");
+        }
+        catch { /* WebView 未準備 */ }
     }
 
     /// <summary>ブラウザの prefers-color-scheme を返す（index.html の getPreferredColorScheme）。</summary>

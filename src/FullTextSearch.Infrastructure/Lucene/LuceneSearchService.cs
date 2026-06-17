@@ -39,7 +39,11 @@ public class LuceneSearchService : ISearchService, IDisposable
     }
 
     /// <summary>全文検索を実行し、検索結果（ファイル情報）を返す。UI スレッドをブロックしないよう Task.Run で実行。</summary>
-    public async Task<SearchResult> SearchAsync(string query, SearchOptions? options = null, CancellationToken cancellationToken = default)
+    public async Task<SearchResult> SearchAsync(
+        string query,
+        SearchOptions? options = null,
+        IProgress<SearchProgress>? progress = null,
+        CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(query))
             return new SearchResult { Items = [] };
@@ -105,19 +109,26 @@ public class LuceneSearchService : ISearchService, IDisposable
                     //           ヒット doc を MaxResults まで収集して打ち切るため、巨大な優先度キューを作らない。
                     // 通常検索: スコア順に上位 MaxResults 件を取得。
                     IReadOnlyList<int> hitDocIds;
+                    int verifiedTotal;
                     if (isExactMatchMode)
                     {
                         var collector = new ExactMatchCollector(normalizedQuery, options.MaxResults);
-                        try { searcher.Search(boolQuery, collector); }
-                        catch (CollectionTerminatedException) { /* MaxResults 到達で打ち切り */ }
+                        searcher.Search(boolQuery, collector);
                         hitDocIds = collector.MatchedGlobalDocIds;
+                        verifiedTotal = collector.TotalMatchCount;
                     }
                     else
                     {
                         var fetchLimit = ComputeFetchLimit(options.MaxResults);
                         var topDocs = searcher.Search(boolQuery, fetchLimit);
                         hitDocIds = topDocs.ScoreDocs.Select(sd => sd.Doc).ToList();
+                        verifiedTotal = highlightTerms.Count > 0
+                            ? CountVerifiedMatches(searcher, hitDocIds, highlightTerms, options.SearchMode)
+                            : ToProgressCount(hitDocIds.Count);
                     }
+
+                    if (verifiedTotal > 0)
+                        progress?.Report(new SearchProgress(0, verifiedTotal));
 
                     var results = new List<SearchResultItem>(Math.Min(hitDocIds.Count, options.MaxResults));
                     foreach (var docId in hitDocIds)
@@ -144,9 +155,15 @@ public class LuceneSearchService : ISearchService, IDisposable
                                 : DateTime.MinValue
                         });
 
+                        if (results.Count % 50 == 0 || results.Count == verifiedTotal)
+                            progress?.Report(new SearchProgress(results.Count, verifiedTotal));
+
                         if (results.Count >= options.MaxResults)
                             break;
                     }
+
+                    if (results.Count > 0 && results.Count != verifiedTotal && results.Count % 50 != 0)
+                        progress?.Report(new SearchProgress(results.Count, verifiedTotal));
 
                     return new SearchResult { Items = results };
                 }
@@ -300,6 +317,36 @@ public class LuceneSearchService : ISearchService, IDisposable
         return fetchLimit > int.MaxValue ? int.MaxValue : (int)fetchLimit;
     }
 
+    private static int ToProgressCount(long totalHits) =>
+        totalHits <= 0 ? 0 : (int)Math.Min(totalHits, int.MaxValue);
+
+    private static readonly ISet<string> VerifyStoredFields = new HashSet<string>
+    {
+        LuceneIndexService.FieldContent,
+        LuceneIndexService.FieldFileName
+    };
+
+    /// <summary>
+    /// Lucene 候補 doc のうち、結果組み立てと同じ <see cref="SearchMatchVerifier"/> で確定する件数。
+    /// </summary>
+    private static int CountVerifiedMatches(
+        IndexSearcher searcher,
+        IReadOnlyList<int> docIds,
+        IReadOnlyList<string> highlightTerms,
+        SearchMode mode)
+    {
+        var count = 0;
+        foreach (var docId in docIds)
+        {
+            var stored = searcher.Doc(docId, VerifyStoredFields);
+            var content = stored.Get(LuceneIndexService.FieldContent);
+            var fileName = stored.Get(LuceneIndexService.FieldFileName);
+            if (SearchMatchVerifier.Matches(content, fileName, highlightTerms, mode))
+                count++;
+        }
+        return count;
+    }
+
     /// <summary>
     /// 完全一致検索の候補絞り込みクエリを作る。
     /// 検索語の文字バイグラムをすべて含む文書（＝連続一致の上位集合）に候補を限定する。
@@ -336,7 +383,7 @@ public class LuceneSearchService : ISearchService, IDisposable
 
     /// <summary>
     /// 完全一致検索の候補を走査し、保存本文・ファイル名への連続一致（<see cref="ExactMatchHelper"/>）で確定した
-    /// グローバル doc ID を収集する。MaxResults に達したら <see cref="CollectionTerminatedException"/> で走査を打ち切る。
+    /// グローバル doc ID を収集する。収集は MaxResults まで。総ヒット数は候補全体を走査して数える。
     /// スコアリング・優先度キューを使わず、確定に必要な本文・ファイル名のみを読み出す。
     /// </summary>
     private sealed class ExactMatchCollector : ICollector
@@ -353,6 +400,7 @@ public class LuceneSearchService : ISearchService, IDisposable
         private int _docBase;
 
         public List<int> MatchedGlobalDocIds { get; } = new();
+        public int TotalMatchCount { get; private set; }
 
         public ExactMatchCollector(string normalizedQuery, int maxResults)
         {
@@ -373,8 +421,6 @@ public class LuceneSearchService : ISearchService, IDisposable
         public void Collect(int doc)
         {
             if (_reader == null) return;
-            if (MatchedGlobalDocIds.Count >= _maxResults)
-                throw new CollectionTerminatedException();
 
             var stored = _reader.Document(doc, ScanFields);
             var content = stored.Get(LuceneIndexService.FieldContent) ?? "";
@@ -382,9 +428,9 @@ public class LuceneSearchService : ISearchService, IDisposable
             if (!ExactMatchHelper.MatchesContentOrFileName(content, fileName, _normalizedQuery))
                 return;
 
-            MatchedGlobalDocIds.Add(_docBase + doc);
-            if (MatchedGlobalDocIds.Count >= _maxResults)
-                throw new CollectionTerminatedException();
+            TotalMatchCount++;
+            if (MatchedGlobalDocIds.Count < _maxResults)
+                MatchedGlobalDocIds.Add(_docBase + doc);
         }
     }
 

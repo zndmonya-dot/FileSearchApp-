@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="ja" class="boot-theme-dark">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -8,13 +8,33 @@
     <base href="/" />
     <link rel="icon" type="image/png" href="favicon.png" />
     <link rel="apple-touch-icon" href="images/app-icon.png" />
-    <script>
-        var link = document.createElement('link');
-        link.rel = 'stylesheet';
-        link.href = 'css/app.css?v=10';
-        document.head.appendChild(link);
-    </script>
     <style>
+        :root,
+        html.boot-theme-dark {
+            --boot-bg-0: #010409;
+            --boot-bg-1: #0d1117;
+            --boot-bg-2: #161b22;
+            --boot-fg: #e6edf3;
+            --boot-muted: #8b949e;
+            --boot-accent: #58a6ff;
+            --boot-accent-soft: #bc8cff;
+            --boot-glow: rgba(88, 166, 255, 0.35);
+        }
+        html.boot-theme-light {
+            --boot-bg-0: #eff2f5;
+            --boot-bg-1: #ffffff;
+            --boot-bg-2: #f6f8fa;
+            --boot-fg: #1f2328;
+            --boot-muted: #656d76;
+            --boot-accent: #0969da;
+            --boot-accent-soft: #8250df;
+            --boot-glow: rgba(9, 105, 218, 0.22);
+        }
+        html, body {
+            margin: 0;
+            height: 100%;
+            background: var(--boot-bg-1);
+        }
         #blazor-error-ui {
             display: none;
             position: fixed;
@@ -25,50 +45,186 @@
             background: #ff5252;
             color: white;
             text-align: center;
+            z-index: 10001;
         }
         #blazor-error-ui.visible { display: block; }
+        #boot-splash {
+            position: fixed;
+            inset: 0;
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", sans-serif;
+            background:
+                radial-gradient(ellipse 90% 70% at 50% 35%, var(--boot-bg-2) 0%, var(--boot-bg-1) 52%, var(--boot-bg-0) 100%);
+            transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.4s;
+        }
+        #boot-splash::before {
+            content: "";
+            position: absolute;
+            inset: -20%;
+            background:
+                radial-gradient(circle at 30% 25%, var(--boot-glow) 0%, transparent 42%),
+                radial-gradient(circle at 72% 68%, rgba(188, 140, 255, 0.12) 0%, transparent 38%);
+            animation: boot-ambient 8s ease-in-out infinite alternate;
+            pointer-events: none;
+        }
+        #boot-splash.boot-splash--hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+        .boot-splash__stage {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 18px;
+            animation: boot-stage-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+        }
+        .boot-splash__logo-wrap {
+            position: relative;
+            width: 96px;
+            height: 96px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .boot-splash__ring {
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            border-top-color: var(--boot-accent);
+            border-right-color: color-mix(in srgb, var(--boot-accent) 35%, transparent);
+            animation: boot-ring-spin 1.15s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+        }
+        .boot-splash__ring--outer {
+            inset: -10px;
+            border-width: 1.5px;
+            opacity: 0.45;
+            animation-duration: 1.8s;
+            animation-direction: reverse;
+        }
+        .boot-splash__logo {
+            width: 72px;
+            height: 72px;
+            object-fit: contain;
+            filter: drop-shadow(0 10px 28px var(--boot-glow));
+            animation: boot-logo-float 2.8s ease-in-out infinite;
+        }
+        .boot-splash__title {
+            margin: 0;
+            font-size: 15px;
+            font-weight: 600;
+            letter-spacing: 0.12em;
+            color: var(--boot-fg);
+        }
+        .boot-splash__bar {
+            width: min(168px, 52vw);
+            height: 3px;
+            border-radius: 999px;
+            background: color-mix(in srgb, var(--boot-muted) 22%, transparent);
+            overflow: hidden;
+        }
+        .boot-splash__bar-fill {
+            height: 100%;
+            width: 42%;
+            border-radius: inherit;
+            background: linear-gradient(
+                90deg,
+                transparent 0%,
+                var(--boot-accent) 45%,
+                color-mix(in srgb, var(--boot-accent) 70%, var(--boot-accent-soft)) 55%,
+                transparent 100%
+            );
+            animation: boot-bar-slide 1.35s ease-in-out infinite;
+        }
+        @keyframes boot-stage-in {
+            from { opacity: 0; transform: translateY(10px) scale(0.97); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes boot-logo-float {
+            0%, 100% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-5px) scale(1.03); }
+        }
+        @keyframes boot-ring-spin {
+            to { transform: rotate(360deg); }
+        }
+        @keyframes boot-bar-slide {
+            0% { transform: translateX(-120%); }
+            100% { transform: translateX(320%); }
+        }
+        @keyframes boot-ambient {
+            from { transform: translate(0, 0) scale(1); }
+            to { transform: translate(2%, -1.5%) scale(1.04); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            #boot-splash::before,
+            .boot-splash__stage,
+            .boot-splash__logo,
+            .boot-splash__ring,
+            .boot-splash__bar-fill {
+                animation: none;
+            }
+            .boot-splash__ring {
+                border-top-color: color-mix(in srgb, var(--boot-accent) 55%, transparent);
+                border-right-color: transparent;
+            }
+            .boot-splash__bar-fill {
+                width: 55%;
+                margin: 0 auto;
+                opacity: 0.7;
+            }
+            #boot-splash { transition: none; }
+        }
     </style>
+    <script>
+        (function () {
+            var theme = 'dark';
+            try {
+                var stored = localStorage.getItem('panoleon-ui-theme');
+                if (stored === 'light' || stored === 'dark') {
+                    theme = stored;
+                } else {
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('GET', 'ui-theme.json?t=' + Date.now(), false);
+                    xhr.send();
+                    if (xhr.status === 200 || xhr.status === 0) {
+                        var data = JSON.parse(xhr.responseText);
+                        if (data.theme === 'light' || data.theme === 'dark') theme = data.theme;
+                    }
+                }
+            } catch (e) { /* WebView 制限 */ }
+            var root = document.documentElement;
+            root.classList.remove('boot-theme-dark', 'boot-theme-light');
+            root.classList.add(theme === 'light' ? 'boot-theme-light' : 'boot-theme-dark');
+        })();
+        var link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'css/app.css?v=10';
+        document.head.appendChild(link);
+    </script>
 </head>
 <body>
-    <div id="app">
-        <div class="boot-cute" role="status" aria-label="読み込み中..."><!-- UserMessages.PreviewLoading -->
-            <div class="boot-cute__dots" aria-hidden="true">
-                <span class="boot-cute__dot"></span>
-                <span class="boot-cute__dot"></span>
-                <span class="boot-cute__dot"></span>
+    <div id="boot-splash" role="status" aria-label="読み込み中..."><!-- UserMessages.PreviewLoading -->
+        <div class="boot-splash__stage">
+            <div class="boot-splash__logo-wrap">
+                <div class="boot-splash__ring boot-splash__ring--outer" aria-hidden="true"></div>
+                <div class="boot-splash__ring" aria-hidden="true"></div>
+                <img class="boot-splash__logo" src="favicon.png" alt="" width="72" height="72" decoding="async" />
+            </div>
+            <p class="boot-splash__title" aria-hidden="true">Panoleon</p><!-- UserMessages.AppTitle -->
+            <div class="boot-splash__bar" aria-hidden="true">
+                <div class="boot-splash__bar-fill"></div>
             </div>
         </div>
-        <style>
-            .boot-cute {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                height: 100vh;
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            }
-            .boot-cute__dots {
-                display: flex;
-                align-items: flex-end;
-                justify-content: center;
-                gap: 6px;
-                height: 16px;
-            }
-            .boot-cute__dot {
-                width: 8px;
-                height: 8px;
-                border-radius: 50%;
-                background: #656d76;
-                animation: boot-dot-wave 1.25s ease-in-out infinite;
-            }
-            .boot-cute__dot:nth-child(1) { animation-delay: 0s; }
-            .boot-cute__dot:nth-child(2) { background: #0969da; animation-delay: 0.15s; }
-            .boot-cute__dot:nth-child(3) { animation-delay: 0.3s; }
-            @keyframes boot-dot-wave {
-                0%, 70%, 100% { transform: translateY(0) scale(0.78); opacity: 0.38; }
-                35% { transform: translateY(-4px) scale(1); opacity: 1; }
-            }
-        </style>
     </div>
+
+    <div id="app"></div>
 
     <div id="blazor-error-ui">
         エラーが発生しました。<a href="" style="color:white;margin-left:8px;">再読み込み</a><!-- UserMessages.WebViewLoadError / WebViewReload と同文言 -->
@@ -77,6 +233,32 @@
     <script src="js/preview.js?v=6"></script>
     <script src="_framework/blazor.webview.js"></script>
     <script>
+        window._bootSplashStart = Date.now();
+        window._bootSplashMinMs = 3000;
+
+        window.setBootSplashTheme = function (theme) {
+            var resolved = theme === 'light' ? 'light' : 'dark';
+            try { localStorage.setItem('panoleon-ui-theme', resolved); } catch (e) { /* WebView 制限 */ }
+            var root = document.documentElement;
+            root.classList.remove('boot-theme-dark', 'boot-theme-light');
+            root.classList.add(resolved === 'light' ? 'boot-theme-light' : 'boot-theme-dark');
+        };
+
+        window.hideBootSplash = function () {
+            var el = document.getElementById('boot-splash');
+            if (!el || el.classList.contains('boot-splash--hidden')) return;
+            var elapsed = Date.now() - (window._bootSplashStart || Date.now());
+            var remaining = Math.max(0, (window._bootSplashMinMs || 3000) - elapsed);
+            var hide = function () {
+                el.classList.add('boot-splash--hidden');
+                window.setTimeout(function () {
+                    if (el.parentNode) el.parentNode.removeChild(el);
+                }, 420);
+            };
+            if (remaining > 0) window.setTimeout(hide, remaining);
+            else hide();
+        };
+
         // プレビュー本文のみ拡大縮小（Ctrl + ホイール）。WebView2 既定の全体ズームは抑止。
         (function() {
             var SELECTOR = '.preview-zoom-wrap';
@@ -111,7 +293,6 @@
             }, true);
         })();
 
-        // システムのテーマ設定（prefers-color-scheme）を取得。戻り値: "dark" / "light"
         window.getPreferredColorScheme = function() {
             return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
         };

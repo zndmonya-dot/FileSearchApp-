@@ -7,7 +7,7 @@ namespace FileSearch.Blazor;
 internal static class AppWindowTitle
 {
     public static string Current =>
-        $"{UserMessages.AppTitle}（{UserMessages.AppTitleReading}） v{FormatDisplayVersion(AppInfo.Current.VersionString)}";
+        $"{UserMessages.AppTitle} v{FormatDisplayVersion(AppInfo.Current.VersionString)}";
 
     /// <summary>1.0.0.0 等を 2.0 形式に揃える。</summary>
     private static string FormatDisplayVersion(string version)

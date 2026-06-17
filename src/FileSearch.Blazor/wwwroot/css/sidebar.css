@@ -249,7 +249,8 @@
 }
 
 .tree-status-cute {
-    gap: 0;
+    flex-direction: column;
+    gap: 8px;
 }
 
 .tree-status-blankslate {
@@ -279,6 +280,15 @@
     font-weight: 500;
     color: var(--color-fg-muted);
     font-variant-numeric: tabular-nums;
+}
+
+.loading-eta-hint {
+    display: block;
+    text-align: center;
+    font-size: 12px;
+    color: var(--color-fg-subtle);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.4;
 }
 
 .folder-tree-skeleton {

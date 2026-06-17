@@ -29,7 +29,10 @@ public static class MauiProgram
         Microsoft.Maui.Handlers.WindowHandler.Mapper.AppendToMapping("AppWindowLayout", (handler, _) =>
         {
             if (handler.PlatformView is Microsoft.UI.Xaml.Window win)
+            {
                 AppWindowLayout.ApplyToWinUiWindow(win);
+                win.Activated += (_, _) => AppWindowLayout.ApplyWindowIcon(win);
+            }
         });
 #endif
 

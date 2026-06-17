@@ -87,6 +87,7 @@ public partial class Home
             {
                 _lastReportedProgressCount = p.ProcessedFiles;
                 _lastReportedProgressTime = DateTime.UtcNow;
+                UpdateIndexProgressEta(p.ProcessedFiles, p.TotalFiles);
                 InvokeAsync(StateHasChanged);
             }
         });
@@ -113,6 +114,7 @@ public partial class Home
         isIndexing = true;
         showSettings = false;
         _showRebuildConfirm = false;
+        MarkIndexBuildStarted();
         indexProgressPercent = 0;
         indexProgressText = initialMessage;
         indexProgressDetail = "";
@@ -163,6 +165,7 @@ public partial class Home
             _indexCts = null;
             isIndexing = false;
             indexProgressPercent = 0;
+            MarkIndexBuildEnded();
             StateHasChanged();
         }
     }

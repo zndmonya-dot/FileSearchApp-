@@ -13,9 +13,14 @@ public interface ISearchService
     /// </summary>
     /// <param name="query">検索クエリ</param>
     /// <param name="options">検索オプション</param>
+    /// <param name="progress">検索結果の読み込み進捗（任意）。</param>
     /// <param name="cancellationToken">キャンセルトークン</param>
     /// <returns>検索結果</returns>
-    Task<SearchResult> SearchAsync(string query, SearchOptions? options = null, CancellationToken cancellationToken = default);
+    Task<SearchResult> SearchAsync(
+        string query,
+        SearchOptions? options = null,
+        IProgress<SearchProgress>? progress = null,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// インデックスキャッシュを破棄し、次回検索で最新のインデックスを読み直す（パス変更時などに使用）。
@@ -43,6 +48,9 @@ public interface ISearchService
     /// <summary>プレビューハイライト用の検索語。</summary>
     IReadOnlyList<string> GetHighlightTerms(string query, SearchMode mode);
 }
+
+/// <summary>検索の「読み込み（結果組み立て）」進捗。</summary>
+public readonly record struct SearchProgress(int Processed, int Total);
 
 /// <summary>
 /// 検索オプション

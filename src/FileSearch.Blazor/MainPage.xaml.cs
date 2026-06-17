@@ -10,6 +10,7 @@ public partial class MainPage : ContentPage
 	/// <summary>XAML を初期化し、ページタイトルを設定する。</summary>
 	public MainPage()
 	{
+		BootThemeSync.SyncFromSettingsFile();
 		InitializeComponent();
 		Title = AppWindowTitle.Current;
 	}
