@@ -29,4 +29,21 @@ public class IndexPathsTests
         var normalized = IndexPaths.NormalizeFilePath(path);
         Assert.Equal(Path.GetFullPath(@"C:\Windows\System32\drivers\etc\hosts"), normalized);
     }
+
+    [Fact]
+    public void IsPathUnderAnyFolder_drive_root_includes_files_on_drive()
+    {
+        var roots = new[] { IndexPaths.NormalizeFolderPath("C:") };
+        Assert.True(IndexPaths.IsPathUnderAnyFolder(@"C:\Users\test.txt", roots));
+        Assert.True(IndexPaths.IsPathUnderAnyFolder(@"C:\全文検索システム\README.md", roots));
+        Assert.False(IndexPaths.IsPathUnderAnyFolder(@"D:\other.txt", roots));
+    }
+
+    [Fact]
+    public void IsPathUnderFolder_subfolder_does_not_match_sibling_prefix()
+    {
+        var root = IndexPaths.NormalizeFolderPath(@"C:\data");
+        Assert.True(IndexPaths.IsPathUnderFolder(@"C:\data\a.txt", root));
+        Assert.False(IndexPaths.IsPathUnderFolder(@"C:\datafile.txt", root));
+    }
 }

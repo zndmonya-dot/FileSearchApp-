@@ -29,20 +29,19 @@ public class AppSettings
     public DateTime? LastIndexUpdate { get; set; }
 
     /// <summary>
-    /// 定期インデックス再構築の間隔（分）。0 の場合は無効。
+    /// 定期インデックス再構築の時刻（日本時間・0〜23時）。空なら無効。
     /// </summary>
-    public int AutoRebuildIntervalMinutes { get; set; } = 0;
+    public List<int> AutoRebuildDailyHours { get; set; } = [];
+
+    /// <summary>
+    /// 旧設定（分間隔）。読み込み時に <see cref="AutoRebuildDailyHours"/> へ移行後は 0 にリセットされる。
+    /// </summary>
+    public int AutoRebuildIntervalMinutes { get; set; }
 
     /// <summary>
     /// テーマ: "Dark" / "Light" / "System"（システムに従う）
     /// </summary>
     public string ThemeMode { get; set; } = "System";
-
-    /// <summary>
-    /// インデックス対象の最大ファイルサイズ（バイト）。
-    /// null = 既定 10MB、0 = 無制限（サイズによるスキップなし）。
-    /// </summary>
-    public long? IndexMaxFileBytes { get; set; }
 }
 
 

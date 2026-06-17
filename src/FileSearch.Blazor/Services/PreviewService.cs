@@ -68,7 +68,8 @@ public class PreviewService : IPreviewService
             return CreateErrorResult(UserMessages.PreviewCancelledBracket);
 
         if (fileTooLarge && string.IsNullOrEmpty(content))
-            return CreateErrorResult(UserMessages.PreviewFileTooLarge);
+            return CreateErrorResult(UserMessages.FormatPreviewFileTooLarge(
+                ContentLimits.GetIndexMaxFileBytesDisplayLabel()));
 
         content = content.IsNormalized(NormalizationForm.FormC) ? content : content.Normalize(NormalizationForm.FormC);
         var matchTerms = NormalizeTerms(_searchService.GetHighlightTerms(searchQuery ?? "", searchMode));

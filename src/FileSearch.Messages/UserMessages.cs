@@ -57,8 +57,6 @@ public static class UserMessages
 
     /// <summary>サイドバー・ツリー（メッセージ一覧 I-01〜I-05 相当）</summary>
     public const string SidebarTitleSearchResults = "検索結果";
-    /// <summary>サイドバー見出し（閲覧・未検索）。</summary>
-    public const string SidebarTitleFiles = "ファイル";
     /// <summary>検索ボックスのプレースホルダ。</summary>
     public const string SearchInputPlaceholder = "キーワードを入力…";
     /// <summary>検索ボタンのラベル。</summary>
@@ -91,6 +89,10 @@ public static class UserMessages
     public const string TreeEmptyPressEnterToSearch = "検索ボタンまたは Enter で検索";
     /// <summary>検索前のフォルダ体系を一括読み込み中</summary>
     public const string FolderTreeLoading = "フォルダを読み込み中...";
+
+    /// <summary>フォルダツリー読み込み中の件数付きメッセージ（再読み込み時など）</summary>
+    public static string FormatFolderTreeLoadingCount(int count) =>
+        count > 0 ? $"{count:N0} 件を読み込んでいます..." : FolderTreeLoading;
 
     /// <summary>フッター構築キャンセルボタンの title。</summary>
     public const string IndexBuildCancelTitle = "インデックス構築をキャンセル";
@@ -169,6 +171,12 @@ public static class UserMessages
     public const string TargetFoldersEmpty = "フォルダが登録されていません";
     /// <summary>検索対象フォルダを追加（フォルダ選択ダイアログ）</summary>
     public const string AddFolder = "フォルダを追加";
+    /// <summary>一覧行の追加ボタン（短）</summary>
+    public const string ActionAdd = "追加";
+    /// <summary>一覧行の変更ボタン（短）</summary>
+    public const string ActionChange = "変更";
+    /// <summary>一覧行の削除ボタン（短）</summary>
+    public const string ActionDelete = "削除";
     /// <summary>インデックス保存先を選択（未設定時）</summary>
     public const string SelectIndexPath = "保存先を選択";
     /// <summary>インデックス保存先を変更（設定済み時）</summary>
@@ -183,42 +191,33 @@ public static class UserMessages
     public const string SettingsSectionIndexPath = "インデックス保存先";
     /// <summary>インデックス保存先説明</summary>
     public const string SettingsDescriptionIndexPath = "インデックスを保存するフォルダを1つ指定します。変更後は再構築が必要です";
-    /// <summary>インデックス対象の最大ファイルサイズ（MB）。0 は無制限。</summary>
-    public const string LabelIndexMaxFileMegabytes = "スキップするファイルサイズ上限（MB）";
-    /// <summary>スキップ上限の説明。</summary>
-    public const string SettingsDescriptionIndexMaxFileMegabytes = "このサイズを超えるファイルはインデックスしません（読み込み効率化）。0 で無制限";
     /// <summary>インデックス保存先未設定時（設定画面）</summary>
     public const string IndexPathEmpty = "未設定";
-    /// <summary>インデックス状態セクション見出し</summary>
-    public const string SettingsSectionIndex = "インデックス";
-    /// <summary>インデックス状態説明</summary>
-    public const string SettingsDescriptionIndex = "状態と自動更新の間隔";
+    /// <summary>インデックス更新間隔セクション見出し</summary>
+    public const string SettingsSectionIndex = "インデックスの更新間隔";
+    /// <summary>インデックス更新間隔セクション説明</summary>
+    public const string SettingsDescriptionIndex = "最終更新と自動更新の時刻を設定します";
+    /// <summary>共有設定ファイルの書き込み失敗。</summary>
+    public static string SharedConfigSaveFailed(string path) =>
+        $"共有設定ファイルを書き込めませんでした: {path}";
+    /// <summary>自動更新の説明</summary>
+    public const string SettingsHintAutoRebuild = "管理者PCで検索していないときに差分更新します。利用者の検索は影響しません";
+    /// <summary>毎日の時刻指定の説明</summary>
+    public const string SettingsHintAutoRebuildDaily = "チェックした時刻を過ぎたあと、まだその枠で更新していなければ実行します";
     /// <summary>最終更新ラベル</summary>
     public const string LabelLastIndexUpdate = "最終更新";
     /// <summary>定期再構築ラベル</summary>
     public const string LabelAutoRebuild = "自動更新";
+    /// <summary>自動更新の有効化チェック</summary>
+    public const string AutoRebuildEnableLabel = "毎日、指定した時刻に差分更新する";
+    /// <summary>時刻グリッドの aria-label</summary>
+    public const string AutoRebuildHourGridLabel = "自動更新の時刻（日本標準時）";
     /// <summary>インデックス未実行</summary>
     public const string LastIndexNeverRun = "未実行";
     /// <summary>保存ボタン</summary>
     public const string Save = "保存";
     /// <summary>チップ削除の aria-label</summary>
     public const string AriaRemove = "削除";
-    /// <summary>定期再構築：オフ</summary>
-    public const string AutoRebuildOff = "無効";
-    /// <summary>定期再構築：30分</summary>
-    public const string AutoRebuild30m = "30分";
-    /// <summary>定期再構築：1時間</summary>
-    public const string AutoRebuild1h = "1時間";
-    /// <summary>定期再構築：2時間</summary>
-    public const string AutoRebuild2h = "2時間";
-    /// <summary>定期再構築：6時間</summary>
-    public const string AutoRebuild6h = "6時間";
-    /// <summary>定期再構築：12時間</summary>
-    public const string AutoRebuild12h = "12時間";
-    /// <summary>定期再構築：24時間</summary>
-    public const string AutoRebuild24h = "毎日0時";
-    /// <summary>定期再構築：1週間</summary>
-    public const string AutoRebuild1w = "毎週月曜0時";
 
     /// <summary>インデックス更新ダイアログ：タイトル</summary>
     public const string IndexUpdateDialogTitle = "インデックスの更新";
@@ -280,8 +279,9 @@ public static class UserMessages
     public const string PreviewPathRequired = "ファイルパスが指定されていません";
     /// <summary>プレビュー不可プレースホルダ</summary>
     public const string PreviewNotAvailable = "[プレビュー不可]";
-    /// <summary>10MB 超ファイル</summary>
-    public const string PreviewFileTooLarge = "10MBを超えるためプレビューできません";
+    /// <summary>サイズ上限超過</summary>
+    public static string FormatPreviewFileTooLarge(string limitLabel) =>
+        $"{limitLabel}を超えるためプレビューできません";
     /// <summary>キャンセル行</summary>
     public const string PreviewCancelledBracket = "[キャンセル]";
     /// <summary>本文省略の接尾辞</summary>

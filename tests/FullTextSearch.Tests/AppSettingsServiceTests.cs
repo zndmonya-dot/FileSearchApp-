@@ -71,32 +71,21 @@ public class AppSettingsServiceTests
     }
 
     [Fact]
-    public async Task Load_adds_newly_supported_extensions_to_existing_settings()
+    public async Task Load_preserves_user_selected_extension_subset()
     {
         var path = Path.Combine(Path.GetTempPath(), "fts-app-set", Guid.NewGuid().ToString("N"), "settings.json");
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        var json = """
-            {"targetExtensions":[".txt"],"targetFolders":[],"indexPath":"","themeMode":"System"}
-            """;
-        await File.WriteAllTextAsync(path, json);
-        var factory = new TextExtractorFactory(new ITextExtractor[]
-        {
-            new FakeExtractor(),
-            new FakeMsgExtractor()
-        });
+        var factory = new TextExtractorFactory(new ITextExtractor[] { new FakeExtractor() });
         var svc = new AppSettingsService(factory, path);
         await svc.LoadAsync();
-        Assert.Contains(".txt", svc.Settings.TargetExtensions, StringComparer.Ordinal);
-        Assert.Contains(".msg", svc.Settings.TargetExtensions, StringComparer.Ordinal);
-    }
+        svc.Settings.TargetExtensions = new List<string> { ".txt" };
+        await svc.SaveAsync();
 
-    private sealed class FakeMsgExtractor : ITextExtractor
-    {
-        public IEnumerable<string> SupportedExtensions { get; } = new[] { ".msg" };
-        public bool CanExtract(string extension) =>
-            PreviewHelper.NormalizeExtension(extension).Equals(".msg", StringComparison.OrdinalIgnoreCase);
-        public Task<string> ExtractTextAsync(string filePath, CancellationToken cancellationToken) =>
-            Task.FromResult("");
+        var reloaded = new AppSettingsService(factory, path);
+        await reloaded.LoadAsync();
+
+        Assert.Equal(new[] { ".txt" }, reloaded.Settings.TargetExtensions);
+        Assert.DoesNotContain(".md", reloaded.Settings.TargetExtensions, StringComparer.Ordinal);
     }
 
     private sealed class FakeExtractor : ITextExtractor

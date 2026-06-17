@@ -5,6 +5,8 @@
 @using FileSearch.Blazor.Components.Shared
 @using Microsoft.AspNetCore.Components.Web
 @using Microsoft.AspNetCore.Components
+@using Microsoft.JSInterop
+@inject IJSRuntime Js
 @if (SelectedFolder != null)
 {
 <div class="file-box folder-browser">
@@ -65,11 +67,21 @@
                  @onmouseup="StopColumnResize"
                  @onmouseleave="StopColumnResize"></div>
         }
-        <table class="folder-table @(_isColumnResizing ? "folder-table--resizing" : null)">
+        <table @ref="_tableRef" class="folder-table @(_isColumnResizing ? "folder-table--resizing" : null)">
             <colgroup>
-                <col style="width: @($"{_colNameWidth}px")" />
-                <col style="width: @($"{_colPreviewWidth}px")" />
-                <col />
+                @if (_columnLayoutInitialized)
+                {
+                    <col style="width: @($"{_colNameWidth}px")" />
+                    <col style="width: @($"{_colPreviewWidth}px")" />
+                    <col style="width: @($"{GetColDateWidth()}px")" />
+                }
+                else
+                {
+                    @* 測定前: 日時列を先に確保し、残りを名前・内容へ（固定px合計で日時が消えるのを防ぐ） *@
+                    <col style="width: 24%" />
+                    <col />
+                    <col style="width: @($"{ColDateDefault}px")" />
+                }
             </colgroup>
             <thead>
                 <tr>
@@ -77,7 +89,7 @@
                         <span class="col-header-label">@UserMessages.ColumnName @GetSortIcon("name")</span>
                         <span class="resize-handle @GetColumnResizeActiveClass(FolderTableColumn.Name)"
                               title="@UserMessages.ColumnResizeHandleTitle"
-                              @onmousedown="@(e => StartColumnResize(e, FolderTableColumn.Name))"
+                              @onmousedown="@(e => StartColumnResizeAsync(e, FolderTableColumn.Name))"
                               @onmousedown:stopPropagation="true"
                               @onclick:stopPropagation="true"></span>
                     </th>
@@ -85,7 +97,7 @@
                         <span class="col-header-label">@UserMessages.ColumnPreview @GetSortIcon("preview")</span>
                         <span class="resize-handle @GetColumnResizeActiveClass(FolderTableColumn.Preview)"
                               title="@UserMessages.ColumnResizeHandleTitle"
-                              @onmousedown="@(e => StartColumnResize(e, FolderTableColumn.Preview))"
+                              @onmousedown="@(e => StartColumnResizeAsync(e, FolderTableColumn.Preview))"
                               @onmousedown:stopPropagation="true"
                               @onclick:stopPropagation="true"></span>
                     </th>
@@ -149,14 +161,21 @@
 
     private enum FolderTableColumn { Name, Preview, Date }
 
-    private const int ColNameDefault = 220;
-    private const int ColPreviewDefault = 320;
+    private const int ColNameDefault = 280;
+    private const int ColPreviewDefault = 480;
     private const int ColMinName = 96;
     private const int ColMinPreview = 80;
+    private const int ColDateDefault = 136;
+    private const int ColMinDate = 112;
+    private const int ColMaxDate = 168;
     private const int ColMax = 640;
 
-    private int _colNameWidth = ColNameDefault;
-    private int _colPreviewWidth = ColPreviewDefault;
+    private ElementReference _tableRef;
+    private int _tableWidth;
+    private int _colNameWidth = ColMinName;
+    private int _colPreviewWidth = ColMinPreview;
+    private int _colDateWidth = ColDateDefault;
+    private bool _columnLayoutInitialized;
     private bool _isColumnResizing;
     private FolderTableColumn _resizeColumn;
     private double _columnResizeStartX;
@@ -201,8 +220,60 @@
             : "<svg class='sort-icon' viewBox='0 0 16 16' fill='currentColor'><path d='m4.427 9.573 3.396-3.396a.25.25 0 0 1 .354 0l3.396 3.396a.25.25 0 0 1-.177.427H4.604a.25.25 0 0 1-.177-.427Z'/></svg>");
     }
 
-    private void StartColumnResize(MouseEventArgs e, FolderTableColumn column)
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (SelectedFolder == null || _columnLayoutInitialized)
+            return;
+
+        await RefreshTableWidthAsync();
+        if (_tableWidth <= 0)
+            return;
+
+        EnsureInitialColumnLayout();
+        NormalizeColumnWidths();
+        StateHasChanged();
+    }
+
+    /// <summary>初回のみ、日時列を狭く・名前／内容に残り幅を配分する。</summary>
+    private void EnsureInitialColumnLayout()
+    {
+        if (_columnLayoutInitialized || _tableWidth <= 0)
+            return;
+
+        _colDateWidth = ColDateDefault;
+        var available = _tableWidth - _colDateWidth;
+        if (available < ColMinName + ColMinPreview)
+        {
+            _colNameWidth = ColMinName;
+            _colPreviewWidth = Math.Max(ColMinPreview, available - ColMinName);
+        }
+        else
+        {
+            _colNameWidth = Math.Max(ColMinName, available * 28 / 100);
+            _colPreviewWidth = Math.Max(ColMinPreview, available - _colNameWidth);
+        }
+
+        _columnLayoutInitialized = true;
+    }
+
+    private async Task RefreshTableWidthAsync()
+    {
+        try
+        {
+            _tableWidth = await Js.InvokeAsync<int>("getElementClientWidth", _tableRef).ConfigureAwait(false);
+        }
+        catch (JSException)
+        {
+            _tableWidth = 0;
+        }
+    }
+
+    private async Task StartColumnResizeAsync(MouseEventArgs e, FolderTableColumn column)
+    {
+        await RefreshTableWidthAsync().ConfigureAwait(false);
+        if (_tableWidth > 0)
+            NormalizeColumnWidths();
+
         _isColumnResizing = true;
         _resizeColumn = column;
         _columnResizeStartX = e.ClientX;
@@ -210,6 +281,7 @@
         _columnResizeStartSecondary = column switch
         {
             FolderTableColumn.Name => _colPreviewWidth,
+            FolderTableColumn.Preview => GetColDateWidth(),
             _ => 0,
         };
     }
@@ -226,39 +298,92 @@
             {
                 var (name, preview) = ResizePair(
                     _columnResizeStartPrimary, _columnResizeStartSecondary, delta,
-                    ColMinName, ColMinPreview);
-                _colNameWidth = name;
-                _colPreviewWidth = preview;
+                    ColMinName, ColMinPreview, capSecondaryAtColMax: true);
+                ApplyNamePreviewWidths(name, preview);
                 break;
             }
             case FolderTableColumn.Preview:
-                _colPreviewWidth = Math.Clamp(
-                    _columnResizeStartPrimary + delta, ColMinPreview, ColMax);
+            {
+                var (preview, date) = ResizePair(
+                    _columnResizeStartPrimary, _columnResizeStartSecondary, delta,
+                    ColMinPreview, ColMinDate, capSecondaryAtColMax: false);
+                _colPreviewWidth = preview;
+                _colDateWidth = Math.Clamp(date, ColMinDate, ColMaxDate);
                 break;
+            }
         }
     }
 
     private void StopColumnResize(MouseEventArgs _) => _isColumnResizing = false;
 
-    /// <summary>隣接2列の合計幅を保ったまま境界を動かす（名前｜内容）。</summary>
+    private int GetColDateWidth() => _colDateWidth;
+
+    private void ApplyNamePreviewWidths(int name, int preview)
+    {
+        if (_tableWidth > 0)
+        {
+            var maxPair = _tableWidth - _colDateWidth;
+            if (name + preview > maxPair)
+            {
+                preview = Math.Max(ColMinPreview, maxPair - name);
+                name = Math.Max(ColMinName, maxPair - preview);
+            }
+        }
+
+        _colNameWidth = name;
+        _colPreviewWidth = preview;
+    }
+
+    private void NormalizeColumnWidths()
+    {
+        if (_tableWidth <= 0)
+            return;
+
+        _colDateWidth = Math.Clamp(_colDateWidth, ColMinDate, ColMaxDate);
+        var maxPair = _tableWidth - _colDateWidth;
+        if (maxPair <= ColMinName + ColMinPreview)
+        {
+            _colNameWidth = ColMinName;
+            _colPreviewWidth = Math.Max(ColMinPreview, maxPair - ColMinName);
+            return;
+        }
+
+        if (_colNameWidth + _colPreviewWidth > maxPair)
+        {
+            var sum = _colNameWidth + _colPreviewWidth;
+            _colNameWidth = Math.Max(ColMinName, (int)((long)_colNameWidth * maxPair / sum));
+            _colPreviewWidth = Math.Max(ColMinPreview, maxPair - _colNameWidth);
+            if (_colNameWidth + _colPreviewWidth > maxPair)
+                _colPreviewWidth = maxPair - _colNameWidth;
+            return;
+        }
+
+        // 余白は内容列へ（名前・内容を広く、日時は固定幅のまま）
+        _colPreviewWidth = maxPair - _colNameWidth;
+    }
+
+    /// <summary>隣接2列の合計幅を保ったまま境界を動かす。</summary>
     private static (int Primary, int Secondary) ResizePair(
         int startPrimary, int startSecondary, int delta,
-        int minPrimary, int minSecondary)
+        int minPrimary, int minSecondary, bool capSecondaryAtColMax)
     {
         var total = startPrimary + startSecondary;
-        var primary = Math.Clamp(startPrimary + delta, minPrimary, ColMax);
+        var maxPrimary = Math.Min(ColMax, total - minSecondary);
+        var primary = Math.Clamp(startPrimary + delta, minPrimary, maxPrimary);
         var secondary = total - primary;
         if (secondary < minSecondary)
         {
             secondary = minSecondary;
             primary = total - secondary;
         }
-        else if (secondary > ColMax)
+        else if (capSecondaryAtColMax && secondary > ColMax)
         {
             secondary = ColMax;
             primary = total - secondary;
         }
-        primary = Math.Clamp(primary, minPrimary, ColMax);
+
+        primary = Math.Clamp(primary, minPrimary, maxPrimary);
+        secondary = Math.Clamp(secondary, minSecondary, total - minPrimary);
         return (primary, secondary);
     }
 

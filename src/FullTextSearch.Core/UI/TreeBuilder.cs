@@ -409,6 +409,26 @@ public static class TreeBuilder
         return list;
     }
 
+    /// <summary>ツリー構築済みフォルダに遅延読み込みフラグを立て、ディスク走査での上書きを防ぐ。</summary>
+    public static void MarkFolderTreeLoaded(IEnumerable<TreeNode> roots)
+    {
+        foreach (var root in roots)
+            MarkFolderTreeLoadedRec(root);
+    }
+
+    private static void MarkFolderTreeLoadedRec(TreeNode node)
+    {
+        if (!node.IsFolder)
+            return;
+
+        node.FolderChildrenLoaded = true;
+        foreach (var child in node.Children ?? Enumerable.Empty<TreeNode>())
+        {
+            if (child.IsFolder)
+                MarkFolderTreeLoadedRec(child);
+        }
+    }
+
     /// <summary>フォルダを上・名前順にソートし、子ノードも再帰的にソートする。</summary>
     private static void SortTreeInPlace(TreeNode node)
     {

@@ -1,6 +1,7 @@
 // アプリの動作モードの実装。実行ファイルと同じフォルダの appmode.json から
-// モードを読み、任意の sharedConfig でサーバ上の共有設定（インデックス/フォルダ）を参照する。
+// モードを読み、sharedConfig またはインデックスフォルダ内の shared.json で共有設定を参照する。
 using System.Text.Json;
+using FullTextSearch.Core;
 
 namespace FullTextSearch.Infrastructure.Settings;
 
@@ -35,9 +36,6 @@ public class AppModeService : IAppModeService
     /// <inheritdoc />
     public string? SharedConfigPath { get; private set; }
 
-    /// <inheritdoc />
-    public long? SharedIndexMaxFileBytes { get; private set; }
-
     /// <summary>動作モード設定ファイルのパスを指定して初期化する。</summary>
     /// <param name="appModeFilePath">appmode.json のパス。未指定のとき実行フォルダ直下（単体テストでは一時パスを渡せる）。</param>
     public AppModeService(string? appModeFilePath = null)
@@ -56,13 +54,43 @@ public class AppModeService : IAppModeService
     }
 
     /// <inheritdoc />
-    public bool TrySaveSharedConfig(string indexPath, IReadOnlyList<string> targetFolders, long? indexMaxFileBytes)
+    public bool TryLoadSharedConfigFromIndexPath(string? indexPath)
     {
-        if (string.IsNullOrWhiteSpace(SharedConfigPath)) return false;
+        var targetPath = ResolveSharedConfigPath(indexPath);
+        if (string.IsNullOrWhiteSpace(targetPath) || !File.Exists(targetPath))
+            return false;
+
+        var shared = LoadAppModeFile(targetPath);
+        if (shared == null)
+            return false;
+
+        ApplySharedValues(shared);
+        return true;
+    }
+
+    /// <inheritdoc />
+    public string? ResolveSharedConfigPath(string? indexPath)
+    {
+        if (!string.IsNullOrWhiteSpace(SharedConfigPath))
+            return SharedConfigPath;
+
+        var normalizedIndexPath = indexPath?.Trim().TrimEnd('\\', '/');
+        if (string.IsNullOrWhiteSpace(normalizedIndexPath))
+            return null;
+
+        return Path.Combine(normalizedIndexPath, DefaultPaths.SharedConfigFileName);
+    }
+
+    /// <inheritdoc />
+    public bool TrySaveSharedConfig(string indexPath, IReadOnlyList<string> targetFolders)
+    {
+        var targetPath = ResolveSharedConfigPath(indexPath);
+        if (string.IsNullOrWhiteSpace(targetPath))
+            return false;
 
         try
         {
-            var directory = Path.GetDirectoryName(SharedConfigPath);
+            var directory = Path.GetDirectoryName(targetPath);
             if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
                 Directory.CreateDirectory(directory);
 
@@ -73,15 +101,13 @@ public class AppModeService : IAppModeService
                     .Select(f => f.Trim().TrimEnd('\\', '/'))
                     .Where(f => !string.IsNullOrWhiteSpace(f))
                     .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .ToList(),
-                IndexMaxFileBytes = indexMaxFileBytes
+                    .ToList()
             };
 
             var json = JsonSerializer.Serialize(payload, JsonOptions);
-            File.WriteAllText(SharedConfigPath, json);
+            File.WriteAllText(targetPath, json);
             SharedIndexPath = payload.IndexPath;
             SharedTargetFolders = payload.TargetFolders ?? new List<string>();
-            SharedIndexMaxFileBytes = payload.IndexMaxFileBytes;
             return true;
         }
         catch
@@ -93,10 +119,14 @@ public class AppModeService : IAppModeService
     private void ApplyConfig(AppModeConfig? config)
     {
         SharedConfigPath = NormalizePath(config?.SharedConfig);
+        ApplySharedValues(config);
+        IsAdmin = ResolveIsAdmin(config);
+    }
+
+    private void ApplySharedValues(AppModeConfig? config)
+    {
         SharedIndexPath = config?.IndexPath;
         SharedTargetFolders = config?.TargetFolders as IReadOnlyList<string> ?? Array.Empty<string>();
-        SharedIndexMaxFileBytes = config?.IndexMaxFileBytes;
-        IsAdmin = ResolveIsAdmin(config);
     }
 
     /// <summary>ローカル appmode.json と sharedConfig をマージした有効設定を返す。</summary>
@@ -105,7 +135,7 @@ public class AppModeService : IAppModeService
         var local = LoadAppModeFile(_appModePath);
         if (local == null) return null;
 
-        var sharedPath = NormalizePath(local.SharedConfig);
+        var sharedPath = ResolveSharedConfigPathForLoad(local);
         if (string.IsNullOrWhiteSpace(sharedPath) || !File.Exists(sharedPath))
             return local;
 
@@ -116,8 +146,6 @@ public class AppModeService : IAppModeService
             local.IndexPath = shared.IndexPath;
         if (shared.TargetFolders is { Count: > 0 })
             local.TargetFolders = shared.TargetFolders;
-        if (shared.IndexMaxFileBytes.HasValue)
-            local.IndexMaxFileBytes = shared.IndexMaxFileBytes;
 
         return local;
     }
@@ -158,6 +186,20 @@ public class AppModeService : IAppModeService
         return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
     }
 
+    /// <summary>起動時に shared.json を探すパス（appmode の sharedConfig または indexPath 配下）。</summary>
+    private static string? ResolveSharedConfigPathForLoad(AppModeConfig local)
+    {
+        var configured = NormalizePath(local.SharedConfig);
+        if (!string.IsNullOrWhiteSpace(configured))
+            return configured;
+
+        var indexPath = local.IndexPath?.Trim().TrimEnd('\\', '/');
+        if (string.IsNullOrWhiteSpace(indexPath))
+            return null;
+
+        return Path.Combine(indexPath, DefaultPaths.SharedConfigFileName);
+    }
+
     /// <summary>
     /// appmode.json の mode から管理者/参照を決定する。
     /// - 未指定: 管理者
@@ -195,7 +237,6 @@ public class AppModeService : IAppModeService
 
         /// <summary>サーバ上の共有設定 JSON のパス（UNC 可）。</summary>
         public string? SharedConfig { get; set; }
-        public long? IndexMaxFileBytes { get; set; }
     }
 
     /// <summary>sharedConfig が指す共有設定ファイルのスキーマ。</summary>
@@ -203,8 +244,5 @@ public class AppModeService : IAppModeService
     {
         public string? IndexPath { get; set; }
         public List<string>? TargetFolders { get; set; }
-
-        /// <summary>インデックス対象の最大ファイルサイズ（バイト）。0=無制限、省略=既定10MB。</summary>
-        public long? IndexMaxFileBytes { get; set; }
     }
 }

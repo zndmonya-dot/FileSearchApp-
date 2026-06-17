@@ -11,12 +11,16 @@
     <div class="sidebar-header">
         <span class="sidebar-title">
             <svg viewBox="0 0 16 16" fill="currentColor"><path d="M.513 1.513A1.75 1.75 0 0 1 1.75 1h3.5c.55 0 1.07.26 1.4.7l.9 1.2a.25.25 0 0 0 .2.1H13a1 1 0 0 1 1 1v.5H2.75a.75.75 0 0 0 0 1.5h11.978a1 1 0 0 1 .994 1.117L15 13.25A1.75 1.75 0 0 1 13.25 15H1.75A1.75 1.75 0 0 1 0 13.25V2.75c0-.464.184-.91.513-1.237Z"/></svg>
-            @(IsBrowseMode ? UserMessages.SidebarTitleFiles : UserMessages.SidebarTitleSearchResults)
+            @UserMessages.SidebarTitleSearchResults
         </span>
         <div class="sidebar-header-actions">
-            @if (!IsBrowseMode || TotalFileCount > 0)
+            @if (IsSearching)
             {
-            @* M-04 検索結果件数 *@
+                <span class="sidebar-status">@UserMessages.Searching</span>
+            }
+            else if (!IsBrowseMode && TotalFileCount > 0)
+            {
+            @* M-04 検索結果件数（閲覧時はツリー・フッターに任せる） *@
             <span class="sidebar-badge">@TotalFileCount</span>
             }
             @* M-02 設定ボタン *@
@@ -92,7 +96,11 @@
         }
         else if (IsLoadingFolderTree)
         {
-            <div class="tree-status tree-status-folder-loading" aria-busy="true" aria-live="polite" aria-label="@UserMessages.FolderTreeLoading">
+            <div class="tree-status tree-status-folder-loading" aria-busy="true" aria-live="polite" aria-label="@GetFolderTreeLoadingLabel()">
+                @if (LoadingFolderTreeCount > 0)
+                {
+                    <span class="tree-loading-count">@UserMessages.FormatFolderTreeLoadingCount(LoadingFolderTreeCount)</span>
+                }
                 <TreeSkeleton />
             </div>
         }
@@ -116,7 +124,7 @@
                     </div>
                     <div class="footer-text">
                         <span class="footer-primary">@UserMessages.FormatBuildingPercent(IndexProgressPercent)</span>
-                        <span class="footer-secondary footer-secondary-building" title="@IndexProgressText">@IndexProgressText</span>
+                        <span class="footer-secondary footer-secondary-building" title="@GetIndexProgressTitle()">@IndexProgressText</span>
                     </div>
                     @* M-16 キャンセルボタン（更新中） *@
                     <button type="button" class="footer-action footer-cancel" @onclick="OnCancelIndexBuild" title="@UserMessages.IndexBuildCancelTitle">@UserMessages.Cancel</button>
@@ -199,8 +207,10 @@
     [Parameter] public bool IsIndexing { get; set; }
     /// <summary>インデックス進捗 0〜100。</summary>
     [Parameter] public int IndexProgressPercent { get; set; }
-    /// <summary>進捗の補足テキスト（ツールチップ等）。</summary>
+    /// <summary>進捗の補足テキスト（処理済み/総数・スキップ件数）。</summary>
     [Parameter] public string IndexProgressText { get; set; } = "";
+    /// <summary>現在処理中ファイルのフルパス（ツールチップ用）。</summary>
+    [Parameter] public string IndexProgressDetail { get; set; } = "";
     /// <summary>登録ドキュメント件数。</summary>
     [Parameter] public int IndexCount { get; set; }
     /// <summary>インデックス系エラー（あればフッター赤字）。</summary>
@@ -227,6 +237,8 @@
     [Parameter] public bool HasTargetFolders { get; set; }
     /// <summary>検索前フォルダツリーの一括読み込み中。</summary>
     [Parameter] public bool IsLoadingFolderTree { get; set; }
+    /// <summary>フォルダツリー読み込み中に表示する件数（0 のときは件数なし）。</summary>
+    [Parameter] public int LoadingFolderTreeCount { get; set; }
     /// <summary>フォルダ行クリックで展開トグル。</summary>
     [Parameter] public EventCallback<TreeNode> OnToggleNode { get; set; }
     /// <summary>ファイル行クリックで選択。</summary>
@@ -280,4 +292,12 @@
     /// <summary>スキップログを開く（親の <c>OnOpenSkippedLog</c> を呼ぶ）。</summary>
     private Task OnOpenSkippedLogAsync()
         => OnOpenSkippedLog.InvokeAsync();
+
+    private string GetIndexProgressTitle() =>
+        string.IsNullOrEmpty(IndexProgressDetail) ? IndexProgressText : IndexProgressDetail;
+
+    private string GetFolderTreeLoadingLabel() =>
+        LoadingFolderTreeCount > 0
+            ? UserMessages.FormatFolderTreeLoadingCount(LoadingFolderTreeCount)
+            : UserMessages.FolderTreeLoading;
 }

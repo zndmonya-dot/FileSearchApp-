@@ -54,3 +54,6 @@ Thumbs.db
 native/sudachi-ffi/target/
 native/sudachi-ffi/target*/
 tools/sudachi/resources/system_core.dic
+
+# ローカル Lucene インデックス（開発・再構築で生成。コミットしない）
+/index/

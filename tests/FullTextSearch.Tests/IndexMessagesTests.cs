@@ -6,11 +6,6 @@ namespace FullTextSearch.Tests;
 /// <summary>スキップログ文言のフォーマット。</summary>
 public class IndexMessagesTests
 {
-    public IndexMessagesTests()
-    {
-        ContentLimits.ConfigureIndexMaxFileBytes(null);
-    }
-
     [Fact]
     public void SkippedLogHeaderLine_contains_label_and_timestamp_pattern()
     {
@@ -37,7 +32,7 @@ public class IndexMessagesTests
     public void SkippedReasonFileTooLarge_includes_byte_count()
     {
         var reason = IndexMessages.SkippedReasonFileTooLarge(12_345_678);
-        Assert.Contains("10MB", reason);
+        Assert.Contains(ContentLimits.GetIndexMaxFileBytesDisplayLabel(), reason);
         Assert.Contains("12,345,678", reason);
     }
 }

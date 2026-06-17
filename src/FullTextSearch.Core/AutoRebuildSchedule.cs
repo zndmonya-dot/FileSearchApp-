@@ -2,67 +2,59 @@ namespace FullTextSearch.Core;
 
 /// <summary>
 /// 定期再構築の実行タイミング判定。
-/// 短い間隔は経過時間、24時間は日本時間の日次0時、1週間は月曜0時（日本時間）に揃える。
+/// 毎日、日本時間でチェックした時刻（0〜23時）を過ぎたあと、まだその枠で更新していなければ実行可能。
 /// </summary>
 public static class AutoRebuildSchedule
 {
-    /// <summary>定期再構築: 毎日0時（日本時間）相当の間隔（分）。</summary>
-    public const int DailyAtMidnightJstMinutes = 1440;
-
-    /// <summary>定期再構築: 毎週月曜0時（日本時間）相当の間隔（分）。</summary>
-    public const int WeeklyMondayJstMinutes = 10080;
-
     private static readonly TimeZoneInfo JapanTimeZone = ResolveJapanTimeZone();
 
     /// <summary>
-    /// 指定間隔で再構築が実行可能か。intervalMinutes が 0 以下なら常に false。
+    /// 指定した毎日の時刻（日本時間・0〜23時）で再構築が実行可能か。
+    /// <paramref name="dailyHoursJst"/> が空なら常に false。
     /// </summary>
-    /// <param name="intervalMinutes">設定の間隔（分）。</param>
-    /// <param name="lastUpdate">前回のインデックス更新（未実行なら null）。</param>
-    /// <param name="utcNow">判定基準の UTC 時刻（テスト用に注入可能）。</param>
-    public static bool IsDue(int intervalMinutes, DateTime? lastUpdate, DateTime utcNow)
+    public static bool IsDueAtDailyHours(IReadOnlyList<int> dailyHoursJst, DateTime? lastUpdate, DateTime utcNow)
     {
-        if (intervalMinutes <= 0) return false;
+        var hours = NormalizeDailyHours(dailyHoursJst);
+        if (hours.Count == 0) return false;
         if (!lastUpdate.HasValue) return true;
 
-        return intervalMinutes switch
+        var nowJst = ToJapanTime(utcNow);
+        var lastJst = ToJapanTime(lastUpdate.Value);
+        var today = nowJst.Date;
+
+        for (var i = hours.Count - 1; i >= 0; i--)
         {
-            DailyAtMidnightJstMinutes => IsCalendarDailyDue(lastUpdate.Value, utcNow),
-            WeeklyMondayJstMinutes => IsCalendarWeeklyDue(lastUpdate.Value, utcNow),
-            _ => IsElapsedDue(intervalMinutes, lastUpdate.Value, utcNow)
-        };
+            var slot = today.AddHours(hours[i]);
+            if (nowJst < slot) continue;
+            return lastJst < slot;
+        }
+
+        return false;
     }
 
-    /// <summary>前回更新から interval 分以上経過しているか（ローカル時計の経過時間）。</summary>
-    private static bool IsElapsedDue(int intervalMinutes, DateTime lastUpdate, DateTime utcNow)
+    /// <summary>旧設定（分間隔）を毎日の時刻リストへ変換する。</summary>
+    public static List<int> MigrateFromIntervalMinutes(int intervalMinutes) => intervalMinutes switch
     {
-        var nowLocal = utcNow.ToLocalTime();
-        var lastLocal = ToLocalWallClock(lastUpdate);
-        return (nowLocal - lastLocal).TotalMinutes >= intervalMinutes;
-    }
+        <= 0 => [],
+        30 => [0, 6, 12, 18],
+        60 => Enumerable.Range(0, 24).ToList(),
+        120 => Enumerable.Range(0, 24).Where(h => h % 2 == 0).ToList(),
+        360 => [0, 6, 12, 18],
+        720 => [0, 12],
+        1440 => [0],
+        10080 => [0],
+        _ => [0]
+    };
 
-    /// <summary>日本時間で日付が変わったあと、まだ今日の再構築をしていないか。</summary>
-    private static bool IsCalendarDailyDue(DateTime lastUpdate, DateTime utcNow)
+    /// <summary>0〜23 の整数だけを昇順・重複なしで返す。</summary>
+    public static List<int> NormalizeDailyHours(IReadOnlyList<int>? dailyHoursJst)
     {
-        var nowJst = ToJapanTime(utcNow);
-        var todayStartJst = nowJst.Date;
-        return ToJapanTime(lastUpdate) < todayStartJst;
-    }
-
-    /// <summary>日本時間で今週の月曜0時を過ぎ、まだ今週の再構築をしていないか。</summary>
-    private static bool IsCalendarWeeklyDue(DateTime lastUpdate, DateTime utcNow)
-    {
-        var nowJst = ToJapanTime(utcNow);
-        var weekStartJst = GetWeekStartMonday(nowJst);
-        return ToJapanTime(lastUpdate) < weekStartJst;
-    }
-
-    /// <summary>月曜 0:00（date が属する週の開始、日本時間の日付部分）。</summary>
-    private static DateTime GetWeekStartMonday(DateTime dateJst)
-    {
-        var d = dateJst.Date;
-        var daysFromMonday = ((int)d.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
-        return d.AddDays(-daysFromMonday);
+        if (dailyHoursJst is not { Count: > 0 }) return [];
+        return dailyHoursJst
+            .Where(h => h is >= 0 and <= 23)
+            .Distinct()
+            .OrderBy(h => h)
+            .ToList();
     }
 
     private static DateTime ToJapanTime(DateTime dateTime)
@@ -75,14 +67,6 @@ public static class AutoRebuildSchedule
         };
         return TimeZoneInfo.ConvertTimeFromUtc(utc, JapanTimeZone);
     }
-
-    private static DateTime ToLocalWallClock(DateTime dateTime) =>
-        dateTime.Kind switch
-        {
-            DateTimeKind.Local => dateTime,
-            DateTimeKind.Utc => dateTime.ToLocalTime(),
-            _ => DateTime.SpecifyKind(dateTime, DateTimeKind.Local)
-        };
 
     private static TimeZoneInfo ResolveJapanTimeZone()
     {

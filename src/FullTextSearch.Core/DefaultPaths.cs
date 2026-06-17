@@ -15,4 +15,7 @@ public static class DefaultPaths
 
     /// <summary>インデックスフォルダ内に出力するスキップ一覧ログのファイル名（LuceneIndexService / UI で共通）</summary>
     public const string SkippedFilesLogFileName = "skipped_files.log";
+
+    /// <summary>インデックスフォルダ内の共有設定ファイル名（管理者が保存時に出力、利用者が起動時に読む）。</summary>
+    public const string SharedConfigFileName = "shared.json";
 }

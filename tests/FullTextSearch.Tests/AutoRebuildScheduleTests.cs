@@ -12,67 +12,66 @@ public class AutoRebuildScheduleTests
         TimeZoneInfo.ConvertTimeToUtc(new DateTime(year, month, day, hour, minute, 0), Jst);
 
     [Fact]
-    public void IsDue_zero_interval_returns_false()
+    public void IsDueAtDailyHours_empty_returns_false()
     {
-        Assert.False(AutoRebuildSchedule.IsDue(0, DateTime.UtcNow, DateTime.UtcNow));
+        Assert.False(AutoRebuildSchedule.IsDueAtDailyHours([], DateTime.UtcNow, DateTime.UtcNow));
     }
 
     [Fact]
-    public void IsDue_no_last_update_returns_true()
+    public void IsDueAtDailyHours_no_last_update_returns_true()
     {
-        Assert.True(AutoRebuildSchedule.IsDue(60, null, DateTime.UtcNow));
+        Assert.True(AutoRebuildSchedule.IsDueAtDailyHours([0], null, DateTime.UtcNow));
     }
 
     [Fact]
-    public void IsDue_elapsed_not_yet_due()
+    public void IsDueAtDailyHours_not_due_before_checked_hour()
     {
-        var now = DateTime.UtcNow;
-        var last = now.AddMinutes(-30).ToLocalTime();
-        Assert.False(AutoRebuildSchedule.IsDue(60, last, now));
+        var last = JstToUtc(2026, 6, 12, 8);
+        var now = JstToUtc(2026, 6, 12, 11, 30);
+        Assert.False(AutoRebuildSchedule.IsDueAtDailyHours([12, 18], last, now));
     }
 
     [Fact]
-    public void IsDue_elapsed_due_after_interval()
+    public void IsDueAtDailyHours_due_after_checked_hour_same_day()
     {
-        var now = DateTime.UtcNow;
-        var last = now.AddMinutes(-61).ToLocalTime();
-        Assert.True(AutoRebuildSchedule.IsDue(60, last, now));
+        var last = JstToUtc(2026, 6, 12, 8);
+        var now = JstToUtc(2026, 6, 12, 12, 5);
+        Assert.True(AutoRebuildSchedule.IsDueAtDailyHours([12, 18], last, now));
     }
 
     [Fact]
-    public void IsDue_daily_not_due_same_jst_day()
+    public void IsDueAtDailyHours_not_due_again_after_slot_ran()
     {
-        // 2026-06-12 10:00 JST に更新、同日 15:00 JST → 未実行
-        var last = JstToUtc(2026, 6, 12, 10);
+        var last = JstToUtc(2026, 6, 12, 12, 10);
         var now = JstToUtc(2026, 6, 12, 15);
-        Assert.False(AutoRebuildSchedule.IsDue(AutoRebuildSchedule.DailyAtMidnightJstMinutes, last, now));
+        Assert.False(AutoRebuildSchedule.IsDueAtDailyHours([12, 18], last, now));
     }
 
     [Fact]
-    public void IsDue_daily_due_after_jst_midnight()
+    public void IsDueAtDailyHours_due_for_second_slot_same_day()
     {
-        // 2026-06-12 23:00 JST に更新、翌日 0:30 JST → 実行
+        var last = JstToUtc(2026, 6, 12, 12, 10);
+        var now = JstToUtc(2026, 6, 12, 18, 5);
+        Assert.True(AutoRebuildSchedule.IsDueAtDailyHours([12, 18], last, now));
+    }
+
+    [Fact]
+    public void IsDueAtDailyHours_midnight_slot_after_previous_day()
+    {
         var last = JstToUtc(2026, 6, 12, 23);
-        var now = JstToUtc(2026, 6, 13, 0, 30);
-        Assert.True(AutoRebuildSchedule.IsDue(AutoRebuildSchedule.DailyAtMidnightJstMinutes, last, now));
+        var now = JstToUtc(2026, 6, 13, 0, 20);
+        Assert.True(AutoRebuildSchedule.IsDueAtDailyHours([0], last, now));
     }
 
     [Fact]
-    public void IsDue_weekly_not_due_same_jst_week()
+    public void MigrateFromIntervalMinutes_maps_daily_midnight()
     {
-        // 月曜 1:00 JST に更新、同週水曜 → 未実行
-        var last = JstToUtc(2026, 6, 8, 1); // Monday
-        var now = JstToUtc(2026, 6, 10, 12); // Wednesday
-        Assert.False(AutoRebuildSchedule.IsDue(AutoRebuildSchedule.WeeklyMondayJstMinutes, last, now));
+        Assert.Equal([0], AutoRebuildSchedule.MigrateFromIntervalMinutes(1440));
     }
 
     [Fact]
-    public void IsDue_weekly_due_after_monday_midnight()
+    public void NormalizeDailyHours_sorts_and_deduplicates()
     {
-        // 先週火曜に更新、今週月曜 0:30 JST → 実行
-        var last = JstToUtc(2026, 6, 9, 10); // Tuesday
-        var now = JstToUtc(2026, 6, 15, 0, 30); // Monday
-        Assert.True(AutoRebuildSchedule.IsDue(AutoRebuildSchedule.WeeklyMondayJstMinutes, last, now));
+        Assert.Equal([0, 6, 12], AutoRebuildSchedule.NormalizeDailyHours([12, 0, 6, 0, 99, -1]));
     }
-
 }

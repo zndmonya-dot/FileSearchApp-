@@ -43,7 +43,9 @@ public partial class Home : IDisposable
     /// <summary>検索実行中（サイドバーにスピナー等を出す）</summary>
     private bool isSearching = false;
     /// <summary>検索前フォルダツリーの一括読み込み中</summary>
-    private bool isLoadingFolderTree = false;
+    private bool isLoadingFolderTree = true;
+    /// <summary>フォルダツリー読み込み中に表示する件数（直前の登録件数など）</summary>
+    private int folderTreeLoadingCount;
     private string? searchErrorMessage = null;
     /// <summary>最後に実際に実行した検索クエリ（入力中は未実行と区別するため）</summary>
     private string? _lastExecutedSearchQuery;
@@ -57,6 +59,7 @@ public partial class Home : IDisposable
     private bool isIndexing = false;
     private int indexProgressPercent = 0;
     private string indexProgressText = "";
+    private string indexProgressDetail = "";
     private string? indexErrorMessage = null;
     private int indexSkipCount;
 
@@ -67,6 +70,8 @@ public partial class Home : IDisposable
 
     /// <summary>実行ユーザーが管理者か。非管理者は共有インデックスの参照専用（設定編集・再構築不可）。</summary>
     private bool isAdmin = false;
+
+    private bool _appStartupStarted;
 
     // --- レイアウト（サイドバー幅・リサイズ） ---
     private int sidebarWidth = 300;
@@ -135,6 +140,13 @@ public partial class Home : IDisposable
     /// <summary>ツリー展開の同期、System テーマの初回取得、ファイル切替時のハイライトナビリセットと初回スクロール。</summary>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (firstRender && !_appStartupStarted)
+        {
+            _appStartupStarted = true;
+            await RunAppStartupAsync();
+            StateHasChanged();
+        }
+
         var treeChanged = false;
         var filePath = selectedFile?.FilePath;
         if (!string.Equals(filePath, _lastTreeSyncFilePath, StringComparison.OrdinalIgnoreCase))
@@ -174,19 +186,18 @@ public partial class Home : IDisposable
         }
     }
 
-    /// <summary>設定読み込み、インデックス初期化、定期再構築用タイマー開始。</summary>
-    protected override async Task OnInitializedAsync()
+    /// <summary>設定読み込み・インデックス初期化・フォルダツリー構築（初回レンダー後）。</summary>
+    private async Task RunAppStartupAsync()
     {
         await SettingsService.LoadAsync();
 
-        // 動作モードの確定: 共有インデックスパスの反映と管理者判定。
         AppMode.Initialize();
         isAdmin = AppMode.IsAdmin;
         ApplySharedSettingsFromAppMode();
-
         ApplyThemeFromSettings();
-        _ = RefreshFolderSkeletonTreeAsync();
+
         await InitializeIndexIfConfiguredAsync();
+        await RefreshFolderSkeletonTreeAsync();
         _autoRebuildTimer = new Timer(OnAutoRebuildTick, null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
     }
 
@@ -196,6 +207,9 @@ public partial class Home : IDisposable
     /// </summary>
     private void ApplySharedSettingsFromAppMode()
     {
+        if (!isAdmin)
+            AppMode.TryLoadSharedConfigFromIndexPath(SettingsService.Settings.IndexPath);
+
         if (isAdmin && string.IsNullOrWhiteSpace(AppMode.SharedConfigPath))
             return;
 
@@ -203,10 +217,6 @@ public partial class Home : IDisposable
             SettingsService.Settings.IndexPath = AppMode.SharedIndexPath;
         if (AppMode.SharedTargetFolders.Count > 0)
             SettingsService.Settings.TargetFolders = AppMode.SharedTargetFolders.ToList();
-        if (AppMode.SharedIndexMaxFileBytes.HasValue)
-            SettingsService.Settings.IndexMaxFileBytes = AppMode.SharedIndexMaxFileBytes;
-
-        ContentLimits.ConfigureIndexMaxFileBytes(SettingsService.Settings.IndexMaxFileBytes);
     }
 
     /// <summary>設定のインデックス保存先を開く。失敗してもアプリ全体は落とさない。</summary>
@@ -227,7 +237,6 @@ public partial class Home : IDisposable
                 return;
             }
 
-            indexCount = IndexService.GetStats().DocumentCount;
             SearchService.Warmup();
         }
         catch (Exception ex)

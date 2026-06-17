@@ -37,16 +37,57 @@ public static class IndexPaths
     /// <summary>ファイルパスが、正規化済みフォルダ一覧のいずれかの配下（または同一）か。</summary>
     public static bool IsPathUnderAnyFolder(string filePath, IReadOnlyList<string> normalizedFolderPaths)
     {
+        if (string.IsNullOrWhiteSpace(filePath) || normalizedFolderPaths == null || normalizedFolderPaths.Count == 0)
+            return false;
+
         var full = NormalizeFilePath(filePath);
         foreach (var folder in normalizedFolderPaths)
         {
-            var root = NormalizeFolderPath(folder);
-            if (full.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
-                || full.StartsWith(root + "\\", StringComparison.OrdinalIgnoreCase)
-                || full.Equals(root, StringComparison.OrdinalIgnoreCase))
+            if (IsPathUnderFolder(full, NormalizeFolderPath(folder)))
                 return true;
         }
         return false;
+    }
+
+    /// <summary>正規化済みファイルパスが、正規化済みフォルダルート配下か。</summary>
+    internal static bool IsPathUnderFolder(string normalizedFilePath, string normalizedFolderRoot)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedFolderRoot))
+            return false;
+
+        if (normalizedFilePath.Equals(normalizedFolderRoot, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        // ドライブルート（C:\）は同一ドライブ上のすべてを含める。
+        // 従来の root + "\\" 照合では C:\Users\... が C:\\ で始まらず常に不一致になっていた。
+        if (IsDriveRootPath(normalizedFolderRoot))
+            return IsOnDrive(normalizedFilePath, normalizedFolderRoot[0]);
+
+        var root = normalizedFolderRoot.TrimEnd('\\', '/');
+        var prefixBackslash = root + Path.DirectorySeparatorChar;
+        if (normalizedFilePath.StartsWith(prefixBackslash, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        var prefixSlash = root + '/';
+        return normalizedFilePath.StartsWith(prefixSlash, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsDriveRootPath(string normalizedFolderRoot) =>
+        normalizedFolderRoot.Length == 3
+        && char.IsLetter(normalizedFolderRoot[0])
+        && normalizedFolderRoot[1] == ':'
+        && (normalizedFolderRoot[2] == '\\' || normalizedFolderRoot[2] == '/');
+
+    private static bool IsOnDrive(string normalizedFilePath, char driveLetter)
+    {
+        if (normalizedFilePath.Length < 2)
+            return false;
+        if (char.ToUpperInvariant(normalizedFilePath[0]) != char.ToUpperInvariant(driveLetter)
+            || normalizedFilePath[1] != ':')
+            return false;
+        return normalizedFilePath.Length == 2
+            || normalizedFilePath[2] == Path.DirectorySeparatorChar
+            || normalizedFilePath[2] == '/';
     }
 
     /// <summary>

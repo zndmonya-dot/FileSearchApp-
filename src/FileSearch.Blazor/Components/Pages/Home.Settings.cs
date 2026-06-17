@@ -4,9 +4,9 @@
 // 役割: 設定モーダルの開閉、フォルダ/拡張子の追加・バリデーション、保存と IndexService 初期化。
 // 文言: UserMessages。
 // =============================================================================
+using FullTextSearch.Core;
 using FullTextSearch.Core.UI;
 using FileSearch.Messages;
-using FullTextSearch.Core;
 using FullTextSearch.Core.Extractors;
 using FullTextSearch.Core.Index;
 using FullTextSearch.Core.Preview;
@@ -29,9 +29,8 @@ public partial class Home
         _settingsEdit.TargetFolders = SettingsService.Settings.TargetFolders.ToList();
         _settingsEdit.IndexPath = SettingsService.Settings.IndexPath;
         _settingsEdit.TargetExtensions = SettingsService.Settings.TargetExtensions.ToList();
-        _settingsEdit.AutoRebuildIntervalMinutes = SettingsService.Settings.AutoRebuildIntervalMinutes;
+        _settingsEdit.AutoRebuildDailyHours = SettingsService.Settings.AutoRebuildDailyHours.ToList();
         _settingsEdit.ThemeMode = SettingsService.Settings.ThemeMode ?? "System";
-        _settingsEdit.IndexMaxFileMegabytes = ToMegabytes(SettingsService.Settings.IndexMaxFileBytes);
         _settingsEdit.IndexPathMessage = null;
         showSettings = true;
     }
@@ -166,9 +165,17 @@ public partial class Home
         }
         if (!Directory.Exists(indexPath))
         {
-            _settingsEdit.IndexPathMessage = UserMessages.IndexPathNotFoundSaveError;
-            await InvokeAsync(StateHasChanged);
-            return;
+            try
+            {
+                Directory.CreateDirectory(indexPath);
+            }
+            catch (Exception ex)
+            {
+                _settingsEdit.IndexPathMessage = UserMessages.IndexPathNotFoundSaveError;
+                Logger.LogError(ex, "Failed to create index directory at {IndexPath}", indexPath);
+                await InvokeAsync(StateHasChanged);
+                return;
+            }
         }
 
         SettingsService.Settings.TargetFolders = _settingsEdit.TargetFolders
@@ -177,14 +184,19 @@ public partial class Home
             .ToList();
         SettingsService.Settings.IndexPath = indexPath;
         SettingsService.Settings.TargetExtensions = _settingsEdit.TargetExtensions.ToList();
-        SettingsService.Settings.AutoRebuildIntervalMinutes = _settingsEdit.AutoRebuildIntervalMinutes;
+        SettingsService.Settings.AutoRebuildDailyHours =
+            AutoRebuildSchedule.NormalizeDailyHours(_settingsEdit.AutoRebuildDailyHours);
         SettingsService.Settings.ThemeMode = _settingsEdit.ThemeMode ?? "System";
-        SettingsService.Settings.IndexMaxFileBytes = FromMegabytes(_settingsEdit.IndexMaxFileMegabytes);
-        ContentLimits.ConfigureIndexMaxFileBytes(SettingsService.Settings.IndexMaxFileBytes);
         await SettingsService.SaveAsync();
 
         // 共有設定ファイルへ書き込み（利用者は起動時にここから読む）。
-        AppMode.TrySaveSharedConfig(indexPath, SettingsService.Settings.TargetFolders, SettingsService.Settings.IndexMaxFileBytes);
+        if (!AppMode.TrySaveSharedConfig(indexPath, SettingsService.Settings.TargetFolders))
+        {
+            var sharedPath = AppMode.ResolveSharedConfigPath(indexPath);
+            _settingsEdit.IndexPathMessage = UserMessages.SharedConfigSaveFailed(sharedPath ?? indexPath);
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
 
         try
         {
@@ -196,7 +208,6 @@ public partial class Home
             }
             else
             {
-                indexCount = IndexService.GetStats().DocumentCount;
                 SearchService.RefreshIndex();
                 indexErrorMessage = null;
                 _settingsEdit.IndexPathMessage = null;
@@ -211,8 +222,8 @@ public partial class Home
 
         await ApplyThemeAfterSettingsSaveAsync();
         showSettings = false;
+        await RefreshFolderSkeletonTreeAsync();
         await InvokeAsync(StateHasChanged);
-        _ = RefreshFolderSkeletonTreeAsync();
     }
 
     /// <summary>設定保存後のテーマ反映。</summary>
@@ -227,18 +238,4 @@ public partial class Home
             ApplyThemeFromSettings();
         }
     }
-
-    private static int ToMegabytes(long? bytes)
-    {
-        if (bytes is null) return 10;
-        if (bytes <= 0) return 0;
-        return (int)Math.Min(bytes.Value / (1024 * 1024), int.MaxValue);
-    }
-
-    private static long? FromMegabytes(int megabytes) => megabytes switch
-    {
-        < 0 => 0,
-        0 => 0,
-        _ => (long)megabytes * 1024 * 1024
-    };
 }

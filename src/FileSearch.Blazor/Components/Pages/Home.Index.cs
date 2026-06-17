@@ -71,18 +71,17 @@ public partial class Home
             if (diffUpdate && p.NoChanges)
             {
                 indexProgressText = UserMessages.IndexDiffNoChanges;
+                indexProgressDetail = "";
             }
             else
             {
                 var baseText = UserMessages.FormatIndexProgressCounts(
                     p.ProcessedFiles, p.TotalFiles, countUnit, p.ErrorCount);
-                indexProgressText = string.IsNullOrEmpty(p.CurrentFile)
-                    ? baseText
-                    : Path.GetFileName(p.CurrentFile);
+                indexProgressText = baseText;
+                indexProgressDetail = p.CurrentFile ?? "";
             }
             var shouldUpdate = p.NoChanges
-                || p.CurrentFile == null
-                || (p.ProcessedFiles - _lastReportedProgressCount) >= ProgressReportInterval
+                || p.ProcessedFiles != _lastReportedProgressCount
                 || (DateTime.UtcNow - _lastReportedProgressTime).TotalMilliseconds >= ProgressReportThrottleMs;
             if (shouldUpdate)
             {
@@ -116,6 +115,7 @@ public partial class Home
         _showRebuildConfirm = false;
         indexProgressPercent = 0;
         indexProgressText = initialMessage;
+        indexProgressDetail = "";
         _indexCts?.Dispose();
         _indexCts = new CancellationTokenSource();
         var token = _indexCts.Token;
@@ -127,7 +127,6 @@ public partial class Home
         {
             await Task.Run(async () => await runAsync(progress, token), token);
             if (token.IsCancellationRequested) return;
-            indexCount = IndexService.GetStats().DocumentCount;
             SearchService.RefreshIndex();
             SettingsService.Settings.LastIndexUpdate = DateTime.Now;
             await SettingsService.SaveAsync();
@@ -137,6 +136,11 @@ public partial class Home
                 indexSkipCount = skipped.Count;
             else
                 indexSkipCount = 0;
+
+            if (_lastExecutedSearchQuery == null)
+                await RefreshFolderSkeletonTreeAsync();
+            else
+                SyncScopedIndexCount();
         }
         catch (IndexUpdateAbortedException ex)
         {

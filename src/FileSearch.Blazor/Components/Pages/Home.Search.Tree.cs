@@ -31,13 +31,13 @@ public partial class Home
         {
             // 非管理者は参照専用のため自動再構築も行わない。
             if (!isAdmin) return;
-            var interval = SettingsService.Settings.AutoRebuildIntervalMinutes;
-            if (interval <= 0 || isIndexing) return;
+            var hours = SettingsService.Settings.AutoRebuildDailyHours;
+            if (hours.Count == 0 || isIndexing) return;
             // 検索中、もしくは直近で検索操作（入力・キー操作・検索実行）があった直後は見送る。
             // 1 分後の次 tick で再判定するので、ユーザー操作が落ち着いた段階で実行される。
             if (isSearching) return;
             if ((DateTime.UtcNow - _lastSearchActivityUtc).TotalSeconds < AutoRebuildIdleSeconds) return;
-            if (AutoRebuildSchedule.IsDue(interval, SettingsService.Settings.LastIndexUpdate, DateTime.UtcNow))
+            if (AutoRebuildSchedule.IsDueAtDailyHours(hours, SettingsService.Settings.LastIndexUpdate, DateTime.UtcNow))
                 _ = InvokeAsync(UpdateIndex);
         }
         catch { /* timer thread: ignore */ }
@@ -61,7 +61,7 @@ public partial class Home
         }
     }
 
-    /// <summary>検索前の初期表示用に、対象フォルダ配下を一括読み込みしてツリーへ反映する。</summary>
+    /// <summary>検索前の初期表示用に、インデックス済みファイルからツリーへ反映する。</summary>
     private async Task RefreshFolderSkeletonTreeAsync()
     {
         if (_lastExecutedSearchQuery != null)
@@ -72,6 +72,9 @@ public partial class Home
         {
             CancelFolderTreeLoad();
             treeNodes = [];
+            totalFileCount = 0;
+            indexCount = 0;
+            folderTreeLoadingCount = 0;
             await InvokeAsync(StateHasChanged);
             return;
         }
@@ -80,6 +83,7 @@ public partial class Home
         _folderTreeLoadCts = new CancellationTokenSource();
         var loadToken = _folderTreeLoadCts.Token;
 
+        folderTreeLoadingCount = indexCount;
         isLoadingFolderTree = true;
         treeNodes = [];
         await InvokeAsync(StateHasChanged);
@@ -88,7 +92,26 @@ public partial class Home
         try
         {
             var extensions = GetBrowseExtensionSet();
-            built = await Task.Run(() => TreeBuilder.BuildFullFolderTree(folders, extensions), loadToken);
+            var indexPath = SettingsService.Settings.IndexPath;
+            if (!string.IsNullOrWhiteSpace(indexPath) && !IndexService.LastInitializeFailed)
+            {
+                var items = await Task.Run(
+                    () => IndexService.ListIndexedItems(folders, extensions),
+                    loadToken);
+                built = await Task.Run(() =>
+                {
+                    var tree = TreeBuilder.BuildTree(folders, items);
+                    TreeBuilder.MarkFolderTreeLoaded(tree);
+                    return tree;
+                }, loadToken);
+                totalFileCount = items.Count;
+                indexCount = items.Count;
+            }
+            else
+            {
+                built = await Task.Run(() => TreeBuilder.BuildFullFolderTree(folders, extensions), loadToken);
+                totalFileCount = TreeBuilder.CollectAllFileNodes(built).Count;
+            }
         }
         catch (OperationCanceledException)
         {
@@ -100,10 +123,24 @@ public partial class Home
 
         treeNodes = built;
         isLoadingFolderTree = false;
+        folderTreeLoadingCount = 0;
         _lastTreeSyncFilePath = null;
         _lastTreeSyncFolderPath = null;
         TrySelectInitialBrowseFolder(built);
         await InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>対象フォルダ・拡張子に一致するインデックス件数をフッターへ反映する。</summary>
+    private void SyncScopedIndexCount()
+    {
+        var folders = SettingsService.Settings.TargetFolders;
+        if (folders.Count == 0 || string.IsNullOrWhiteSpace(SettingsService.Settings.IndexPath) || IndexService.LastInitializeFailed)
+        {
+            indexCount = 0;
+            return;
+        }
+
+        indexCount = IndexService.ListIndexedItems(folders, GetBrowseExtensionSet()).Count;
     }
 
     /// <summary>閲覧モードで最初のルートフォルダを右ペインに表示する（GitHub の repo ルート相当）。</summary>
@@ -126,6 +163,7 @@ public partial class Home
         _folderTreeLoadCts?.Dispose();
         _folderTreeLoadCts = null;
         isLoadingFolderTree = false;
+        folderTreeLoadingCount = 0;
     }
 
     /// <summary>検索欄の双方向バインド用。</summary>
@@ -165,6 +203,8 @@ public partial class Home
         var token = _searchCts.Token;
         searchErrorMessage = null;
         isSearching = true;
+        totalFileCount = 0;
+        treeNodes = [];
         selectedFile = null;
         selectedFolder = null;
         selectedFolderRowIndex = -1;
@@ -179,6 +219,7 @@ public partial class Home
             if (token.IsCancellationRequested) return;
             var items = FilterByTargetExtensions(result.Items);
             treeNodes = TreeBuilder.BuildTree(SettingsService.Settings.TargetFolders, items);
+            TreeBuilder.MarkFolderTreeLoaded(treeNodes);
             totalFileCount = items.Count;
             _lastTreeSyncFilePath = null;
             _lastTreeSyncFolderPath = null;

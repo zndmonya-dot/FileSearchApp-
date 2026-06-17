@@ -33,6 +33,13 @@ public interface IIndexService
 
     /// <summary>直近のインデックス操作でスキップされたファイル（パスと理由）。</summary>
     IReadOnlyList<SkippedFileEntry> LastSkippedFiles { get; }
+
+    /// <summary>
+    /// 対象フォルダ・拡張子に含まれるインデックス済みファイル一覧（閲覧ツリー・登録件数表示用）。
+    /// </summary>
+    IReadOnlyList<SearchResultItem> ListIndexedItems(
+        IReadOnlyList<string> targetFolders,
+        IReadOnlySet<string>? targetExtensions = null);
 }
 
 /// <summary>

@@ -26,12 +26,19 @@ public interface IAppModeService
     void Initialize();
 
     /// <summary>
-    /// 共有設定のインデックス対象最大ファイルサイズ（バイト）。null=既定、0=無制限。
+    /// <paramref name="indexPath"/> から共有設定ファイルを読み、メモリ上の共有設定を更新する。
+    /// ファイルが無い場合は false。
     /// </summary>
-    long? SharedIndexMaxFileBytes { get; }
+    bool TryLoadSharedConfigFromIndexPath(string? indexPath);
 
     /// <summary>
-    /// 管理者が設定保存したとき、<see cref="SharedConfigPath"/> へ共有設定を書き込む。
+    /// 共有設定の書き込み先を解決する。
+    /// appmode の sharedConfig があればそれを、なければ <paramref name="indexPath"/> 配下の shared.json。
     /// </summary>
-    bool TrySaveSharedConfig(string indexPath, IReadOnlyList<string> targetFolders, long? indexMaxFileBytes);
+    string? ResolveSharedConfigPath(string? indexPath);
+
+    /// <summary>
+    /// 管理者が設定保存したとき、<see cref="ResolveSharedConfigPath"/> で決まるパスへ共有設定を書き込む。
+    /// </summary>
+    bool TrySaveSharedConfig(string indexPath, IReadOnlyList<string> targetFolders);
 }

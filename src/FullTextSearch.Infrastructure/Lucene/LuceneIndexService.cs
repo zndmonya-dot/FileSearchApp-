@@ -2,10 +2,10 @@
 using System.Collections.Concurrent;
 using System.Threading;
 using FullTextSearch.Core.Models;
+using FullTextSearch.Core.Preview;
 using FullTextSearch.Core;
 using FullTextSearch.Core.Extractors;
 using FullTextSearch.Core.Index;
-using FullTextSearch.Core.Preview;
 using FullTextSearch.Infrastructure.Sudachi;
 using Lucene.Net.Analysis;
 using Lucene.Net.Documents;
@@ -559,6 +559,103 @@ public class LuceneIndexService : IIndexService, IDisposable
         }
     }
 
+    /// <inheritdoc />
+    public IReadOnlyList<SearchResultItem> ListIndexedItems(
+        IReadOnlyList<string> targetFolders,
+        IReadOnlySet<string>? targetExtensions = null)
+    {
+        if (targetFolders == null || targetFolders.Count == 0)
+            return [];
+
+        DirectoryReader? reader = null;
+        var disposeReader = false;
+        try
+        {
+            lock (_lock)
+            {
+                if (_writer != null)
+                {
+                    reader = DirectoryReader.Open(_writer, applyAllDeletes: true);
+                    disposeReader = true;
+                }
+                else if (_statsReader != null)
+                {
+                    reader = _statsReader;
+                }
+            }
+
+            if (reader == null)
+                return [];
+
+            var normalizedFolders = targetFolders
+                .Select(IndexPaths.NormalizeFolderPath)
+                .ToList();
+
+            var fields = new HashSet<string>(StringComparer.Ordinal)
+            {
+                FieldFilePath,
+                FieldFileName,
+                FieldFolderPath,
+                FieldFileSize,
+                FieldLastModified
+            };
+
+            var searcher = new IndexSearcher(reader);
+            var topDocs = searcher.Search(new MatchAllDocsQuery(), reader.NumDocs);
+            var items = new List<SearchResultItem>(topDocs.ScoreDocs.Length);
+
+            foreach (var scoreDoc in topDocs.ScoreDocs)
+            {
+                var doc = reader.Document(scoreDoc.Doc, fields);
+                var filePath = doc.Get(FieldFilePath);
+                if (string.IsNullOrWhiteSpace(filePath))
+                    continue;
+
+                if (!IndexPaths.IsPathUnderAnyFolder(filePath, normalizedFolders))
+                    continue;
+
+                if (targetExtensions is { Count: > 0 })
+                {
+                    var ext = PreviewHelper.NormalizeExtension(Path.GetExtension(filePath));
+                    if (string.IsNullOrEmpty(ext) || !targetExtensions.Contains(ext))
+                        continue;
+                }
+
+                var fileName = doc.Get(FieldFileName);
+                if (string.IsNullOrWhiteSpace(fileName))
+                    fileName = Path.GetFileName(filePath);
+
+                var folderPath = doc.Get(FieldFolderPath);
+                if (string.IsNullOrWhiteSpace(folderPath))
+                    folderPath = Path.GetDirectoryName(filePath) ?? "";
+
+                long.TryParse(doc.Get(FieldFileSize), out var fileSize);
+                long.TryParse(doc.Get(FieldLastModified), out var ticks);
+                var lastModified = ticks > 0 ? new DateTime(ticks, DateTimeKind.Utc) : DateTime.MinValue;
+
+                items.Add(new SearchResultItem
+                {
+                    FilePath = filePath,
+                    FileName = fileName,
+                    FolderPath = folderPath,
+                    FileSize = fileSize,
+                    LastModified = lastModified
+                });
+            }
+
+            return items;
+        }
+        catch
+        {
+            return [];
+        }
+        finally
+        {
+            if (disposeReader)
+                reader?.Dispose();
+        }
+    }
+
     /// <summary>
     /// ファイルからインデックス用ドキュメントを取得する。抽出器がない場合は空本文でインデックス（ファイル名・パス検索用）。
     /// サイズ超過・抽出エラー時は <see cref="IndexDocumentResult.SkipReason"/> を設定する。
@@ -574,15 +671,8 @@ public class LuceneIndexService : IIndexService, IDisposable
             var fileInfo = new FileInfo(filePath);
             if (ContentLimits.ExceedsIndexTextExtractionFileSizeLimit(fileInfo.Length))
             {
-                return IndexDocumentResult.Ok(new IndexedDocument
-                {
-                    FilePath = filePath,
-                    FileName = fileInfo.Name,
-                    FolderPath = fileInfo.DirectoryName ?? string.Empty,
-                    Content = string.Empty,
-                    FileSize = fileInfo.Length,
-                    LastModified = fileInfo.LastWriteTimeUtc
-                });
+                return IndexDocumentResult.Skipped(
+                    IndexMessages.SkippedReasonFileTooLarge(fileInfo.Length));
             }
 
             var extension = fileInfo.Extension.ToLowerInvariant();

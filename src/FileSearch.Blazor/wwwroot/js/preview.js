@@ -289,4 +289,8 @@
         scrollToHighlightLine(lineNum, true);
         return lineNum + '|' + (_highlightLineIndex + 1) + '|' + _highlightLineNumbers.length;
     };
+
+    window.getElementClientWidth = function (element) {
+        return element && element.clientWidth ? element.clientWidth : 0;
+    };
 })();

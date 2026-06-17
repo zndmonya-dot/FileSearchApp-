@@ -505,7 +505,7 @@
 }
 
 .folder-table .col-date {
-    min-width: 108px;
+    min-width: 112px;
 }
 
 .col-header-label {
@@ -521,6 +521,10 @@
     inset: 0;
     z-index: 9999;
     cursor: ew-resize;
+}
+
+.folder-table--resizing {
+    user-select: none;
 }
 
 .folder-table th.sortable {
