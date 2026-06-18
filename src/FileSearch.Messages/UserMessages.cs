@@ -13,8 +13,6 @@ public static class UserMessages
 {
     /// <summary>アプリ名（Panoptic + Chameleon）。ウィンドウタイトル・パッケージ表示等。</summary>
     public const string AppTitle = "Panoleon";
-    /// <summary>アプリ名の読み（ウィンドウタイトル用）。</summary>
-    public const string AppTitleReading = "パノレオン";
 
     /// <summary>検索 API 失敗時（E-01）。</summary>
     public const string SearchFailed = "検索に失敗しました。";
@@ -215,10 +213,6 @@ public static class UserMessages
     public const string TargetFoldersEmpty = "フォルダが登録されていません";
     /// <summary>検索対象フォルダを追加（フォルダ選択ダイアログ）</summary>
     public const string AddFolder = "フォルダを追加";
-    /// <summary>一覧行の追加ボタン（短）</summary>
-    public const string ActionAdd = "追加";
-    /// <summary>一覧行の変更ボタン（短）</summary>
-    public const string ActionChange = "変更";
     /// <summary>一覧行の削除ボタン（短）</summary>
     public const string ActionDelete = "削除";
     /// <summary>インデックス保存先を選択（未設定時）</summary>
@@ -246,8 +240,6 @@ public static class UserMessages
         $"共有設定ファイルを書き込めませんでした: {path}";
     /// <summary>自動更新の説明</summary>
     public const string SettingsHintAutoRebuild = "管理者PCで検索していないときに差分更新します。利用者の検索は影響しません";
-    /// <summary>毎日の時刻指定の説明</summary>
-    public const string SettingsHintAutoRebuildDaily = "チェックした時刻を過ぎたあと、まだその枠で更新していなければ実行します";
     /// <summary>最終更新ラベル</summary>
     public const string LabelLastIndexUpdate = "最終更新";
     /// <summary>定期再構築ラベル</summary>

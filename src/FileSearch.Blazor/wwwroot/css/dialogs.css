@@ -221,10 +221,6 @@
     padding-bottom: 0;
 }
 
-.settings-section--locked .settings-list-add {
-    display: none;
-}
-
 .settings-readonly-badge {
     display: inline-block;
     margin-left: 8px;
@@ -239,13 +235,6 @@
 
 .settings-section-head {
     margin-bottom: 10px;
-}
-
-.settings-section-head--row {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 12px;
 }
 
 .settings-section-head-text {
@@ -387,76 +376,6 @@
     cursor: not-allowed;
 }
 
-.settings-list-remove {
-    width: 28px;
-    height: 28px;
-    margin-top: -2px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: none;
-    background: transparent;
-    color: var(--color-fg-muted);
-    border-radius: 6px;
-    cursor: pointer;
-    flex-shrink: 0;
-}
-
-.settings-list-remove svg {
-    width: 14px;
-    height: 14px;
-}
-
-.settings-list-remove:hover {
-    background: var(--color-attention-subtle);
-    color: var(--color-danger-fg);
-}
-
-.settings-list-add {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    width: 100%;
-    padding: 10px 12px;
-    border: none;
-    border-top: 1px solid var(--color-border-muted);
-    background: transparent;
-    color: var(--color-fg-muted);
-    font-size: 13px;
-    font-family: inherit;
-    line-height: 1.4;
-    cursor: pointer;
-    text-align: left;
-    transition: background 0.15s, color 0.15s;
-}
-
-.settings-list-add svg {
-    width: 14px;
-    height: 14px;
-    flex-shrink: 0;
-    opacity: 0.75;
-}
-
-.settings-list-add:hover {
-    background: var(--color-canvas-subtle);
-    color: var(--color-accent-fg);
-}
-
-.settings-list-add:hover svg {
-    opacity: 1;
-}
-
-.settings-list-add--solo {
-    border-top: none;
-    justify-content: center;
-    padding: 18px 12px;
-    color: var(--color-fg-subtle);
-}
-
-.settings-list-add--solo:hover {
-    color: var(--color-accent-fg);
-}
-
 .settings-extension-selected {
     padding: 10px 12px;
     min-height: 44px;
@@ -537,28 +456,11 @@
     min-width: 0;
 }
 
-.settings-field--span2 {
-    grid-column: 1 / -1;
-}
-
 .settings-hint {
     margin: 6px 0 0;
     font-size: 11px;
     line-height: 1.45;
     color: var(--color-fg-muted);
-}
-
-.settings-input-narrow {
-    max-width: 120px;
-}
-
-.settings-stat--path {
-    min-height: 32px;
-    height: auto;
-    padding: 6px 12px;
-    line-height: 1.4;
-    word-break: break-all;
-    font-size: 12px;
 }
 
 .settings-field label {

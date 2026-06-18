@@ -546,19 +546,6 @@ public class LuceneIndexService : IIndexService, IDisposable
         }
     }
 
-    /// <summary>登録件数・概算サイズなどを返す（簡易統計）。</summary>
-    public IndexStats GetStats()
-    {
-        lock (_lock)
-        {
-            if (_writer != null)
-                return new IndexStats { DocumentCount = _writer.NumDocs };
-            if (_statsReader != null)
-                return new IndexStats { DocumentCount = _statsReader.NumDocs };
-            return new IndexStats { DocumentCount = 0 };
-        }
-    }
-
     /// <inheritdoc />
     public IReadOnlyList<SearchResultItem> ListIndexedItems(
         IReadOnlyList<string> targetFolders,

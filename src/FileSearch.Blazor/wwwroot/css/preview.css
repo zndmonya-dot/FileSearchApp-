@@ -159,32 +159,6 @@
     font-weight: 500;
 }
 
-.file-meta {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    font-size: 12px;
-    color: var(--color-fg-muted);
-    flex-shrink: 0;
-}
-
-.file-meta-item {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-
-.file-meta-item svg {
-    width: 16px;
-    height: 16px;
-}
-
-/* File Actions - 長いパス時も押し出されないよう縮めない */
-.file-actions {
-    display: flex;
-    flex-shrink: 0;
-}
-
 /* プレビューヘッダー・統一ツールバー */
 .preview-toolbar {
     display: flex;
@@ -265,23 +239,6 @@
 
 .preview-toolbar-nav .toolbar-nav-chevron-down {
     transform: rotate(180deg);
-}
-
-.btn-group {
-    display: flex;
-    border: 1px solid var(--color-btn-border);
-    border-radius: 6px;
-    overflow: hidden;
-}
-
-.btn-group .action-btn {
-    border: none;
-    border-right: 1px solid var(--color-btn-border);
-    border-radius: 0;
-}
-
-.btn-group .action-btn:last-child {
-    border-right: none;
 }
 
 .action-btn {
@@ -594,16 +551,6 @@
     margin-left: 4px;
 }
 
-/* Filter Dropdown */
-.folder-table th.col-type {
-    position: relative;
-    width: 100px;
-}
-
-.folder-table th.col-type > span {
-    cursor: pointer;
-}
-
 .filter-dropdown {
     display: inline-block;
     position: relative;
@@ -725,11 +672,6 @@
 }
 
 .folder-row td.col-date {
-    color: var(--color-fg-muted);
-    white-space: nowrap;
-}
-
-.folder-row td.col-type {
     color: var(--color-fg-muted);
     white-space: nowrap;
 }

@@ -4,7 +4,7 @@ using FullTextSearch.Core.Models;
 namespace FullTextSearch.Core.Index;
 
 /// <summary>
-/// インデックスサービスのインターフェース。初期化・追加・削除・再構築・差分更新・統計を提供する。
+/// インデックスサービスのインターフェース。初期化・再構築・差分更新・一覧取得を提供する。
 /// </summary>
 public interface IIndexService
 {
@@ -25,11 +25,6 @@ public interface IIndexService
     /// 差分のみ更新（追加・更新・削除されたファイルだけ反映）。大量のファイルで高速。
     /// </summary>
     Task UpdateIndexAsync(IEnumerable<string> folders, IProgress<IndexProgress>? progress = null, IndexRebuildOptions? options = null, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// インデックスの統計情報を取得
-    /// </summary>
-    IndexStats GetStats();
 
     /// <summary>直近のインデックス操作でスキップされたファイル（パスと理由）。</summary>
     IReadOnlyList<SkippedFileEntry> LastSkippedFiles { get; }
@@ -79,16 +74,4 @@ public class IndexRebuildOptions
     /// <summary>対象拡張子（例: .txt, .docx）。未指定時は抽出器の対応拡張子を使用</summary>
     public IReadOnlyList<string>? TargetExtensions { get; init; }
 }
-
-/// <summary>
-/// インデックスの統計情報
-/// </summary>
-public class IndexStats
-{
-    /// <summary>
-    /// インデックス済みドキュメント数
-    /// </summary>
-    public int DocumentCount { get; init; }
-}
-
 

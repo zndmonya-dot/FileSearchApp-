@@ -42,6 +42,7 @@ publish/
 *.msixbundle
 !installers/*.msix
 installers/win10-x64/
+installers/dist/
 
 # Certificates (秘密鍵)
 *.pfx
