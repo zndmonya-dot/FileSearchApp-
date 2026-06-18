@@ -1,4 +1,8 @@
+※ 当時の調査メモ。現行は preview.js + PreviewResult 構造。
+
 # ユニコードに応じた対応の調査
+
+※ 当時の調査メモ。現行は preview.js + PreviewResult 構造。
 
 Panoleon における Unicode 関連の扱いを調査した結果です。
 

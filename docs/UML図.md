@@ -50,17 +50,18 @@ graph TB
         direction TB
         Pages["Components/Pages<br/>Home"]
         Shared["Components/Shared<br/>SearchSidebar, SearchResultTree,<br/>FilePreviewView, FolderListView,<br/>SettingsModal, IndexUpdateDialog,<br/>AppHeader"]
-        BlazorSvc["Services<br/>PreviewService, TreeBuilder,<br/>DisplayFormatters"]
+        BlazorSvc["Services<br/>PreviewService,<br/>PreviewJsInterop"]
         MAUI["App, MainPage, MauiProgram"]
     end
 
     subgraph Core ["FullTextSearch.Core（ドメイン層）"]
         direction TB
-        CoreIdx["Index<br/>IIndexService, IndexProgress,<br/>IndexRebuildOptions, IndexStats"]
-        CoreSearch["Search<br/>ISearchService, SearchOptions,<br/>SearchResult"]
+        CoreIdx["Index<br/>IIndexService, IndexProgress,<br/>IndexRebuildOptions, SkippedFileEntry"]
+        CoreSearch["Search<br/>ISearchService, SearchOptions,<br/>SearchResult, SearchMode"]
         CorePreview["Preview<br/>IPreviewService, PreviewHelper"]
-        CoreExt["Extractors<br/>ITextExtractor,<br/>TextExtractorFactory,<br/>PreviewCategory"]
-        CoreModels["Models<br/>AppSettings, IndexedDocument,<br/>SearchResultItem, MatchHighlight,<br/>PreviewResult, PreviewLineResult"]
+        CoreExt["Extractors<br/>ITextExtractor,<br/>TextExtractorFactory"]
+        CoreModels["Models<br/>AppSettings, IndexedDocument,<br/>SearchResultItem, PreviewResult"]
+        CoreUI["UI<br/>TreeBuilder, DisplayFormatters"]
         CoreConst["ContentLimits, DefaultPaths"]
     end
 
@@ -69,7 +70,7 @@ graph TB
         InfraLucene["Lucene<br/>LuceneIndexService,<br/>LuceneSearchService"]
         InfraSudachi["Sudachi<br/>SudachiAnalyzer,<br/>SudachiTokenizer,<br/>SudachiNative,<br/>ListTokenStream"]
         InfraExt["Extractors<br/>OfficeExtractor,<br/>PdfExtractor,<br/>TextFileExtractor"]
-        InfraSettings["Settings<br/>IAppSettingsService,<br/>AppSettingsService"]
+        InfraSettings["Settings<br/>IAppSettingsService,<br/>AppSettingsService,<br/>IAppModeService, AppModeService"]
     end
 
     subgraph External ["外部"]
@@ -98,22 +99,22 @@ classDiagram
 
     class IIndexService {
         <<interface>>
-        +InitializeAsync(indexPath, ct)
-        +IndexDocumentAsync(document, ct)
-        +DeleteDocumentAsync(filePath, ct)
-        +IndexFolderAsync(folderPath, progress, ct, offset, totalOverride)
+        +InitializeAsync(indexPath, readOnly, ct)
+        +LastInitializeFailed : bool
         +RebuildIndexAsync(folders, progress, options, ct)
         +UpdateIndexAsync(folders, progress, options, ct)
-        +GetStats() IndexStats
-        +OptimizeAsync(ct)
-        +LastSkippedFiles : IReadOnlyList~string~
+        +LastSkippedFiles : IReadOnlyList~SkippedFileEntry~
+        +ListIndexedItems(targetFolders, targetExtensions) IReadOnlyList~SearchResultItem~
     }
 
     class ISearchService {
         <<interface>>
-        +SearchAsync(query, options, ct) Task~SearchResult~
+        +SearchAsync(query, options, progress, ct) Task~SearchResult~
         +RefreshIndex()
         +Warmup()
+        +TryGetStoredContentAsync(filePath, ct)
+        +TryGetContentPreviewsAsync(paths, query, mode, ct)
+        +GetHighlightTerms(query, mode)
     }
 
     class IPreviewService {
@@ -123,8 +124,7 @@ classDiagram
 
     class ITextExtractor {
         <<interface>>
-        +SupportedExtensions : IReadOnlyList~string~
-        +PreviewCategory : PreviewCategory
+        +SupportedExtensions
         +CanExtract(extension) bool
         +ExtractTextAsync(filePath, ct) Task~string~
     }
@@ -132,14 +132,34 @@ classDiagram
     class TextExtractorFactory {
         -_extractors : IEnumerable~ITextExtractor~
         +GetExtractor(extension) ITextExtractor?
-        +GetAllSupportedExtensions() IReadOnlyList~string~
+        +GetAllSupportedExtensions()
+    }
+
+    class TreeBuilder {
+        <<static>>
+        +BuildFullFolderTree(...)
+        +ExpandPathToFile(...)
+        +ExpandPathToFolder(...)
+    }
+
+    class DisplayFormatters {
+        <<static>>
+        +FormatDate(d) string
+        +FormatLastIndexUpdate(lastUpdate) string
+        +GetFileIconClass(name) string
+    }
+
+    class PreviewHelper {
+        <<static>>
+        +NormalizeExtension(extOrPath)
+        +GetFileIconClass(name)
     }
 
     class ContentLimits {
         <<static>>
+        +IndexMaxFileBytesForExtract : long = 1MB
+        +MaxTextFileBytesToRead : long = 1MB
         +LuceneMaxTermUtf8Bytes : int = 32765
-        +IndexMaxFileBytesForExtract : long = 10MB
-        +MaxTextFileBytesToRead : long = 10MB
     }
 
     class IndexProgress {
@@ -147,34 +167,27 @@ classDiagram
         +TotalFiles : int
         +CurrentFile : string?
         +ErrorCount : int
-        +ProgressPercent : double
+        +NoChanges : bool
     }
 
     class IndexRebuildOptions {
         +TargetExtensions : IReadOnlyList~string~?
     }
 
-    class IndexStats {
-        +DocumentCount : int
-        +LastUpdated : DateTime?
-        +IndexSizeBytes : long
+    class SearchOptions {
+        +MaxResults : int
+        +SearchMode : SearchMode
     }
 
-    class SearchOptions {
-        <<record>>
-        +MaxResults : int
-        +FileTypeFilter : List~string~?
-        +DateFrom : DateTime?
-        +DateTo : DateTime?
-        +FolderFilter : string?
-        +SkipHighlights : bool
+    class SearchMode {
+        <<enum>>
+        Keyword
+        Any
+        Phrase
     }
 
     class SearchResult {
-        +Items : IReadOnlyList~SearchResultItem~
-        +TotalHits : int
-        +ElapsedMilliseconds : long
-        +Query : string
+        +Items : List~SearchResultItem~
     }
 
     class AppSettings {
@@ -182,7 +195,7 @@ classDiagram
         +TargetExtensions : List~string~
         +IndexPath : string
         +LastIndexUpdate : DateTime?
-        +AutoRebuildIntervalMinutes : int
+        +AutoRebuildDailyHours : List~int~
         +ThemeMode : string
     }
 
@@ -203,35 +216,27 @@ classDiagram
         +FolderPath : string
         +FileSize : long
         +LastModified : DateTime
-        +FileType : string
-        +Score : float
-        +Highlights : List~MatchHighlight~
     }
 
     class PreviewResult {
-        +Mode : string
-        +Lines : IReadOnlyList~PreviewLineResult~
-        +LineCount : int
-    }
-
-    class PreviewCategory {
-        <<enum>>
-        Text
-        Office
-        Pdf
+        +Content : string
+        +LineStartOffsets : int[]
+        +MatchLineNumbers : IReadOnlyList~int~
+        +IsError : bool
+        +SearchTerms : string[]
     }
 
     TextExtractorFactory --> ITextExtractor : 複数保持
     IIndexService ..> IndexProgress
     IIndexService ..> IndexRebuildOptions
-    IIndexService ..> IndexStats
-    IIndexService ..> IndexedDocument
+    IIndexService ..> SearchResultItem
     ISearchService ..> SearchOptions
     ISearchService ..> SearchResult
+    ISearchService ..> SearchMode
     SearchResult --> SearchResultItem
-    SearchResultItem --> MatchHighlight
+    SearchOptions --> SearchMode
     IPreviewService ..> PreviewResult
-    ITextExtractor --> PreviewCategory
+    DisplayFormatters ..> PreviewHelper
 ```
 
 ### 3.2 Infrastructure 層
@@ -244,12 +249,12 @@ classDiagram
         -_extractorFactory : TextExtractorFactory
         -_writer : IndexWriter?
         -_analyzer : Analyzer?
-        -_skippedFiles : List~string~
-        +InitializeAsync()
+        -_skippedFiles : List~SkippedFileEntry~
+        +InitializeAsync(indexPath, readOnly, ct)
         +RebuildIndexAsync()
         +UpdateIndexAsync()
-        +GetStats() IndexStats
-        +LastSkippedFiles : IReadOnlyList~string~
+        +ListIndexedItems()
+        +LastSkippedFiles : IReadOnlyList~SkippedFileEntry~
         -ProcessChunkAsync(chunk, ct) Task~int~
         -TryGetIndexedDocumentAsync(path, ct) Task~IndexedDocument?~
         -AddDocumentsToWriterWithoutCommit(docs) int
@@ -476,7 +481,7 @@ sequenceDiagram
             Ext-->>Index: テキスト
         end
 
-        alt 10MB超 or 抽出エラー
+        alt 1MB超 or 抽出エラー
             Index->>Index: _skippedFiles に記録
         else 正常
             Index->>Index: CreateLuceneDocument
