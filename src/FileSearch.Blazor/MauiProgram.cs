@@ -1,5 +1,6 @@
 // Blazor Hybrid (MAUI) のエントリポイント。DI 登録（抽出器・検索・インデックス・設定・プレビュー）を行う。
 using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Components.WebView.Maui;
 using FullTextSearch.Core.Index;
 using FullTextSearch.Core.Preview;
 using FullTextSearch.Core.Search;
@@ -30,6 +31,19 @@ public static class MauiProgram
         {
             if (handler.PlatformView is Microsoft.UI.Xaml.Window win)
                 AppWindowLayout.ApplyToWinUiWindow(win);
+        });
+
+        BlazorWebViewHandler.BlazorWebViewMapper.AppendToMapping("BootTheme", (handler, _) =>
+        {
+            if (handler.PlatformView is not Microsoft.UI.Xaml.Controls.WebView2 webView)
+                return;
+
+            webView.CoreWebView2Initialized += async (_, _) =>
+            {
+                var theme = BootThemeSync.PendingBootTheme == "light" ? "light" : "dark";
+                await webView.CoreWebView2!.AddScriptToExecuteOnDocumentCreatedAsync(
+                    $"window.__PANOLEON_BOOT_THEME='{theme}';");
+            };
         });
 #endif
 

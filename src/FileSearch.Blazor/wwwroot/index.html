@@ -186,16 +186,13 @@
         (function () {
             var theme = 'dark';
             try {
-                var stored = localStorage.getItem('panoleon-ui-theme');
-                if (stored === 'light' || stored === 'dark') {
-                    theme = stored;
+                var injected = window.__PANOLEON_BOOT_THEME;
+                if (injected === 'light' || injected === 'dark') {
+                    theme = injected;
                 } else {
-                    var xhr = new XMLHttpRequest();
-                    xhr.open('GET', 'ui-theme.json?t=' + Date.now(), false);
-                    xhr.send();
-                    if (xhr.status === 200 || xhr.status === 0) {
-                        var data = JSON.parse(xhr.responseText);
-                        if (data.theme === 'light' || data.theme === 'dark') theme = data.theme;
+                    var stored = localStorage.getItem('panoleon-ui-theme');
+                    if (stored === 'light' || stored === 'dark') {
+                        theme = stored;
                     }
                 }
             } catch (e) { /* WebView 制限 */ }
