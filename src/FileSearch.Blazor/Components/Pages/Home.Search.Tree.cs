@@ -43,22 +43,35 @@ public partial class Home
         catch { /* timer thread: ignore */ }
     }
 
-    /// <summary>Enter で検索、Esc でクエリとエラーをクリアしフォルダ体系表示に戻す。</summary>
+    /// <summary>Enter で検索（空なら閲覧モードへ）、Esc で閲覧モードの初期表示に戻す。</summary>
     private async Task HandleKeyDown(KeyboardEventArgs e)
     {
         _lastSearchActivityUtc = DateTime.UtcNow;
         if (e.Key == "Enter" && !isIndexing)
             await ExecuteSearch();
         if (e.Key == "Escape" && !isIndexing)
-        {
-            searchQuery = string.Empty;
-            searchErrorMessage = null;
-            _lastExecutedSearchQuery = null;
-            totalFileCount = 0;
-            selectedFile = null;
-            selectedFolder = null;
-            await RefreshFolderSkeletonTreeAsync();
-        }
+            await ReturnToBrowseModeAsync();
+    }
+
+    /// <summary>検索前の閲覧モードへ戻す（左検索欄・右ペイン絞り込み・選択状態を初期化）。</summary>
+    private async Task ReturnToBrowseModeAsync()
+    {
+        if (_lastExecutedSearchQuery == null && selectedFile == null && selectedFolder == null
+            && string.IsNullOrWhiteSpace(searchQuery) && string.IsNullOrWhiteSpace(folderFileSearchQuery))
+            return;
+
+        _searchCts?.Cancel();
+        _searchCts?.Dispose();
+        _searchCts = null;
+        searchQuery = string.Empty;
+        searchErrorMessage = null;
+        _lastExecutedSearchQuery = null;
+        totalFileCount = 0;
+        selectedFile = null;
+        selectedFolder = null;
+        selectedFolderRowIndex = -1;
+        ResetFolderListFilters();
+        await RefreshFolderSkeletonTreeAsync();
     }
 
     /// <summary>検索前の初期表示用に、インデックス済みファイルからツリーへ反映する。</summary>
@@ -149,8 +162,7 @@ public partial class Home
         var root = roots[0];
         root.IsExpanded = true;
         selectedFolder = root;
-        selectedFolderRowIndex = 0;
-        ScheduleFolderContentPreviewsLoad(root);
+        selectedFolderRowIndex = -1;
     }
 
     /// <summary>バックグラウンドのフォルダツリー読み込みを中断する（検索割り込み時）。</summary>
@@ -185,11 +197,17 @@ public partial class Home
         _lastSearchActivityUtc = DateTime.UtcNow;
     }
 
-    /// <summary>検索実行。結果からツリーを構築し件数を設定。</summary>
+    /// <summary>検索実行。空クエリのときは閲覧モードへ戻す。</summary>
     private async Task ExecuteSearch()
     {
         var query = searchQuery?.Trim() ?? "";
-        if (isIndexing || string.IsNullOrWhiteSpace(query)) return;
+        if (isIndexing) return;
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            await ReturnToBrowseModeAsync();
+            return;
+        }
+
         CancelFolderTreeLoad();
         _lastSearchActivityUtc = DateTime.UtcNow;
         _lastExecutedSearchQuery = query;
@@ -204,6 +222,7 @@ public partial class Home
         selectedFile = null;
         selectedFolder = null;
         selectedFolderRowIndex = -1;
+        ResetFolderListFilters();
         StateHasChanged();
         try
         {
@@ -262,7 +281,7 @@ public partial class Home
             .ToList();
     }
 
-    /// <summary>フォルダの展開/折りたたみ。展開時はフォルダビューに切り替え。</summary>
+    /// <summary>フォルダの展開/折りたたみ（閲覧時はシェブロンのみ。行クリックは <see cref="SelectFolderFromTree"/>）。</summary>
     private void ToggleNode(TreeNode node)
     {
         if (isIndexing || !node.IsFolder) return;
@@ -273,10 +292,31 @@ public partial class Home
             return;
         }
 
-        var expanding = !node.IsExpanded;
-        node.IsExpanded = expanding;
+        if (_lastExecutedSearchQuery == null)
+        {
+            var expanding = !node.IsExpanded;
+            node.IsExpanded = expanding;
+            if (expanding && !node.FolderChildrenLoaded)
+            {
+                var generation = Interlocked.Increment(ref _folderNavigationGeneration);
+                _ = InvokeAsync(async () =>
+                {
+                    await EnsureFolderChildrenLoadedAsync(node);
+                    if (generation != _folderNavigationGeneration) return;
+                    StateHasChanged();
+                });
+            }
+            else
+            {
+                StateHasChanged();
+            }
+            return;
+        }
 
-        if (expanding)
+        var expandingSearch = !node.IsExpanded;
+        node.IsExpanded = expandingSearch;
+
+        if (expandingSearch)
         {
             if (!node.FolderChildrenLoaded)
             {
@@ -302,6 +342,33 @@ public partial class Home
         StateHasChanged();
     }
 
+    /// <summary>閲覧モードで左ツリーのフォルダ行を選び、右ペインに配下ファイル一覧を出す。</summary>
+    private void SelectFolderFromTree(TreeNode node)
+    {
+        if (isIndexing || !node.IsFolder || _lastExecutedSearchQuery != null)
+            return;
+
+        if (selectedFile != null)
+        {
+            _previewCts?.Cancel();
+            selectedFile = null;
+            _previewResult = null;
+            isLoadingPreview = false;
+        }
+
+        ResetFolderListFilters();
+        node.IsExpanded = true;
+        var generation = Interlocked.Increment(ref _folderNavigationGeneration);
+        _ = InvokeAsync(async () =>
+        {
+            await EnsureFolderChildrenLoadedAsync(node);
+            if (generation != _folderNavigationGeneration)
+                return;
+            ApplyFolderSelection(node);
+            StateHasChanged();
+        });
+    }
+
     /// <summary>プレビュー中に左ツリーでフォルダを選んだとき、右ペインをフォルダ一覧へ切り替える。</summary>
     private async Task OpenFolderFromTreeAsync(TreeNode node)
     {
@@ -317,9 +384,9 @@ public partial class Home
         node.IsExpanded = true;
         await EnsureFolderChildrenLoadedAsync(node);
 
+        ResetFolderListFilters();
         selectedFolder = node;
-        selectedFolderRowIndex = 0;
-        ScheduleFolderContentPreviewsLoad(node);
+        selectedFolderRowIndex = -1;
         await InvokeAsync(StateHasChanged);
     }
 
@@ -335,8 +402,96 @@ public partial class Home
         }
 
         selectedFolder = node;
-        selectedFolderRowIndex = 0;
-        ScheduleFolderContentPreviewsLoad(node);
+        selectedFolderRowIndex = -1;
+    }
+
+    /// <summary>選択フォルダ配下のファイルノード一覧（再帰）。</summary>
+    private static List<TreeNode> GetFilesUnderSelectedFolder(TreeNode? folder) =>
+        folder == null ? [] : TreeBuilder.CollectFileNodesUnderFolder(folder);
+
+    /// <summary>選択フォルダの一覧に含まれるファイルか。</summary>
+    private bool IsFileInSelectedFolderList(TreeNode? folder, string? filePath)
+    {
+        if (folder == null || string.IsNullOrEmpty(filePath))
+            return false;
+
+        return GetFilesUnderSelectedFolder(folder)
+            .Any(f => string.Equals(f.FilePath, filePath, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>右ペイン一覧でファイル行を選択状態に合わせる。</summary>
+    private void SyncFolderRowIndexForFile(TreeNode? folder, string? filePath)
+    {
+        if (folder == null || string.IsNullOrEmpty(filePath))
+            return;
+
+        var list = GetSortedAndFilteredItems(GetFilesUnderSelectedFolder(folder)).ToList();
+        var idx = list.FindIndex(n => string.Equals(n.FilePath, filePath, StringComparison.OrdinalIgnoreCase));
+        selectedFolderRowIndex = idx >= 0 ? idx : -1;
+        if (idx >= 0)
+            _folderListScrollToRow = idx;
+    }
+
+    /// <summary>フォルダ一覧のファイル名絞り込み変更後（行選択を先頭へ）。</summary>
+    private void OnFolderFileSearchQueryChanged()
+    {
+        selectedFolderRowIndex = -1;
+    }
+
+    /// <summary>フォルダ一覧の行スクロール完了後にトリガーをリセットする。</summary>
+    private Task OnFolderListScrollCompleted()
+    {
+        _folderListScrollToRow = -1;
+        return Task.CompletedTask;
+    }
+
+    /// <summary>フォルダ切替時に一覧の絞り込み状態を初期化する。</summary>
+    private void ResetFolderListFilters()
+    {
+        folderFileSearchQuery = "";
+        filterType = "";
+        showFilterMenu = false;
+        selectedFolderRowIndex = -1;
+        _folderListHighlightedFilePath = null;
+    }
+
+    /// <summary>左ツリーからのファイル選択（閲覧時は一覧同期、右行クリックでプレビュー）。</summary>
+    private void SelectFileFromTree(TreeNode node)
+    {
+        if (isIndexing || node.IsFolder || string.IsNullOrEmpty(node.FilePath))
+            return;
+
+        if (_lastExecutedSearchQuery == null
+            && selectedFolder != null
+            && IsFileInSelectedFolderList(selectedFolder, node.FilePath))
+        {
+            _folderListHighlightedFilePath = node.FilePath;
+            SyncFolderRowIndexForFile(selectedFolder, node.FilePath);
+            TreeBuilder.ExpandPathToFile(treeNodes, node.FilePath);
+            _ = InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        SelectFile(node);
+    }
+
+    /// <summary>フォルダ一覧テーブルのソート列。同一列なら昇降切替。</summary>
+    private void SetSort(string column)
+    {
+        if (sortColumn == column) sortAscending = !sortAscending;
+        else { sortColumn = column; sortAscending = true; }
+        selectedFolderRowIndex = -1;
+    }
+
+    /// <summary>拡張子フィルターのドロップダウン開閉。</summary>
+    private void ToggleFilterMenu() => showFilterMenu = !showFilterMenu;
+
+    /// <summary>拡張子フィルター。空文字は「すべて」。</summary>
+    private void SetFilter(string type)
+    {
+        filterType = type;
+        showFilterMenu = false;
+        selectedFolderRowIndex = -1;
     }
 
     /// <summary><paramref name="path"/> が <paramref name="folderPath"/> 配下（または同一）か。</summary>
@@ -418,52 +573,27 @@ public partial class Home
         return set.Count > 0 ? set : null;
     }
 
-    /// <summary>内容列ソート用。プレビュー未取得・フォルダは空文字。</summary>
-    private string GetPreviewSortKey(TreeNode node)
-    {
-        if (node.IsFolder || string.IsNullOrEmpty(node.FilePath))
-            return "";
-        return _fileContentPreviews.TryGetValue(node.FilePath, out var preview) && !string.IsNullOrEmpty(preview)
-            ? preview
-            : "";
-    }
-
-    /// <summary>フォルダ一覧テーブルのソート列。同一列なら昇降切替。</summary>
-    private void SetSort(string column)
-    {
-        if (sortColumn == column) sortAscending = !sortAscending;
-        else { sortColumn = column; sortAscending = true; }
-        selectedFolderRowIndex = 0;
-    }
-
-    /// <summary>拡張子フィルターのドロップダウン開閉。</summary>
-    private void ToggleFilterMenu() => showFilterMenu = !showFilterMenu;
-
-    /// <summary>拡張子フィルター。空文字は「すべて」。</summary>
-    private void SetFilter(string type)
-    {
-        filterType = type;
-        showFilterMenu = false;
-        selectedFolderRowIndex = 0;
-    }
-
-    /// <summary>現在の filterType / sortColumn に応じて子ノードを並べ替え。</summary>
+    /// <summary>現在の filterType / sortColumn / ファイル名検索に応じてファイル一覧を並べ替え。</summary>
     private IEnumerable<TreeNode> GetSortedAndFilteredItems(List<TreeNode> items)
     {
-        var filtered = items.AsEnumerable();
+        var filtered = items.Where(i => !i.IsFolder);
         if (!string.IsNullOrEmpty(filterType))
+            filtered = filtered.Where(i => Path.GetExtension(i.Name).Equals(filterType, StringComparison.OrdinalIgnoreCase));
+
+        var query = folderFileSearchQuery.Trim();
+        if (!string.IsNullOrEmpty(query))
         {
-            if (filterType == "folder") filtered = filtered.Where(i => i.IsFolder);
-            else filtered = filtered.Where(i => !i.IsFolder && Path.GetExtension(i.Name).Equals(filterType, StringComparison.OrdinalIgnoreCase));
+            filtered = filtered.Where(i =>
+                i.Name.Contains(query, StringComparison.OrdinalIgnoreCase)
+                || (i.FilePath?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false));
         }
-        filtered = sortColumn switch
+
+        return sortColumn switch
         {
-            "name" => sortAscending ? filtered.OrderBy(i => !i.IsFolder).ThenBy(i => i.Name) : filtered.OrderBy(i => !i.IsFolder).ThenByDescending(i => i.Name),
-            "preview" => sortAscending ? filtered.OrderBy(i => GetPreviewSortKey(i)) : filtered.OrderByDescending(i => GetPreviewSortKey(i)),
+            "name" => sortAscending ? filtered.OrderBy(i => i.Name) : filtered.OrderByDescending(i => i.Name),
             "date" => sortAscending ? filtered.OrderBy(i => i.LastModified) : filtered.OrderByDescending(i => i.LastModified),
-            _ => filtered.OrderBy(i => !i.IsFolder).ThenBy(i => i.Name)
+            _ => sortAscending ? filtered.OrderBy(i => i.Name) : filtered.OrderByDescending(i => i.Name)
         };
-        return filtered;
     }
 
     /// <summary>ファイル選択。ツリー展開・全ファイルフラットリスト・プレビュー読み込みを連動。</summary>
@@ -474,8 +604,19 @@ public partial class Home
             return;
 
         Interlocked.Increment(ref _folderNavigationGeneration);
-        selectedFolder = null;
-        selectedFolderRowIndex = -1;
+        var keepFolder = _lastExecutedSearchQuery == null
+            && selectedFolder != null
+            && IsFileInSelectedFolderList(selectedFolder, node.FilePath);
+
+        if (keepFolder)
+            SyncFolderRowIndexForFile(selectedFolder, node.FilePath);
+        else
+        {
+            selectedFolder = null;
+            selectedFolderRowIndex = -1;
+        }
+
+        _folderListHighlightedFilePath = null;
         selectedFile = node.FileData ?? TreeBuilder.CreateSearchResultItem(node.FilePath);
         _previewResult = null;
         isLoadingPreview = true;
@@ -487,49 +628,16 @@ public partial class Home
         _ = InvokeAsync(StateHasChanged);
     }
 
-    /// <summary>フォルダなら階層に入る。ファイルなら SelectFile。</summary>
-    private void OnFolderItemClick(TreeNode item)
-    {
-        if (isIndexing) return;
-        if (item.IsFolder)
-        {
-            var generation = Interlocked.Increment(ref _folderNavigationGeneration);
-            _ = InvokeAsync(async () =>
-            {
-                item.IsExpanded = true;
-                await EnsureFolderChildrenLoadedAsync(item);
-                if (generation != _folderNavigationGeneration)
-                {
-                    StateHasChanged();
-                    return;
-                }
-                if (selectedFile != null)
-                {
-                    _previewCts?.Cancel();
-                    selectedFile = null;
-                    _previewResult = null;
-                    isLoadingPreview = false;
-                }
-                selectedFolder = item;
-                selectedFolderRowIndex = 0;
-                ScheduleFolderContentPreviewsLoad(item);
-                StateHasChanged();
-            });
-        }
-        else SelectFile(item);
-    }
+    /// <summary>右ペインのファイル行クリックでプレビューを開く。</summary>
+    private void OnFolderItemClick(TreeNode item) => SelectFile(item);
 
-    /// <summary>表の行クリック。選択行インデックスを更新して OnFolderItemClick。</summary>
+    /// <summary>表の行クリック。選択行インデックスを更新してプレビューを開く。</summary>
     private void OnFolderRowClick(TreeNode item)
     {
         if (selectedFolder == null) return;
-        if (item.IsFolder && selectedFolder.Children == null) return;
-        if (!item.IsFolder && selectedFolder.Children != null)
-        {
-            var list = GetSortedAndFilteredItems(selectedFolder.Children).ToList();
-            selectedFolderRowIndex = list.IndexOf(item);
-            if (selectedFolderRowIndex < 0) selectedFolderRowIndex = 0;
-        }
+        var list = GetSortedAndFilteredItems(GetFilesUnderSelectedFolder(selectedFolder)).ToList();
+        selectedFolderRowIndex = list.IndexOf(item);
+        if (selectedFolderRowIndex < 0) selectedFolderRowIndex = -1;
         OnFolderItemClick(item);
     }
 
@@ -539,72 +647,8 @@ public partial class Home
         if (isIndexing || folder == null || !folder.IsFolder || folder == selectedFolder) return;
         folder.IsExpanded = true;
         selectedFile = null;
+        ResetFolderListFilters();
         selectedFolder = folder;
-        selectedFolderRowIndex = 0;
-        ScheduleFolderContentPreviewsLoad(folder);
         StateHasChanged();
-    }
-
-    /// <summary>フォルダ一覧のファイル名横プレビューを読み込む。</summary>
-    private void ScheduleFolderContentPreviewsLoad(TreeNode? folder)
-    {
-        if (folder?.Children == null)
-        {
-            _fileContentPreviews = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            return;
-        }
-
-        var paths = folder.Children
-            .Where(c => !c.IsFolder && !string.IsNullOrEmpty(c.FilePath))
-            .Select(c => c.FilePath!)
-            .ToList();
-        ScheduleFileContentPreviewsLoad(paths);
-    }
-
-    /// <summary>指定ファイルの先頭行プレビューをインデックス／ディスクから非同期取得する。</summary>
-    private void ScheduleFileContentPreviewsLoad(IReadOnlyList<string> filePaths)
-    {
-        _filePreviewCts?.Cancel();
-        _filePreviewCts?.Dispose();
-        _filePreviewCts = null;
-
-        if (filePaths.Count == 0)
-        {
-            _fileContentPreviews = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            return;
-        }
-
-        var paths = filePaths.Count <= MaxFileContentPreviews
-            ? filePaths
-            : filePaths.Take(MaxFileContentPreviews).ToList();
-
-        var generation = Interlocked.Increment(ref _filePreviewGeneration);
-        _fileContentPreviews = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        _filePreviewCts = new CancellationTokenSource();
-        var token = _filePreviewCts.Token;
-        var searchQuery = _lastExecutedSearchQuery;
-        var mode = searchMode;
-
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                var merged = await SearchService.TryGetContentPreviewsAsync(
-                    paths, searchQuery, mode, token).ConfigureAwait(false);
-
-                if (token.IsCancellationRequested || generation != _filePreviewGeneration)
-                    return;
-                _fileContentPreviews = merged;
-                await InvokeAsync(StateHasChanged);
-            }
-            catch (OperationCanceledException)
-            {
-                // フォルダ切替・再検索でキャンセル
-            }
-            catch (Exception ex)
-            {
-                Logger.LogDebug(ex, "File content preview load failed");
-            }
-        }, token);
     }
 }

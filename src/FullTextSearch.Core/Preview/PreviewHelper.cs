@@ -47,7 +47,7 @@ public static class PreviewHelper
             ".pptx" => "ppt",
             ".pdf" => "pdf",
             ".msg" => "text",
-            ".cs" or ".py" or ".pas" or ".dfm" or ".sql" or ".html" or ".xml" or ".css" => "code",
+            ".cs" or ".java" or ".py" or ".pas" or ".dfm" or ".sql" or ".html" or ".xml" or ".css" => "code",
             _ => "text"
         };
 }

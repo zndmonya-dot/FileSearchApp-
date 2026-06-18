@@ -409,6 +409,18 @@ public static class TreeBuilder
         return list;
     }
 
+    /// <summary>指定フォルダ配下のファイルノードを再帰的に収集する。</summary>
+    public static List<TreeNode> CollectFileNodesUnderFolder(TreeNode folder)
+    {
+        var list = new List<TreeNode>();
+        if (!folder.IsFolder)
+            return list;
+
+        foreach (var child in folder.Children ?? Enumerable.Empty<TreeNode>())
+            CollectFilesRec(child, list);
+        return list;
+    }
+
     /// <summary>ツリー構築済みフォルダに遅延読み込みフラグを立て、ディスク走査での上書きを防ぐ。</summary>
     public static void MarkFolderTreeLoaded(IEnumerable<TreeNode> roots)
     {

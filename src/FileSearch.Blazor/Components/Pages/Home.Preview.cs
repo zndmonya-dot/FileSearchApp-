@@ -204,23 +204,26 @@ public partial class Home
         _previewCts?.Cancel();
         selectedFolder = folderNode;
 
-        var list = GetSortedAndFilteredItems(folderNode.Children ?? new List<TreeNode>()).ToList();
+        var list = GetSortedAndFilteredItems(GetFilesUnderSelectedFolder(folderNode)).ToList();
         if (currentFile != null
             && string.Equals(
                 normalized,
                 IndexPaths.NormalizeFolderPath(currentFile.FolderPath).TrimEnd('\\', '/'),
                 StringComparison.OrdinalIgnoreCase))
         {
-            var idx = list.FindIndex(n => !n.IsFolder
-                && string.Equals(n.FilePath, currentFile.FilePath, StringComparison.OrdinalIgnoreCase));
-            selectedFolderRowIndex = idx >= 0 ? idx : 0;
+            var idx = list.FindIndex(n => string.Equals(n.FilePath, currentFile.FilePath, StringComparison.OrdinalIgnoreCase));
+            selectedFolderRowIndex = idx >= 0 ? idx : -1;
         }
         else
         {
-            selectedFolderRowIndex = 0;
+            selectedFolderRowIndex = -1;
         }
 
-        ScheduleFolderContentPreviewsLoad(folderNode);
+        if (selectedFolderRowIndex >= 0)
+            _folderListScrollToRow = selectedFolderRowIndex;
+
+        _folderListHighlightedFilePath = currentFile?.FilePath;
+
         StateHasChanged();
     }
 }

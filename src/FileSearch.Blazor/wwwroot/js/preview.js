@@ -293,4 +293,12 @@
     window.getElementClientWidth = function (element) {
         return element && element.clientWidth ? element.clientWidth : 0;
     };
+
+    window.scrollFolderListRowIntoView = function (rowIndex) {
+        if (rowIndex == null || rowIndex < 0) return false;
+        var row = document.querySelector('#folder-list .folder-row[data-row-index="' + rowIndex + '"]');
+        if (!row) return false;
+        row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        return true;
+    };
 })();

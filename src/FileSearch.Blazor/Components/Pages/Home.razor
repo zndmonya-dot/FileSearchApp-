@@ -28,9 +28,10 @@
                       SearchModeChanged="OnSearchModeChangedAsync"
                       TotalFileCount="totalFileCount"
                       TreeNodes="treeNodes"
-                      CurrentPreviewFilePath="@(selectedFile?.FilePath)"
+                      CurrentPreviewFilePath="@GetTreeHighlightFilePath()"
                       CurrentFolderPath="@(selectedFolder?.FullPath)"
                       HasSearchedCurrentQuery="@HasSearchedCurrentQuery"
+                      IsSearchActive="@(_lastExecutedSearchQuery != null)"
                       IsBrowseMode="@(_lastExecutedSearchQuery == null)"
                       HasTargetFolders="@HasActiveTargetFolders"
                       NoTargetFoldersMessage="@(SettingsService.Settings.TargetFolders.Count > 0 ? UserMessages.NoActiveTargetFolders : UserMessages.NoTargetFolders)"
@@ -49,7 +50,8 @@
                       OnSearchKeyDown="HandleKeyDown"
                       OnSearchInputChanged="OnSearchInputChanged"
                       OnToggleNode="ToggleNode"
-                      OnSelectFile="SelectFile"
+                      OnSelectFolder="SelectFolderFromTree"
+                      OnSelectFile="SelectFileFromTree"
                       GetFileIconClass="DisplayFormatters.GetFileIconClass"
                       OnRequestRebuildIndex="RequestRebuildIndex"
                       OnCancelIndexBuild="CancelIndexBuild"
@@ -78,19 +80,27 @@
             }
             else if (selectedFolder != null)
             {
+                var folderFiles = GetFilesUnderSelectedFolder(selectedFolder);
+                var filteredFolderFiles = GetSortedAndFilteredItems(folderFiles).ToList();
                 <FolderListView SelectedFolder="selectedFolder"
-                               SortedAndFilteredItems="GetSortedAndFilteredItems(selectedFolder.Children ?? new List<TreeNode>())"
+                               SortedAndFilteredItems="filteredFolderFiles"
+                               AllFileItems="folderFiles"
+                               TotalFileCount="folderFiles.Count"
+                               FilteredFileCount="filteredFolderFiles.Count"
+                               @bind-FileSearchQuery="folderFileSearchQuery"
+                               @bind-FileSearchQuery:after="OnFolderFileSearchQueryChanged"
                                SortColumn="sortColumn"
                                SortAscending="sortAscending"
                                FilterType="filterType"
                                ShowFilterMenu="showFilterMenu"
-                               SelectedRowIndex="selectedFolderRowIndex"
+                               ScrollToRowIndex="_folderListScrollToRow"
+                               OnScrollToRowCompleted="OnFolderListScrollCompleted"
                                OnSort="SetSort"
                                OnToggleFilterMenu="ToggleFilterMenu"
                                OnFilter="SetFilter"
                                OnRowClick="OnFolderRowClick"
                                OnNavigateToFolder="NavigateToFolder"
-                               FileContentPreviews="_fileContentPreviews" />
+                               GetFileIconClass="DisplayFormatters.GetFileIconClass" />
             }
             else if (!HasActiveTargetFolders)
             {

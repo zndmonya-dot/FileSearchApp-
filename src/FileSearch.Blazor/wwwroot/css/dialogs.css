@@ -240,8 +240,12 @@
 
 .settings-section--locked .settings-stat,
 .settings-section--locked .settings-hour-chip,
-.settings-section--locked .settings-auto-rebuild-toggle {
+.settings-section--locked .settings-inline-value {
     color: var(--color-fg-subtle);
+    cursor: not-allowed;
+}
+
+.settings-section--locked .settings-toggle {
     cursor: not-allowed;
 }
 
@@ -316,6 +320,62 @@
     min-width: 160px;
     flex: 1;
     max-width: 220px;
+}
+
+.settings-panel--stacked .settings-field--inline + .settings-field--inline,
+.settings-panel--stacked .settings-hour-section {
+    border-top: 1px solid color-mix(in srgb, var(--color-border-muted) 70%, transparent);
+}
+
+.settings-inline-label {
+    flex: 1;
+    min-width: 0;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--color-fg-default);
+}
+
+.settings-inline-value {
+    flex-shrink: 0;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--color-fg-muted);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.settings-inline-value--readonly {
+    color: var(--color-fg-subtle);
+}
+
+.settings-hour-section {
+    padding: 12px 14px 14px;
+}
+
+.settings-hour-section__label {
+    margin: 0 0 10px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--color-fg-muted);
+    text-transform: none;
+}
+
+.settings-panel-note {
+    margin: 0;
+    padding: 10px 14px 12px;
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--color-fg-muted);
+    border-top: 1px solid color-mix(in srgb, var(--color-border-muted) 70%, transparent);
+}
+
+.settings-toggle input:disabled + .settings-toggle__track {
+    opacity: 0.55;
+}
+
+.settings-toggle:has(input:disabled) {
+    cursor: not-allowed;
 }
 
 .settings-list {
@@ -712,58 +772,46 @@
     background: var(--color-canvas-subtle);
 }
 
-.settings-auto-rebuild-toggle {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 8px;
-    font-size: 13px;
-    cursor: pointer;
-}
-
-.settings-auto-rebuild-toggle input {
-    width: 16px;
-    height: 16px;
-    accent-color: var(--color-accent-fg);
-}
-
-.settings-hint--tight {
-    margin-top: 0;
-    margin-bottom: 8px;
-}
-
 .settings-hour-grid {
     display: grid;
     grid-template-columns: repeat(8, minmax(0, 1fr));
-    gap: 6px;
-    margin-bottom: 8px;
+    gap: 5px;
     width: 100%;
 }
 
 .settings-hour-chip {
-    border: 1px solid var(--color-border-muted);
+    border: 1px solid transparent;
     background: var(--color-canvas-default);
     color: var(--color-fg-muted);
     border-radius: 6px;
-    padding: 6px 0;
+    padding: 5px 0;
     font-size: 12px;
+    font-family: inherit;
     cursor: pointer;
     text-align: center;
+    transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
 }
 
 .settings-hour-chip:hover:not(:disabled) {
-    border-color: var(--color-accent-fg);
+    border-color: var(--color-border-default);
     color: var(--color-fg-default);
 }
 
 .settings-hour-chip--selected {
-    background: rgba(56, 139, 253, 0.15);
-    border-color: var(--color-accent-fg);
-    color: var(--color-fg-default);
+    background: var(--color-accent-subtle);
+    border-color: var(--color-accent-emphasis);
+    color: var(--color-accent-fg);
+    font-weight: 500;
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent-emphasis) 25%, transparent);
+}
+
+.settings-hour-chip--selected:hover:not(:disabled) {
+    border-color: var(--color-accent-emphasis);
+    color: var(--color-accent-fg);
 }
 
 .settings-hour-chip:disabled {
-    opacity: 0.55;
+    opacity: 0.5;
     cursor: not-allowed;
 }
 

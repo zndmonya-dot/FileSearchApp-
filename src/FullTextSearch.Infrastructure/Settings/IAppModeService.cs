@@ -17,6 +17,11 @@ public interface IAppModeService
     IReadOnlyList<string> SharedTargetFolders { get; }
 
     /// <summary>
+    /// 共有の自動更新時刻（JST 0〜23）。共有設定に含まれない場合は null（ローカル設定を維持）。
+    /// </summary>
+    IReadOnlyList<int>? SharedAutoRebuildDailyHours { get; }
+
+    /// <summary>
     /// サーバ上の共有設定ファイルのパス（appmode.json の sharedConfig）。
     /// 設定されているとき、インデックスパスと対象フォルダは起動時にここから読む。
     /// </summary>
@@ -40,5 +45,8 @@ public interface IAppModeService
     /// <summary>
     /// 管理者が設定保存したとき、<see cref="ResolveSharedConfigPath"/> で決まるパスへ共有設定を書き込む。
     /// </summary>
-    bool TrySaveSharedConfig(string indexPath, IReadOnlyList<string> targetFolders);
+    bool TrySaveSharedConfig(
+        string indexPath,
+        IReadOnlyList<string> targetFolders,
+        IReadOnlyList<int> autoRebuildDailyHours);
 }

@@ -104,16 +104,13 @@ public partial class Home : IDisposable
     private bool sortAscending = true;
     private string filterType = "";
     private bool showFilterMenu = false;
+    private string folderFileSearchQuery = "";
     private int selectedFolderRowIndex = -1;
+    private int _folderListScrollToRow = -1;
+    /// <summary>閲覧モードで右一覧・左ツリー同期用（プレビュー未表示時）。</summary>
+    private string? _folderListHighlightedFilePath;
     /// <summary>フォルダ遷移の非同期完了が、直後のファイル選択を上書きしないようにする世代番号。</summary>
     private int _folderNavigationGeneration;
-
-    // --- ファイル先頭行プレビュー（フォルダ一覧・検索結果ツリー共通） ---
-    private IReadOnlyDictionary<string, string> _fileContentPreviews =
-        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-    private CancellationTokenSource? _filePreviewCts;
-    private int _filePreviewGeneration;
-    private const int MaxFileContentPreviews = 1000;
 
     // --- ハイライトナビ（JS） / ファイル間ナビ ---
     private string? _lastHighlightNavFilePath;
@@ -203,7 +200,7 @@ public partial class Home : IDisposable
     }
 
     /// <summary>
-    /// 参照モード、または sharedConfig 利用時は起動時に母体設定（インデックス/フォルダ）を反映する。
+    /// 参照モード、または sharedConfig 利用時は起動時に母体設定（インデックス/フォルダ/自動更新）を反映する。
     /// リアルタイム同期は行わない。管理者が sharedConfig を更新したあとは利用者がアプリを再起動する。
     /// </summary>
     private void ApplySharedSettingsFromAppMode()
@@ -218,6 +215,8 @@ public partial class Home : IDisposable
             SettingsService.Settings.IndexPath = AppMode.SharedIndexPath;
         if (AppMode.SharedTargetFolders.Count > 0)
             SettingsService.Settings.TargetFolders = AppMode.SharedTargetFolders.ToList();
+        if (AppMode.SharedAutoRebuildDailyHours != null)
+            SettingsService.Settings.AutoRebuildDailyHours = AppMode.SharedAutoRebuildDailyHours.ToList();
         SettingsService.Settings.PruneDisabledTargetFolders();
     }
 
@@ -225,6 +224,10 @@ public partial class Home : IDisposable
         SettingsService.Settings.GetActiveTargetFolders();
 
     private bool HasActiveTargetFolders => GetActiveTargetFolders().Count > 0;
+
+    /// <summary>左ツリーのファイル行ハイライト用パス（プレビュー優先）。</summary>
+    private string? GetTreeHighlightFilePath() =>
+        selectedFile?.FilePath ?? _folderListHighlightedFilePath;
 
     /// <summary>設定のインデックス保存先を開く。失敗してもアプリ全体は落とさない。</summary>
     private async Task InitializeIndexIfConfiguredAsync()
@@ -275,9 +278,6 @@ public partial class Home : IDisposable
         _folderTreeLoadCts?.Cancel();
         _folderTreeLoadCts?.Dispose();
         _folderTreeLoadCts = null;
-        _filePreviewCts?.Cancel();
-        _filePreviewCts?.Dispose();
-        _filePreviewCts = null;
         DisposeLoadingEtaTimer();
     }
 

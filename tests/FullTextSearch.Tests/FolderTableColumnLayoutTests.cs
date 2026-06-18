@@ -28,11 +28,11 @@ public class FolderTableColumnLayoutTests
     }
 
     [Fact]
-    public void FitToTable_absorbs_slack_into_preview_on_init()
+    public void FitToTableTwoColumn_absorbs_slack_into_name_on_init()
     {
-        var (name, preview, _) = FolderTableColumnLayout.FitToTable(
-            1000, 200, 400, 136, absorbSlackIntoPreview: true);
-        Assert.Equal(200, name);
-        Assert.Equal(664, preview);
+        var (name, date) = FolderTableColumnLayout.FitToTableTwoColumn(
+            1000, 200, 136, absorbSlackIntoName: true);
+        Assert.Equal(864, name);
+        Assert.Equal(136, date);
     }
 }

@@ -79,9 +79,11 @@
         {
             @* M-05 検索結果／フォルダツリー *@
             <SearchResultTree Nodes="TreeNodes"
+                             IsBrowseMode="IsBrowseMode"
                              CurrentPreviewFilePath="@CurrentPreviewFilePath"
                              CurrentFolderPath="@CurrentFolderPath"
                              OnToggleNode="OnToggleNode"
+                             OnSelectFolder="OnSelectFolder"
                              OnSelectFile="OnSelectFile"
                              GetFileIconClass="GetFileIconClass" />
         }
@@ -220,8 +222,12 @@
     [Parameter] public string? CurrentFolderPath { get; set; }
     /// <summary>現在の入力で検索が一度でも成功済みか（空ツリー文言の切替）。</summary>
     [Parameter] public bool HasSearchedCurrentQuery { get; set; }
+    /// <summary>検索結果表示中か。空クエリでも検索ボタンで閲覧モードへ戻せるようにする。</summary>
+    [Parameter] public bool IsSearchActive { get; set; }
     /// <summary>閲覧モード（検索未実行）か。</summary>
     [Parameter] public bool IsBrowseMode { get; set; } = true;
+    /// <summary>閲覧モードでフォルダ行クリック時に右ペインへ反映する。</summary>
+    [Parameter] public EventCallback<TreeNode> OnSelectFolder { get; set; }
     /// <summary>検索対象フォルダが 1 件以上有効か。</summary>
     [Parameter] public bool HasTargetFolders { get; set; }
     /// <summary>対象フォルダ未設定時のツリー空メッセージ。</summary>
@@ -248,7 +254,8 @@
     [Parameter] public EventCallback OnOpenSettings { get; set; }
 
     private bool CanSearch =>
-        !IsIndexing && !IsSearching && !string.IsNullOrWhiteSpace(SearchQuery);
+        !IsIndexing && !IsSearching
+        && (!string.IsNullOrWhiteSpace(SearchQuery) || IsSearchActive);
 
     /// <summary>検索ボタン押下を親に伝える。</summary>
     private Task OnSearchClick() => OnSearch.InvokeAsync();

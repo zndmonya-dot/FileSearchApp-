@@ -281,6 +281,25 @@ public class TreeBuilderTests
         Assert.Equal(2, all.Count);
     }
 
+    [Fact]
+    public void CollectFileNodesUnderFolder_includes_nested_files_only()
+    {
+        var rootT = Root("f0", "g0");
+        var d1 = Path.Combine(rootT, "u0");
+        var d2 = Path.Combine(d1, "nested");
+        var f1 = Path.Combine(d1, "1.txt");
+        var f2 = Path.Combine(d2, "2.txt");
+        var items = new[] { M(f1, "1.txt", d1), M(f2, "2.txt", d2) };
+        var tree = TreeBuilder.BuildTree(new[] { rootT }, items);
+        var folder = TreeBuilder.FindFolderNode(tree, d1);
+        Assert.NotNull(folder);
+
+        var files = TreeBuilder.CollectFileNodesUnderFolder(folder);
+        Assert.Equal(2, files.Count);
+        Assert.Contains(files, n => string.Equals(n.FilePath, f1, StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(files, n => string.Equals(n.FilePath, f2, StringComparison.OrdinalIgnoreCase));
+    }
+
     private static SearchResultItem M(string filePath, string name, string folder) => new()
     {
         FilePath = filePath,

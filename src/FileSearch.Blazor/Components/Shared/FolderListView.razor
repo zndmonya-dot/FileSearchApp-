@@ -1,6 +1,6 @@
 @namespace FileSearch.Blazor.Components.Shared
 @*
-  選択フォルダ配下の子一覧（GitHub リポジトリブラウザ風: パンくず + 名前/内容/更新日時）。
+  選択フォルダ配下のファイル一覧（パンくず + 名前・更新日時）。
 *@
 @using FullTextSearch.Core.UI
 @using Microsoft.AspNetCore.Components.Web
@@ -20,13 +20,13 @@
                 }
                 @if (segment == SelectedFolder)
                 {
-                    <span class="folder-breadcrumb-current" title="@segment.FullPath">@segment.Name</span>
+                    <span class="folder-breadcrumb-current" title="@FolderListDisplay.NormalizeDisplayPath(segment.FullPath)">@segment.Name</span>
                 }
                 else
                 {
                     <button type="button"
                             class="folder-breadcrumb-link"
-                            title="@segment.FullPath"
+                            title="@FolderListDisplay.NormalizeDisplayPath(segment.FullPath)"
                             @onclick="() => OnNavigateToFolder.InvokeAsync(segment)">
                         @segment.Name
                     </button>
@@ -34,7 +34,7 @@
             }
         </nav>
         <div class="folder-browser-toolbar">
-            <span class="folder-browser-count">@UserMessages.FormatChildCount(SelectedFolder.Children?.Count ?? 0)</span>
+            <span class="folder-browser-count">@UserMessages.FormatFilteredChildCount(FilteredFileCount, TotalFileCount)</span>
             <div class="filter-dropdown">
                 <button class="filter-btn @(string.IsNullOrEmpty(FilterType) ? "" : "active")"
                         @onclick="OnToggleFilterMenu"
@@ -42,14 +42,10 @@
                         title="@UserMessages.FilterTitle">
                     <svg viewBox="0 0 16 16" fill="currentColor"><path d="M.75 3h14.5a.75.75 0 0 1 0 1.5H.75a.75.75 0 0 1 0-1.5ZM3 7.75A.75.75 0 0 1 3.75 7h8.5a.75.75 0 0 1 0 1.5h-8.5A.75.75 0 0 1 3 7.75Zm3 4a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1-.75-.75Z"/></svg>
                 </button>
-                @if (ShowFilterMenu && SelectedFolder.Children != null)
+                @if (ShowFilterMenu)
                 {
                     <div class="filter-menu" @onclick:stopPropagation="true">
                         <div class="filter-option @(FilterType == "" ? "selected" : "")" @onclick='() => OnFilter.InvokeAsync("")'>@UserMessages.FilterAll</div>
-                        @if (SelectedFolder.Children.Any(c => c.IsFolder))
-                        {
-                            <div class="filter-option @(FilterType == "folder" ? "selected" : "")" @onclick='() => OnFilter.InvokeAsync("folder")'>@UserMessages.KindFolder</div>
-                        }
                         @foreach (var ext in GetUniqueExtensions())
                         {
                             <div class="filter-option @(FilterType == ext ? "selected" : "")" @onclick="() => OnFilter.InvokeAsync(ext)">@ext.ToUpperInvariant()</div>
@@ -59,6 +55,16 @@
             </div>
         </div>
     </div>
+    <div class="folder-browser-search">
+        <svg class="folder-browser-search-icon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M10.68 11.74a6 6 0 0 1-7.922-8.982 6 6 0 0 1 8.982 7.922l3.04 3.04a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215ZM11.5 7a4.499 4.499 0 1 0-8.997 0A4.499 4.499 0 0 0 11.5 7Z"/></svg>
+        <input type="search"
+               class="folder-browser-search-input"
+               placeholder="@UserMessages.FolderListFileSearchPlaceholder"
+               aria-label="@UserMessages.FolderListFileSearchPlaceholder"
+               autocomplete="off"
+               @bind="FileSearchQueryValue"
+               @bind:event="oninput" />
+    </div>
     <div id="folder-list" class="folder-list">
         @if (_isColumnResizing)
         {
@@ -67,81 +73,73 @@
                  @onmouseup="StopColumnResize"
                  @onmouseleave="StopColumnResize"></div>
         }
-        <table @ref="_tableRef" class="folder-table @(_isColumnResizing ? "folder-table--resizing" : null)">
-            <colgroup>
-                @if (_columnLayoutInitialized)
-                {
-                    <col style="width: @($"{_colNameWidth}px")" />
-                    <col style="width: @($"{_colPreviewWidth}px")" />
-                    <col style="width: @($"{GetColDateWidth()}px")" />
-                }
-                else
-                {
-                    @* 測定前: 日時列を先に確保し、残りを名前・内容へ（固定px合計で日時が消えるのを防ぐ） *@
-                    <col style="width: 24%" />
-                    <col />
-                    <col style="width: @($"{FolderTableColumnLayout.ColDateDefault}px")" />
-                }
-            </colgroup>
-            <thead>
-                <tr>
-                    <th class="col-name sortable @(SortColumn == "name" ? "sorted" : "")" @onclick='() => OnSort.InvokeAsync("name")'>
-                        <span class="col-header-label">@UserMessages.ColumnName @GetSortIcon("name")</span>
-                        <span class="folder-col-resize-handle @GetColumnResizeActiveClass(FolderTableColumn.Name)"
-                              title="@UserMessages.ColumnResizeHandleTitle"
-                              @onmousedown="@(e => StartColumnResizeAsync(e, FolderTableColumn.Name))"
-                              @onmousedown:preventDefault="true"
-                              @onmousedown:stopPropagation="true"
-                              @onclick:stopPropagation="true"></span>
-                    </th>
-                    <th class="col-preview sortable @(SortColumn == "preview" ? "sorted" : "")" @onclick='() => OnSort.InvokeAsync("preview")'>
-                        <span class="col-header-label">@UserMessages.ColumnPreview @GetSortIcon("preview")</span>
-                        <span class="folder-col-resize-handle @GetColumnResizeActiveClass(FolderTableColumn.Preview)"
-                              title="@UserMessages.ColumnResizeHandleTitle"
-                              @onmousedown="@(e => StartColumnResizeAsync(e, FolderTableColumn.Preview))"
-                              @onmousedown:preventDefault="true"
-                              @onmousedown:stopPropagation="true"
-                              @onclick:stopPropagation="true"></span>
-                    </th>
-                    <th class="col-date sortable @(SortColumn == "date" ? "sorted" : "")" @onclick='() => OnSort.InvokeAsync("date")'>
-                        <span class="col-header-label">@UserMessages.ColumnDate @GetSortIcon("date")</span>
-                    </th>
-                </tr>
-            </thead>
-            <tbody>
-                @if (SelectedFolder.Children != null)
-                {
-                    var folderListItems = SortedAndFilteredItems.ToList();
+        @{
+            var folderListItems = SortedAndFilteredItems.ToList();
+        }
+        @if (folderListItems.Count == 0)
+        {
+            <div class="folder-list-empty">
+                <span>@(HasActiveFilters ? UserMessages.FolderListEmptyFiltered : UserMessages.FolderListEmpty)</span>
+            </div>
+        }
+        else
+        {
+            <table @ref="_tableRef" class="folder-table folder-table--two-col @(_isColumnResizing ? "folder-table--resizing" : null)">
+                <colgroup>
+                    @if (_columnLayoutInitialized)
+                    {
+                        <col style="width: @($"{_colNameWidth}px")" />
+                        <col style="width: @($"{GetColDateWidth()}px")" />
+                    }
+                    else
+                    {
+                        <col />
+                        <col style="width: @($"{FolderTableColumnLayout.ColDateDefault}px")" />
+                    }
+                </colgroup>
+                <thead>
+                    <tr>
+                        <th class="col-name sortable @(SortColumn == "name" ? "sorted" : "")" @onclick='() => OnSort.InvokeAsync("name")'>
+                            <span class="col-header-label">@UserMessages.ColumnName @GetSortIcon("name")</span>
+                            <span class="folder-col-resize-handle @GetColumnResizeActiveClass()"
+                                  title="@UserMessages.ColumnResizeHandleTitle"
+                                  @onmousedown="@(e => StartColumnResizeAsync(e))"
+                                  @onmousedown:preventDefault="true"
+                                  @onmousedown:stopPropagation="true"
+                                  @onclick:stopPropagation="true"></span>
+                        </th>
+                        <th class="col-date sortable @(SortColumn == "date" ? "sorted" : "")" @onclick='() => OnSort.InvokeAsync("date")'>
+                            <span class="col-header-label">@UserMessages.ColumnDate @GetSortIcon("date")</span>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
                     @for (var i = 0; i < folderListItems.Count; i++)
                     {
                         var item = folderListItems[i];
-                        var previewText = GetContentPreview(item);
-                        <tr class="folder-row @(i == SelectedRowIndex ? "selected" : "")" @onclick="async () => { await OnRowClick.InvokeAsync(item); }">
+                        var display = GetDisplayParts(item);
+                        var iconClass = GetFileIconClass?.Invoke(item.Name) ?? "text";
+                        <tr class="folder-row"
+                            data-row-index="@i"
+                            @onclick="async () => { await OnRowClick.InvokeAsync(item); }">
                             <td class="col-name">
                                 <span class="col-name-cell">
-                                    @if (item.IsFolder)
-                                    {
-                                        <svg class="item-icon folder" viewBox="0 0 16 16" fill="currentColor"><path d="M.513 1.513A1.75 1.75 0 0 1 1.75 1h3.5c.55 0 1.07.26 1.4.7l.9 1.2a.25.25 0 0 0 .2.1H13a1 1 0 0 1 1 1v.5H2.75a.75.75 0 0 0 0 1.5h11.978a1 1 0 0 1 .994 1.117L15 13.25A1.75 1.75 0 0 1 13.25 15H1.75A1.75 1.75 0 0 1 0 13.25V2.75c0-.464.184-.91.513-1.237Z"/></svg>
-                                    }
-                                    else
-                                    {
-                                        <svg class="item-icon file" viewBox="0 0 16 16" fill="currentColor"><path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688l-.011-.013-2.914-2.914-.013-.011Z"/></svg>
-                                    }
-                                    <span class="item-name">@item.Name</span>
+                                    <svg class="item-icon file @iconClass" viewBox="0 0 16 16" fill="currentColor"><path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688l-.011-.013-2.914-2.914-.013-.011Z"/></svg>
+                                    <span class="item-name-line" title="@GetDisplayTitle(item)">
+                                        @if (display.FolderPrefix != null)
+                                        {
+                                            <span class="item-path-prefix">@display.FolderPrefix@FolderListDisplay.DisplaySeparator</span>
+                                        }
+                                        <span class="item-name">@display.FileName</span>
+                                    </span>
                                 </span>
-                            </td>
-                            <td class="col-preview">
-                                @if (previewText != null)
-                                {
-                                    <span class="item-content-preview" title="@previewText">@previewText</span>
-                                }
                             </td>
                             <td class="col-date">@(item.LastModified.HasValue ? DisplayFormatters.FormatDate(item.LastModified.Value) : "-")</td>
                         </tr>
                     }
-                }
-            </tbody>
-        </table>
+                </tbody>
+            </table>
+        }
     </div>
 </div>
 }
@@ -149,32 +147,44 @@
 @code {
     [Parameter] public TreeNode? SelectedFolder { get; set; }
     [Parameter] public IEnumerable<TreeNode> SortedAndFilteredItems { get; set; } = Enumerable.Empty<TreeNode>();
+    [Parameter] public IEnumerable<TreeNode> AllFileItems { get; set; } = Enumerable.Empty<TreeNode>();
+    [Parameter] public int TotalFileCount { get; set; }
+    [Parameter] public int FilteredFileCount { get; set; }
+    [Parameter] public string FileSearchQuery { get; set; } = "";
+    [Parameter] public EventCallback<string> FileSearchQueryChanged { get; set; }
     [Parameter] public string SortColumn { get; set; } = "name";
     [Parameter] public bool SortAscending { get; set; } = true;
     [Parameter] public string FilterType { get; set; } = "";
     [Parameter] public bool ShowFilterMenu { get; set; }
-    [Parameter] public int SelectedRowIndex { get; set; }
+    [Parameter] public int ScrollToRowIndex { get; set; } = -1;
+    [Parameter] public EventCallback OnScrollToRowCompleted { get; set; }
     [Parameter] public EventCallback<string> OnSort { get; set; }
     [Parameter] public EventCallback OnToggleFilterMenu { get; set; }
     [Parameter] public EventCallback<string> OnFilter { get; set; }
     [Parameter] public EventCallback<TreeNode> OnRowClick { get; set; }
     [Parameter] public EventCallback<TreeNode> OnNavigateToFolder { get; set; }
-    [Parameter] public IReadOnlyDictionary<string, string>? FileContentPreviews { get; set; }
+    [Parameter] public Func<string, string>? GetFileIconClass { get; set; }
 
-    private enum FolderTableColumn { Name, Preview, Date }
+    private bool HasActiveFilters =>
+        !string.IsNullOrWhiteSpace(FileSearchQuery) || !string.IsNullOrEmpty(FilterType);
+
+    private string FileSearchQueryValue
+    {
+        get => FileSearchQuery;
+        set => _ = FileSearchQueryChanged.InvokeAsync(value);
+    }
 
     private ElementReference _tableRef;
     private int _tableWidth;
     private int _lastMeasuredTableWidth;
     private int _colNameWidth = FolderTableColumnLayout.ColMinName;
-    private int _colPreviewWidth = FolderTableColumnLayout.ColMinPreview;
     private int _colDateWidth = FolderTableColumnLayout.ColDateDefault;
     private bool _columnLayoutInitialized;
     private bool _isColumnResizing;
-    private FolderTableColumn _resizeColumn;
     private double _columnResizeStartX;
-    private int _columnResizeStartPrimary;
-    private int _columnResizeStartSecondary;
+    private int _columnResizeStartName;
+    private int _columnResizeStartDate;
+    private int _lastScrolledRow = -1;
 
     private List<TreeNode> GetBreadcrumb()
     {
@@ -185,21 +195,16 @@
         return list;
     }
 
-    private string? GetContentPreview(TreeNode item)
-    {
-        if (item.IsFolder || string.IsNullOrEmpty(item.FilePath) || FileContentPreviews == null)
-            return null;
-        return FileContentPreviews.TryGetValue(item.FilePath, out var preview) && !string.IsNullOrEmpty(preview)
-            ? preview
-            : null;
-    }
+    private FolderListDisplay.FileDisplayParts GetDisplayParts(TreeNode item) =>
+        FolderListDisplay.FormatFileDisplay(SelectedFolder?.FullPath ?? "", item.FilePath, item.Name);
+
+    private static string GetDisplayTitle(TreeNode item) =>
+        FolderListDisplay.NormalizeDisplayPath(item.FilePath);
 
     private IEnumerable<string> GetUniqueExtensions()
     {
-        if (SelectedFolder?.Children == null)
-            return Enumerable.Empty<string>();
-        return SelectedFolder.Children
-            .Where(i => !i.IsFolder && !string.IsNullOrEmpty(Path.GetExtension(i.Name)))
+        return AllFileItems
+            .Where(i => !string.IsNullOrEmpty(Path.GetExtension(i.Name)))
             .Select(i => Path.GetExtension(i.Name).ToLowerInvariant())
             .Distinct()
             .OrderBy(e => e);
@@ -219,37 +224,58 @@
         if (SelectedFolder == null)
             return;
 
-        await RefreshTableWidthAsync();
-        if (_tableWidth <= 0)
-            return;
-
-        var changed = false;
-        if (!_columnLayoutInitialized)
+        if (SortedAndFilteredItems.Any())
         {
-            var initial = FolderTableColumnLayout.CreateInitial(_tableWidth);
-            _colNameWidth = initial.Name;
-            _colPreviewWidth = initial.Preview;
-            _colDateWidth = initial.Date;
-            _columnLayoutInitialized = true;
-            changed = true;
-        }
-        else if (_tableWidth != _lastMeasuredTableWidth)
-        {
-            ApplyFitToTable(absorbSlackIntoPreview: true);
-            changed = true;
+            await RefreshTableWidthAsync();
+            if (_tableWidth > 0)
+            {
+                var changed = false;
+                if (!_columnLayoutInitialized)
+                {
+                    var initial = FolderTableColumnLayout.CreateInitialTwoColumn(_tableWidth);
+                    _colNameWidth = initial.Name;
+                    _colDateWidth = initial.Date;
+                    _columnLayoutInitialized = true;
+                    changed = true;
+                }
+                else if (_tableWidth != _lastMeasuredTableWidth)
+                {
+                    ApplyFitToTable(absorbSlackIntoName: true);
+                    changed = true;
+                }
+
+                _lastMeasuredTableWidth = _tableWidth;
+                if (changed)
+                    StateHasChanged();
+            }
         }
 
-        _lastMeasuredTableWidth = _tableWidth;
-        if (changed)
-            StateHasChanged();
+        if (ScrollToRowIndex >= 0 && ScrollToRowIndex != _lastScrolledRow)
+        {
+            try
+            {
+                await Js.InvokeVoidAsync("scrollFolderListRowIntoView", ScrollToRowIndex);
+                _lastScrolledRow = ScrollToRowIndex;
+                await OnScrollToRowCompleted.InvokeAsync();
+            }
+            catch (JSException)
+            {
+                // WebView 未準備
+            }
+        }
     }
 
-    private void ApplyFitToTable(bool absorbSlackIntoPreview)
+    protected override void OnParametersSet()
     {
-        var fit = FolderTableColumnLayout.FitToTable(
-            _tableWidth, _colNameWidth, _colPreviewWidth, _colDateWidth, absorbSlackIntoPreview);
+        if (ScrollToRowIndex < 0)
+            _lastScrolledRow = -1;
+    }
+
+    private void ApplyFitToTable(bool absorbSlackIntoName)
+    {
+        var fit = FolderTableColumnLayout.FitToTableTwoColumn(
+            _tableWidth, _colNameWidth, _colDateWidth, absorbSlackIntoName);
         _colNameWidth = fit.Name;
-        _colPreviewWidth = fit.Preview;
         _colDateWidth = fit.Date;
     }
 
@@ -264,9 +290,8 @@
 
         if (!_columnLayoutInitialized)
         {
-            var initial = FolderTableColumnLayout.CreateInitial(_tableWidth);
+            var initial = FolderTableColumnLayout.CreateInitialTwoColumn(_tableWidth);
             _colNameWidth = initial.Name;
-            _colPreviewWidth = initial.Preview;
             _colDateWidth = initial.Date;
             _columnLayoutInitialized = true;
             _lastMeasuredTableWidth = _tableWidth;
@@ -285,22 +310,16 @@
         }
     }
 
-    private async Task StartColumnResizeAsync(MouseEventArgs e, FolderTableColumn column)
+    private async Task StartColumnResizeAsync(MouseEventArgs e)
     {
         _isColumnResizing = true;
-        _resizeColumn = column;
         _columnResizeStartX = e.ClientX;
 
         await EnsureColumnLayoutReadyAsync();
-        ApplyFitToTable(absorbSlackIntoPreview: false);
+        ApplyFitToTable(absorbSlackIntoName: false);
 
-        _columnResizeStartPrimary = GetColumnWidth(column);
-        _columnResizeStartSecondary = column switch
-        {
-            FolderTableColumn.Name => _colPreviewWidth,
-            FolderTableColumn.Preview => _colDateWidth,
-            _ => 0,
-        };
+        _columnResizeStartName = _colNameWidth;
+        _columnResizeStartDate = _colDateWidth;
         StateHasChanged();
     }
 
@@ -310,29 +329,12 @@
             return;
 
         var delta = (int)(e.ClientX - _columnResizeStartX);
-        switch (_resizeColumn)
-        {
-            case FolderTableColumn.Name:
-            {
-                var (name, preview) = FolderTableColumnLayout.ResizeAdjacent(
-                    _columnResizeStartPrimary, _columnResizeStartSecondary, delta,
-                    FolderTableColumnLayout.ColMinName, FolderTableColumnLayout.ColMinPreview);
-                _colNameWidth = name;
-                _colPreviewWidth = preview;
-                break;
-            }
-            case FolderTableColumn.Preview:
-            {
-                var (preview, date) = FolderTableColumnLayout.ResizeAdjacent(
-                    _columnResizeStartPrimary, _columnResizeStartSecondary, delta,
-                    FolderTableColumnLayout.ColMinPreview, FolderTableColumnLayout.ColMinDate,
-                    FolderTableColumnLayout.ColMaxDate);
-                _colPreviewWidth = preview;
-                _colDateWidth = date;
-                break;
-            }
-        }
-
+        var (name, date) = FolderTableColumnLayout.ResizeAdjacent(
+            _columnResizeStartName, _columnResizeStartDate, delta,
+            FolderTableColumnLayout.ColMinName, FolderTableColumnLayout.ColMinDate,
+            FolderTableColumnLayout.ColMaxDate);
+        _colNameWidth = name;
+        _colDateWidth = date;
         StateHasChanged();
     }
 
@@ -346,13 +348,6 @@
 
     private int GetColDateWidth() => _colDateWidth;
 
-    private string? GetColumnResizeActiveClass(FolderTableColumn column) =>
-        _isColumnResizing && _resizeColumn == column ? "folder-col-resize-handle--active" : null;
-
-    private int GetColumnWidth(FolderTableColumn column) => column switch
-    {
-        FolderTableColumn.Name => _colNameWidth,
-        FolderTableColumn.Preview => _colPreviewWidth,
-        _ => _colNameWidth,
-    };
+    private string? GetColumnResizeActiveClass() =>
+        _isColumnResizing ? "folder-col-resize-handle--active" : null;
 }

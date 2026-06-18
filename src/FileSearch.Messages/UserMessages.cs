@@ -268,6 +268,15 @@ public static class UserMessages
 
     /// <summary>フォルダ一覧：子件数</summary>
     public static string FormatChildCount(int count) => $"{count} 件";
+    /// <summary>フォルダ一覧：絞り込み後の件数</summary>
+    public static string FormatFilteredChildCount(int filtered, int total) =>
+        filtered == total ? $"{total} 件" : $"{filtered} / {total} 件";
+    /// <summary>フォルダ一覧：ファイル名絞り込みプレースホルダ</summary>
+    public const string FolderListFileSearchPlaceholder = "ファイル名で絞り込み...";
+    /// <summary>フォルダ一覧：対象ファイルなし</summary>
+    public const string FolderListEmpty = "このフォルダに対象ファイルはありません";
+    /// <summary>フォルダ一覧：絞り込み結果なし</summary>
+    public const string FolderListEmptyFiltered = "条件に一致するファイルはありません";
     /// <summary>ハイライト前へボタン title</summary>
     public const string PreviewGoPrevTitle = "前の一致へ（上）";
     /// <summary>ハイライト次へボタン title</summary>

@@ -201,40 +201,41 @@
                     <div class="settings-section-head">
                         <h3>@UserMessages.SettingsSectionIndex</h3>
                     </div>
-                    <div class="settings-panel">
-                        <div class="settings-form-rows settings-form-rows--index">
-                            <div class="settings-field settings-field--full">
-                                <label>@UserMessages.LabelLastIndexUpdate</label>
-                                <div class="settings-stat @(IsAdmin ? null : "settings-stat--readonly")" aria-readonly="true">@(LastIndexUpdate.HasValue ? LastIndexUpdate.Value.ToString("yyyy/MM/dd HH:mm:ss") : UserMessages.LastIndexNeverRun)</div>
-                            </div>
-                            <div class="settings-field settings-field--full">
-                                <label>@UserMessages.LabelAutoRebuild</label>
-                                <label class="settings-auto-rebuild-toggle">
-                                    <input type="checkbox"
-                                           checked="@IsAutoRebuildEnabled"
-                                           disabled="@(!IsAdmin)"
-                                           @onchange="OnAutoRebuildEnabledChanged" />
-                                    <span>@UserMessages.AutoRebuildEnableLabel</span>
-                                </label>
-                                @if (IsAutoRebuildEnabled)
-                                {
-                                    <p class="settings-hint settings-hint--tight">@UserMessages.AutoRebuildHourGridLabel</p>
-                                    <div class="settings-hour-grid" role="group" aria-label="@UserMessages.AutoRebuildHourGridLabel">
-                                        @for (var hour = 0; hour < 24; hour++)
-                                        {
-                                            var h = hour;
-                                            var selected = State.AutoRebuildDailyHours.Contains(h);
-                                            <button type="button"
-                                                    class="settings-hour-chip @(selected ? "settings-hour-chip--selected" : null)"
-                                                    disabled="@(!IsAdmin)"
-                                                    aria-pressed="@selected"
-                                                    @onclick="() => ToggleHour(h)">@FormatHour(h)</button>
-                                        }
-                                    </div>
-                                }
-                                <p class="settings-hint">@UserMessages.SettingsHintAutoRebuild</p>
-                            </div>
+                    <div class="settings-panel settings-panel--stacked">
+                        <div class="settings-field settings-field--inline">
+                            <label>@UserMessages.LabelLastIndexUpdate</label>
+                            <div class="settings-inline-value @(IsAdmin ? null : "settings-inline-value--readonly")" aria-readonly="true">@(LastIndexUpdate.HasValue ? LastIndexUpdate.Value.ToString("yyyy/MM/dd HH:mm:ss") : UserMessages.LastIndexNeverRun)</div>
                         </div>
+                        <div class="settings-field settings-field--inline">
+                            <span class="settings-inline-label">@UserMessages.AutoRebuildEnableLabel</span>
+                            <label class="settings-toggle" title="@UserMessages.LabelAutoRebuild">
+                                <input type="checkbox"
+                                       checked="@IsAutoRebuildEnabled"
+                                       disabled="@(!IsAdmin)"
+                                       aria-label="@UserMessages.AutoRebuildEnableLabel"
+                                       @onchange="OnAutoRebuildEnabledChanged" />
+                                <span class="settings-toggle__track" aria-hidden="true"></span>
+                            </label>
+                        </div>
+                        @if (IsAutoRebuildEnabled)
+                        {
+                            <div class="settings-hour-section">
+                                <p class="settings-hour-section__label">@UserMessages.AutoRebuildHourGridLabel</p>
+                                <div class="settings-hour-grid" role="group" aria-label="@UserMessages.AutoRebuildHourGridLabel">
+                                    @for (var hour = 0; hour < 24; hour++)
+                                    {
+                                        var h = hour;
+                                        var selected = State.AutoRebuildDailyHours.Contains(h);
+                                        <button type="button"
+                                                class="settings-hour-chip @(selected ? "settings-hour-chip--selected" : null)"
+                                                disabled="@(!IsAdmin)"
+                                                aria-pressed="@selected"
+                                                @onclick="() => ToggleHour(h)">@FormatHour(h)</button>
+                                    }
+                                </div>
+                            </div>
+                        }
+                        <p class="settings-panel-note">@UserMessages.SettingsHintAutoRebuild</p>
                     </div>
                 </div>
             </div>

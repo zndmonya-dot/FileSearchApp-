@@ -195,7 +195,10 @@ public partial class Home
         await SettingsService.SaveAsync();
 
         // 共有設定ファイルへ書き込み（利用者は起動時にここから読む）。
-        if (!AppMode.TrySaveSharedConfig(indexPath, SettingsService.Settings.TargetFolders))
+        if (!AppMode.TrySaveSharedConfig(
+                indexPath,
+                SettingsService.Settings.TargetFolders,
+                SettingsService.Settings.AutoRebuildDailyHours))
         {
             var sharedPath = AppMode.ResolveSharedConfigPath(indexPath);
             _settingsEdit.IndexPathMessage = UserMessages.SharedConfigSaveFailed(sharedPath ?? indexPath);

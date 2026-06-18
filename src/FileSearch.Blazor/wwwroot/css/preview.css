@@ -371,6 +371,50 @@
     min-width: 0;
 }
 
+.folder-browser-search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--color-border-muted);
+    background: var(--color-canvas-default);
+}
+
+.folder-browser-search-icon {
+    width: 14px;
+    height: 14px;
+    color: var(--color-fg-muted);
+    flex-shrink: 0;
+}
+
+.folder-browser-search-input {
+    flex: 1;
+    min-width: 0;
+    height: 28px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--color-fg-default);
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+}
+
+.folder-browser-search-input::placeholder {
+    color: var(--color-fg-muted);
+}
+
+.folder-list-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 120px;
+    padding: 24px 16px;
+    font-size: 13px;
+    color: var(--color-fg-muted);
+    text-align: center;
+}
+
 .folder-breadcrumb {
     display: flex;
     align-items: center;
@@ -636,33 +680,27 @@
     background: var(--color-canvas-subtle);
 }
 
-.folder-row.selected {
-    background: var(--color-accent-subtle);
-}
-
-.app.light .folder-row.selected {
-    background: var(--color-accent-subtle);
-}
-
 .folder-list:focus {
     outline: none;
 }
 
 .folder-row td {
-    padding: 8px 16px;
+    padding: 9px 16px;
     border-bottom: 1px solid var(--color-border-muted);
     color: var(--color-fg-default);
+    vertical-align: middle;
 }
 
 .folder-row td.col-name,
 .folder-row td.col-preview {
     overflow: hidden;
+    max-width: 0;
 }
 
 .col-name-cell {
-    display: inline-flex;
+    display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     max-width: 100%;
     min-width: 0;
 }
@@ -686,16 +724,30 @@
     color: var(--color-icon-folder);
 }
 
-.item-icon.file {
-    color: var(--color-icon-text);
+.item-name-line {
+    display: flex;
+    align-items: baseline;
+    min-width: 0;
+    flex: 1;
+    font-size: 13px;
+    line-height: 1.4;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.item-path-prefix {
+    color: var(--color-fg-muted);
+    font-weight: 400;
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .item-name {
     color: var(--color-accent-fg);
     font-weight: 500;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    flex-shrink: 0;
 }
 
 .item-content-preview {

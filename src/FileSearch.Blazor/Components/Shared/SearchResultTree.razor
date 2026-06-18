@@ -12,12 +12,16 @@
 @code {
     /// <summary>ルートからのツリーノード一覧。</summary>
     [Parameter] public IReadOnlyList<TreeNode> Nodes { get; set; } = Array.Empty<TreeNode>();
+    /// <summary>閲覧モードではフォルダ行クリックで右ペインへ、シェブロンで展開のみ。</summary>
+    [Parameter] public bool IsBrowseMode { get; set; }
     /// <summary>プレビュー中のファイルパス（行の current-preview）。</summary>
     [Parameter] public string? CurrentPreviewFilePath { get; set; }
     /// <summary>右ペインで選択中のフォルダパス（行の current-folder）。</summary>
     [Parameter] public string? CurrentFolderPath { get; set; }
-    /// <summary>フォルダ行クリックで展開トグル。</summary>
+    /// <summary>フォルダ行のシェブロンクリックで展開トグル。</summary>
     [Parameter] public EventCallback<TreeNode> OnToggleNode { get; set; }
+    /// <summary>閲覧モードでフォルダ行クリック時に右ペインへ反映する。</summary>
+    [Parameter] public EventCallback<TreeNode> OnSelectFolder { get; set; }
     /// <summary>ファイル行クリックで選択。</summary>
     [Parameter] public EventCallback<TreeNode> OnSelectFile { get; set; }
     /// <summary>ファイル名からアイコン CSS クラス（word / text 等）。</summary>
@@ -35,8 +39,8 @@
         if (node.IsFolder)
         {
             <div class="tree-node folder @(node.IsExpanded ? "expanded" : "")">
-                <div class="node-row @(IsCurrentFolder(node) ? "current-folder" : "")" style="padding-left: @(8 + indent)px" title="@node.FullPath" @onclick="() => OnToggleNode.InvokeAsync(node)">
-                    <span class="node-chevron">
+                <div class="node-row @(IsCurrentFolder(node) ? "current-folder" : "")" style="padding-left: @(8 + indent)px" title="@node.FullPath" @onclick="() => HandleFolderRowClick(node)">
+                    <span class="node-chevron" @onclick:stopPropagation="true" @onclick="() => OnToggleNode.InvokeAsync(node)">
                         <svg viewBox="0 0 16 16" fill="currentColor"><path d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06Z"/></svg>
                     </span>
                     <span class="node-icon folder">
@@ -73,4 +77,11 @@
             </div>
         }
     };
+
+    private Task HandleFolderRowClick(TreeNode node)
+    {
+        if (IsBrowseMode)
+            return OnSelectFolder.InvokeAsync(node);
+        return OnToggleNode.InvokeAsync(node);
+    }
 }

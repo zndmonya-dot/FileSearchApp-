@@ -34,6 +34,9 @@ public class AppModeService : IAppModeService
     public IReadOnlyList<string> SharedTargetFolders { get; private set; } = Array.Empty<string>();
 
     /// <inheritdoc />
+    public IReadOnlyList<int>? SharedAutoRebuildDailyHours { get; private set; }
+
+    /// <inheritdoc />
     public string? SharedConfigPath { get; private set; }
 
     /// <summary>動作モード設定ファイルのパスを指定して初期化する。</summary>
@@ -82,7 +85,10 @@ public class AppModeService : IAppModeService
     }
 
     /// <inheritdoc />
-    public bool TrySaveSharedConfig(string indexPath, IReadOnlyList<string> targetFolders)
+    public bool TrySaveSharedConfig(
+        string indexPath,
+        IReadOnlyList<string> targetFolders,
+        IReadOnlyList<int> autoRebuildDailyHours)
     {
         var targetPath = ResolveSharedConfigPath(indexPath);
         if (string.IsNullOrWhiteSpace(targetPath))
@@ -94,6 +100,7 @@ public class AppModeService : IAppModeService
             if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
                 Directory.CreateDirectory(directory);
 
+            var normalizedHours = AutoRebuildSchedule.NormalizeDailyHours(autoRebuildDailyHours);
             var payload = new SharedConfigPayload
             {
                 IndexPath = indexPath.Trim(),
@@ -101,13 +108,15 @@ public class AppModeService : IAppModeService
                     .Select(f => f.Trim().TrimEnd('\\', '/'))
                     .Where(f => !string.IsNullOrWhiteSpace(f))
                     .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .ToList()
+                    .ToList(),
+                AutoRebuildDailyHours = normalizedHours
             };
 
             var json = JsonSerializer.Serialize(payload, JsonOptions);
             File.WriteAllText(targetPath, json);
             SharedIndexPath = payload.IndexPath;
             SharedTargetFolders = payload.TargetFolders ?? new List<string>();
+            SharedAutoRebuildDailyHours = normalizedHours;
             return true;
         }
         catch
@@ -127,6 +136,9 @@ public class AppModeService : IAppModeService
     {
         SharedIndexPath = config?.IndexPath;
         SharedTargetFolders = config?.TargetFolders as IReadOnlyList<string> ?? Array.Empty<string>();
+        SharedAutoRebuildDailyHours = config?.AutoRebuildDailyHours != null
+            ? AutoRebuildSchedule.NormalizeDailyHours(config.AutoRebuildDailyHours)
+            : null;
     }
 
     /// <summary>ローカル appmode.json と sharedConfig をマージした有効設定を返す。</summary>
@@ -146,6 +158,8 @@ public class AppModeService : IAppModeService
             local.IndexPath = shared.IndexPath;
         if (shared.TargetFolders is { Count: > 0 })
             local.TargetFolders = shared.TargetFolders;
+        if (shared.AutoRebuildDailyHours != null)
+            local.AutoRebuildDailyHours = AutoRebuildSchedule.NormalizeDailyHours(shared.AutoRebuildDailyHours);
 
         return local;
     }
@@ -171,6 +185,9 @@ public class AppModeService : IAppModeService
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .ToList();
             }
+
+            if (config.AutoRebuildDailyHours != null)
+                config.AutoRebuildDailyHours = AutoRebuildSchedule.NormalizeDailyHours(config.AutoRebuildDailyHours);
 
             return config;
         }
@@ -232,6 +249,7 @@ public class AppModeService : IAppModeService
     {
         public string? IndexPath { get; set; }
         public List<string>? TargetFolders { get; set; }
+        public List<int>? AutoRebuildDailyHours { get; set; }
         public bool ForceNonAdmin { get; set; }
         public string? Mode { get; set; }
 
@@ -244,5 +262,6 @@ public class AppModeService : IAppModeService
     {
         public string? IndexPath { get; set; }
         public List<string>? TargetFolders { get; set; }
+        public List<int>? AutoRebuildDailyHours { get; set; }
     }
 }

@@ -1,11 +1,15 @@
 namespace FullTextSearch.Core.UI;
 
-/// <summary>フォルダ一覧テーブル（名前・内容・更新日時）の列幅計算。</summary>
+/// <summary>フォルダ一覧テーブル（名前・更新日時）の列幅計算。</summary>
 public static class FolderTableColumnLayout
 {
+    /// <summary>ファイル名列の最小幅（px）。</summary>
     public const int ColMinName = 96;
+    /// <summary>内容列の最小幅（px）。旧3列レイアウト互換。</summary>
     public const int ColMinPreview = 80;
+    /// <summary>更新日時列の最小幅（px）。</summary>
     public const int ColMinDate = 112;
+    /// <summary>更新日時列の最大幅（px）。</summary>
     public const int ColMaxDate = 168;
     /// <summary>更新日時列の初期幅（px）。</summary>
     public const int ColDateDefault = 136;
@@ -54,6 +58,33 @@ public static class FolderTableColumnLayout
             preview = maxPair - name;
 
         return (name, preview, date);
+    }
+
+    /// <summary>2列（名前・更新日時）の初回列幅を配分する。</summary>
+    public static (int Name, int Date) CreateInitialTwoColumn(int tableWidth)
+    {
+        if (tableWidth <= 0)
+            return (ColMinName, ColDateDefault);
+
+        var date = ColDateDefault;
+        var name = Math.Max(ColMinName, tableWidth - date);
+        return (name, date);
+    }
+
+    /// <summary>2列をテーブル幅に収める。</summary>
+    public static (int Name, int Date) FitToTableTwoColumn(
+        int tableWidth, int name, int date, bool absorbSlackIntoName)
+    {
+        if (tableWidth <= 0)
+            return (name, date);
+
+        date = Math.Clamp(date, ColMinDate, ColMaxDate);
+        var maxName = Math.Max(ColMinName, tableWidth - date);
+        name = Math.Clamp(name, ColMinName, maxName);
+        if (absorbSlackIntoName && name < maxName)
+            name = maxName;
+
+        return (name, date);
     }
 
     /// <summary>隣接2列の合計幅を保ったまま境界を動かす（エクスプローラー式）。</summary>
