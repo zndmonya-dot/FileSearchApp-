@@ -80,14 +80,6 @@ public static class UserMessages
     /// <summary>検索実行中表示。</summary>
     public const string Searching = "検索中...";
 
-    /// <summary>検索進捗（該当件数の先出し・読み込み件数）。</summary>
-    public static string FormatSearchProgress(int processed, int total)
-    {
-        if (total <= 0) return "";
-        return processed <= 0
-            ? $"（該当 {total:N0} 件）"
-            : $"（{processed:N0}/{total:N0} 件）";
-    }
     /// <summary>キーワード未入力時の空ツリー案内。</summary>
     public const string TreeEmptyKeywordPrompt = "検索キーワードを入力";
     /// <summary>検索済みで 0 件。</summary>
@@ -97,18 +89,12 @@ public static class UserMessages
     /// <summary>検索前のフォルダ体系を一括読み込み中</summary>
     public const string FolderTreeLoading = "フォルダを読み込み中...";
 
-    /// <summary>フォルダツリー読み込み中の件数付きメッセージ（再読み込み時など）</summary>
-    public static string FormatFolderTreeLoadingCount(int count) =>
-        count > 0 ? $"{count:N0} 件を読み込んでいます..." : FolderTreeLoading;
-
     /// <summary>フッター構築キャンセルボタンの title。</summary>
     public const string IndexBuildCancelTitle = "インデックス構築をキャンセル";
     /// <summary>再構築ボタンの title。</summary>
     public const string RebuildButtonTitle = "インデックスを最初から作り直す（全件再スキャン）";
     /// <summary>再構築ボタン非活性時のツールチップ（管理者のみ実行可）。</summary>
     public const string RebuildButtonDisabledTitle = "管理者のみ実行できます";
-    /// <summary>設定セクション見出しの参照専用バッジ（非管理者向け）。</summary>
-    public const string SettingsSectionReadOnlySuffix = "（参照のみ）";
     /// <summary>再構築ボタンラベル。</summary>
     public const string Rebuild = "再構築";
     /// <summary>キャンセル。</summary>
@@ -209,6 +195,12 @@ public static class UserMessages
     public const string SettingsSectionTargetFolders = "検索対象フォルダ";
     /// <summary>検索対象フォルダ説明</summary>
     public const string SettingsDescriptionTargetFolders = "インデックス対象のフォルダを複数指定できます";
+    /// <summary>検索対象フォルダ説明（利用者・個人フィルタ）</summary>
+    public const string SettingsDescriptionTargetFoldersReference = "管理者が登録したフォルダのうち、この PC で検索・閲覧に使うフォルダを選べます（チェックの変更はこの PC にのみ保存されます）";
+    /// <summary>対象フォルダ有効化チェックボックスのラベル</summary>
+    public const string TargetFolderEnableLabel = "このフォルダを検索対象にする";
+    /// <summary>有効な対象フォルダが 0 件（すべてオフ）</summary>
+    public const string NoActiveTargetFolders = "有効な対象フォルダがありません。設定でフォルダを選んでください。";
     /// <summary>検索対象フォルダ未登録時</summary>
     public const string TargetFoldersEmpty = "フォルダが登録されていません";
     /// <summary>検索対象フォルダを追加（フォルダ選択ダイアログ）</summary>
@@ -225,6 +217,8 @@ public static class UserMessages
     public const string SettingsSectionExtensions = "対象拡張子";
     /// <summary>対象拡張子説明</summary>
     public const string SettingsDescriptionExtensions = "抽出器が対応する拡張子から選んで追加。空ならすべての対応拡張子を使用。";
+    /// <summary>選択中の対象拡張子をすべて外す</summary>
+    public const string ExtensionsClearAll = "すべて外す";
     /// <summary>インデックス保存先見出し</summary>
     public const string SettingsSectionIndexPath = "インデックス保存先";
     /// <summary>インデックス保存先説明</summary>

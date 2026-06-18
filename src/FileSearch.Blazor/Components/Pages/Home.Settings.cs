@@ -28,6 +28,7 @@ public partial class Home
     {
         if (isIndexing) return;
         _settingsEdit.TargetFolders = SettingsService.Settings.TargetFolders.ToList();
+        _settingsEdit.DisabledTargetFolders = SettingsService.Settings.DisabledTargetFolders.ToList();
         _settingsEdit.IndexPath = SettingsService.Settings.IndexPath;
         _settingsEdit.TargetExtensions = SettingsService.Settings.TargetExtensions.ToList();
         _settingsEdit.AutoRebuildDailyHours = SettingsService.Settings.AutoRebuildDailyHours.ToList();
@@ -146,12 +147,15 @@ public partial class Home
     {
         if (!isAdmin)
         {
-            // 非管理者はテーマと対象拡張子のみ個人設定として保存（インデックスパス等は触らない）。
+            // 非管理者はテーマ・対象拡張子・対象フォルダの有効/無効のみ個人設定として保存。
             SettingsService.Settings.TargetExtensions = _settingsEdit.TargetExtensions.ToList();
             SettingsService.Settings.ThemeMode = _settingsEdit.ThemeMode ?? "System";
+            SettingsService.Settings.DisabledTargetFolders = _settingsEdit.DisabledTargetFolders.ToList();
             await SettingsService.SaveAsync();
             await ApplyThemeAfterSettingsSaveAsync();
             showSettings = false;
+            await RefreshFolderSkeletonTreeAsync();
+            SyncScopedIndexCount();
             await InvokeAsync(StateHasChanged);
             return;
         }

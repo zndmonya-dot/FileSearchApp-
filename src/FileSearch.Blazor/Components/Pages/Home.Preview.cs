@@ -181,7 +181,7 @@ public partial class Home
     {
         if (selectedFile == null || string.IsNullOrWhiteSpace(selectedFile.FolderPath))
             return Array.Empty<(string, string)>();
-        return TreeBuilder.GetFolderPathSegments(selectedFile.FolderPath, SettingsService.Settings.TargetFolders);
+        return TreeBuilder.GetFolderPathSegments(selectedFile.FolderPath, GetActiveTargetFolders());
     }
 
     /// <summary>プレビュー中のパスクリックでフォルダ一覧へ戻る。</summary>

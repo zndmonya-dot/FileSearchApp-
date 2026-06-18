@@ -7,26 +7,11 @@ namespace FileSearch.Blazor.Components.Pages;
 public partial class Home
 {
     private Timer? _loadingEtaTimer;
-    private DateTime? _folderTreeStartedUtc;
     private DateTime _indexStartedUtc;
     private int _indexEtaProcessed;
     private int _indexEtaTotal;
 
-    private string folderTreeLoadingEtaHint = "";
     private string indexProgressEtaHint = "";
-
-    private void MarkFolderTreeLoadStarted()
-    {
-        _folderTreeStartedUtc = DateTime.UtcNow;
-        EnsureLoadingEtaTimer();
-    }
-
-    private void MarkFolderTreeLoadEnded()
-    {
-        _folderTreeStartedUtc = null;
-        folderTreeLoadingEtaHint = "";
-        TryStopLoadingEtaTimer();
-    }
 
     private void MarkIndexBuildStarted()
     {
@@ -72,7 +57,7 @@ public partial class Home
     }
 
     private bool IsAnyLoadingTracked() =>
-        isSearching || isLoadingFolderTree || isLoadingPreview || isIndexing;
+        isSearching || isLoadingPreview || isIndexing;
 
     private void OnLoadingEtaTick(object? _)
     {
@@ -98,9 +83,6 @@ public partial class Home
 
     private void UpdateLoadingEtaHints()
     {
-        if (isLoadingFolderTree && _folderTreeStartedUtc is { } treeStart)
-            folderTreeLoadingEtaHint = UserMessages.FormatLoadingEtaHint(null, DateTime.UtcNow - treeStart);
-
         if (isIndexing)
         {
             indexProgressEtaHint = UserMessages.FormatLoadingEtaHint(

@@ -73,10 +73,6 @@
             @* M-06 検索実行中（Enter・検索ボタン・AND/OR 切替で共通） *@
             <div class="tree-status tree-status-cute" aria-busy="true" aria-live="polite">
                 <CuteLoader Size="md" AriaLabel="@UserMessages.Searching" />
-                @if (!string.IsNullOrEmpty(SearchProgressHint))
-                {
-                    <span class="loading-eta-hint">@SearchProgressHint</span>
-                }
             </div>
         }
         else if (TreeNodes.Count > 0)
@@ -91,15 +87,7 @@
         }
         else if (IsLoadingFolderTree)
         {
-            <div class="tree-status tree-status-folder-loading" aria-busy="true" aria-live="polite" aria-label="@GetFolderTreeLoadingLabel()">
-                @if (LoadingFolderTreeCount > 0)
-                {
-                    <span class="tree-loading-count">@UserMessages.FormatFolderTreeLoadingCount(LoadingFolderTreeCount)@FolderTreeLoadingEtaHint</span>
-                }
-                else if (!string.IsNullOrEmpty(FolderTreeLoadingEtaHint))
-                {
-                    <span class="tree-loading-count">@UserMessages.FolderTreeLoading@FolderTreeLoadingEtaHint</span>
-                }
+            <div class="tree-status tree-status-folder-loading" aria-busy="true" aria-live="polite" aria-label="@UserMessages.FolderTreeLoading">
                 <TreeSkeleton />
             </div>
         }
@@ -200,8 +188,6 @@
     [Parameter] public IReadOnlyList<TreeNode> TreeNodes { get; set; } = Array.Empty<TreeNode>();
     /// <summary>検索実行中（スピナー表示）。</summary>
     [Parameter] public bool IsSearching { get; set; }
-    /// <summary>検索結果の読み込み進捗（括弧付き）。</summary>
-    [Parameter] public string SearchProgressHint { get; set; } = "";
     /// <summary>検索エラーメッセージ（あればバナー）。</summary>
     [Parameter] public string? SearchErrorMessage { get; set; }
     /// <summary>インデックス構築中（検索無効・進捗表示）。</summary>
@@ -236,14 +222,12 @@
     [Parameter] public bool HasSearchedCurrentQuery { get; set; }
     /// <summary>閲覧モード（検索未実行）か。</summary>
     [Parameter] public bool IsBrowseMode { get; set; } = true;
-    /// <summary>検索対象フォルダが 1 件以上設定されているか。</summary>
+    /// <summary>検索対象フォルダが 1 件以上有効か。</summary>
     [Parameter] public bool HasTargetFolders { get; set; }
+    /// <summary>対象フォルダ未設定時のツリー空メッセージ。</summary>
+    [Parameter] public string NoTargetFoldersMessage { get; set; } = UserMessages.NoTargetFolders;
     /// <summary>検索前フォルダツリーの一括読み込み中。</summary>
     [Parameter] public bool IsLoadingFolderTree { get; set; }
-    /// <summary>フォルダツリー読み込み中に表示する件数（0 のときは件数なし）。</summary>
-    [Parameter] public int LoadingFolderTreeCount { get; set; }
-    /// <summary>フォルダツリー読み込みの残り／経過時間ヒント。</summary>
-    [Parameter] public string FolderTreeLoadingEtaHint { get; set; } = "";
     /// <summary>フォルダ行クリックで展開トグル。</summary>
     [Parameter] public EventCallback<TreeNode> OnToggleNode { get; set; }
     /// <summary>ファイル行クリックで選択。</summary>
@@ -288,7 +272,7 @@
     /// <summary>ツリーが空のときの案内（対象フォルダ未設定／キーワード未入力／0 件）。</summary>
     private string GetEmptyTreeMessage()
     {
-        if (!HasTargetFolders) return UserMessages.NoTargetFolders;
+        if (!HasTargetFolders) return NoTargetFoldersMessage;
         if (IsBrowseMode) return UserMessages.TreeEmptyNoResults;
         if (string.IsNullOrWhiteSpace(SearchQuery)) return UserMessages.TreeEmptyKeywordPrompt;
         return HasSearchedCurrentQuery ? UserMessages.TreeEmptyNoResults : UserMessages.TreeEmptyPressEnterToSearch;
@@ -300,9 +284,4 @@
 
     private string GetIndexProgressTitle() =>
         string.IsNullOrEmpty(IndexProgressDetail) ? IndexProgressText : IndexProgressDetail;
-
-    private string GetFolderTreeLoadingLabel() =>
-        LoadingFolderTreeCount > 0
-            ? UserMessages.FormatFolderTreeLoadingCount(LoadingFolderTreeCount)
-            : UserMessages.FolderTreeLoading;
 }

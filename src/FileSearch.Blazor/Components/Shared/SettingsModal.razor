@@ -1,4 +1,6 @@
 @namespace FileSearch.Blazor.Components.Shared
+@using FullTextSearch.Core
+@using FileSearch.Messages
 @*
   設定モーダル: テーマ・検索対象フォルダ・拡張子・インデックスパス・定期再構築。編集状態は State（SettingsEditState）。
 *@
@@ -33,19 +35,29 @@
                     </div>
                 </div>
 
-                <div class="settings-section @(IsAdmin ? null : "settings-section--locked")">
+                <div class="settings-section">
                     <div class="settings-section-head">
-                        <h3>@UserMessages.SettingsSectionTargetFolders@if (!IsAdmin) { <span class="settings-readonly-badge">@UserMessages.SettingsSectionReadOnlySuffix</span> }</h3>
-                        <p class="settings-desc">@UserMessages.SettingsDescriptionTargetFolders</p>
+                        <h3>@UserMessages.SettingsSectionTargetFolders</h3>
+                        <p class="settings-desc">@(IsAdmin ? UserMessages.SettingsDescriptionTargetFolders : UserMessages.SettingsDescriptionTargetFoldersReference)</p>
                     </div>
-                    <div class="settings-box">
+                    <div class="settings-box @(IsAdmin ? null : "settings-box--readonly")">
                         <div class="settings-box-body">
                             @if (State.TargetFolders.Count > 0 || IsAdmin)
                             {
                                 <ul class="settings-list">
                                     @foreach (var folder in State.TargetFolders)
                                     {
-                                        <li class="settings-list-item">
+                                        var folderEnabled = IsFolderEnabled(folder);
+                                        <li class="settings-list-item @(!IsAdmin && !folderEnabled ? "settings-list-item--off" : null)">
+                                            @if (!IsAdmin)
+                                            {
+                                                <label class="settings-folder-check" title="@UserMessages.TargetFolderEnableLabel">
+                                                    <input type="checkbox"
+                                                           checked="@folderEnabled"
+                                                           aria-label="@UserMessages.TargetFolderEnableLabel"
+                                                           @onchange="e => OnFolderEnabledChanged(folder, e)" />
+                                                </label>
+                                            }
                                             <svg class="settings-list-icon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M1.75 1A1.75 1.75 0 0 0 0 2.75v10.5C0 14.216.784 15 1.75 15h12.5A1.75 1.75 0 0 0 16 13.25v-8.5A1.75 1.75 0 0 0 14.25 3H7.5a.25.25 0 0 1-.2-.1l-.9-1.2C6.07 1.26 5.55 1 5 1H1.75Z"/></svg>
                                             <span class="settings-list-text" title="@folder">@folder</span>
                                             @if (IsAdmin)
@@ -99,11 +111,18 @@
                             }
                             else
                             {
-                                <div class="settings-extension-items">
-                                    @foreach (var ext in GetSelectedExtensions())
-                                    {
-                                        <button type="button" class="settings-extension-option settings-extension-option--selected" @onclick="() => ToggleExtension(ext)">@ext</button>
-                                    }
+                                <div class="settings-extension-selected-row">
+                                    <div class="settings-extension-items">
+                                        @foreach (var ext in GetSelectedExtensions())
+                                        {
+                                            <button type="button" class="settings-extension-option settings-extension-option--selected" @onclick="() => ToggleExtension(ext)">@ext</button>
+                                        }
+                                    </div>
+                                    <button type="button"
+                                            class="settings-subtle-action"
+                                            @onclick="ClearAllExtensions">
+                                        @UserMessages.ExtensionsClearAll
+                                    </button>
                                 </div>
                             }
                         </div>
@@ -123,7 +142,7 @@
 
                 <div class="settings-section @(IsAdmin ? null : "settings-section--locked")">
                     <div class="settings-section-head">
-                        <h3>@UserMessages.SettingsSectionIndexPath@if (!IsAdmin) { <span class="settings-readonly-badge">@UserMessages.SettingsSectionReadOnlySuffix</span> }</h3>
+                        <h3>@UserMessages.SettingsSectionIndexPath</h3>
                         <p class="settings-desc">@UserMessages.SettingsDescriptionIndexPath</p>
                     </div>
                     <div class="settings-box">
@@ -174,7 +193,7 @@
 
                 <div class="settings-section settings-section-last @(IsAdmin ? null : "settings-section--locked")">
                     <div class="settings-section-head">
-                        <h3>@UserMessages.SettingsSectionIndex@if (!IsAdmin) { <span class="settings-readonly-badge">@UserMessages.SettingsSectionReadOnlySuffix</span> }</h3>
+                        <h3>@UserMessages.SettingsSectionIndex</h3>
                         <p class="settings-desc">@UserMessages.SettingsDescriptionIndex</p>
                     </div>
                     <div class="settings-box">
@@ -256,6 +275,8 @@
     private IEnumerable<string> GetUnselectedExtensions() =>
         AvailableExtensions.Where(e => !IsExtensionSelected(e));
 
+    private void ClearAllExtensions() => State.TargetExtensions.Clear();
+
     private bool IsAutoRebuildEnabled => State.AutoRebuildDailyHours.Count > 0;
 
     private void OnAutoRebuildEnabledChanged(ChangeEventArgs e)
@@ -279,4 +300,13 @@
     }
 
     private static string FormatHour(int hour) => $"{hour}時";
+
+    private bool IsFolderEnabled(string folder) =>
+        TargetFolderEnablement.IsEnabled(folder, State.DisabledTargetFolders);
+
+    private void OnFolderEnabledChanged(string folder, ChangeEventArgs e)
+    {
+        var enabled = e.Value is true;
+        TargetFolderEnablement.SetEnabled(State.DisabledTargetFolders, folder, enabled);
+    }
 }

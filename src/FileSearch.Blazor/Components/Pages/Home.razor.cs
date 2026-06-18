@@ -44,13 +44,9 @@ public partial class Home : IDisposable
     private bool isSearching = false;
     /// <summary>検索前フォルダツリーの一括読み込み中</summary>
     private bool isLoadingFolderTree = true;
-    /// <summary>フォルダツリー読み込み中に表示する件数（直前の登録件数など）</summary>
-    private int folderTreeLoadingCount;
     private string? searchErrorMessage = null;
     /// <summary>最後に実際に実行した検索クエリ（入力中は未実行と区別するため）</summary>
     private string? _lastExecutedSearchQuery;
-    private int searchProgressProcessed = 0;
-    private int searchProgressTotal = 0;
 
     // --- プレビュー ---
     private PreviewResult? _previewResult;
@@ -137,9 +133,6 @@ public partial class Home : IDisposable
 
     #endregion
 
-    private string SearchProgressHint =>
-        UserMessages.FormatSearchProgress(searchProgressProcessed, searchProgressTotal);
-
     #region ライフサイクル（初回テーマ・ハイライトスクロール）
 
     /// <summary>ツリー展開の同期、System テーマの初回取得、ファイル切替時のハイライトナビリセットと初回スクロール。</summary>
@@ -225,7 +218,13 @@ public partial class Home : IDisposable
             SettingsService.Settings.IndexPath = AppMode.SharedIndexPath;
         if (AppMode.SharedTargetFolders.Count > 0)
             SettingsService.Settings.TargetFolders = AppMode.SharedTargetFolders.ToList();
+        SettingsService.Settings.PruneDisabledTargetFolders();
     }
+
+    private IReadOnlyList<string> GetActiveTargetFolders() =>
+        SettingsService.Settings.GetActiveTargetFolders();
+
+    private bool HasActiveTargetFolders => GetActiveTargetFolders().Count > 0;
 
     /// <summary>設定のインデックス保存先を開く。失敗してもアプリ全体は落とさない。</summary>
     private async Task InitializeIndexIfConfiguredAsync()

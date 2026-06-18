@@ -32,12 +32,10 @@
                       CurrentFolderPath="@(selectedFolder?.FullPath)"
                       HasSearchedCurrentQuery="@HasSearchedCurrentQuery"
                       IsBrowseMode="@(_lastExecutedSearchQuery == null)"
-                      HasTargetFolders="@(SettingsService.Settings.TargetFolders.Count > 0)"
+                      HasTargetFolders="@HasActiveTargetFolders"
+                      NoTargetFoldersMessage="@(SettingsService.Settings.TargetFolders.Count > 0 ? UserMessages.NoActiveTargetFolders : UserMessages.NoTargetFolders)"
                       IsLoadingFolderTree="isLoadingFolderTree"
-                      LoadingFolderTreeCount="folderTreeLoadingCount"
                       IsSearching="isSearching"
-                      SearchProgressHint="@SearchProgressHint"
-                      FolderTreeLoadingEtaHint="@folderTreeLoadingEtaHint"
                       SearchErrorMessage="@searchErrorMessage"
                       IsIndexing="isIndexing"
                       IndexCount="indexCount"
@@ -94,12 +92,12 @@
                                OnNavigateToFolder="NavigateToFolder"
                                FileContentPreviews="_fileContentPreviews" />
             }
-            else if (SettingsService.Settings.TargetFolders.Count == 0)
+            else if (!HasActiveTargetFolders)
             {
                 @* M-10 対象フォルダ未設定時のみ案内（閲覧時はルート一覧、検索時は結果選択でプレビュー） *@
                 <div class="empty-state empty-state-blankslate">
                     <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M.513 1.513A1.75 1.75 0 0 1 1.75 1h3.5c.55 0 1.07.26 1.4.7l.9 1.2a.25.25 0 0 0 .2.1H13a1 1 0 0 1 1 1v.5H2.75a.75.75 0 0 0 0 1.5h11.978a1 1 0 0 1 .994 1.117L15 13.25A1.75 1.75 0 0 1 13.25 15H1.75A1.75 1.75 0 0 1 0 13.25V2.75c0-.464.184-.91.513-1.237Z"/></svg>
-                    <h3>@UserMessages.NoTargetFolders</h3>
+                    <h3>@(SettingsService.Settings.TargetFolders.Count > 0 ? UserMessages.NoActiveTargetFolders : UserMessages.NoTargetFolders)</h3>
                     <p>@UserMessages.EmptyMainNoFoldersHint</p>
                 </div>
             }

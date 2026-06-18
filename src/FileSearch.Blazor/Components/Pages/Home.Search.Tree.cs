@@ -67,14 +67,13 @@ public partial class Home
         if (_lastExecutedSearchQuery != null)
             return;
 
-        var folders = SettingsService.Settings.TargetFolders;
+        var folders = GetActiveTargetFolders();
         if (folders.Count == 0)
         {
             CancelFolderTreeLoad();
             treeNodes = [];
             totalFileCount = 0;
             indexCount = 0;
-            folderTreeLoadingCount = 0;
             await InvokeAsync(StateHasChanged);
             return;
         }
@@ -83,9 +82,7 @@ public partial class Home
         _folderTreeLoadCts = new CancellationTokenSource();
         var loadToken = _folderTreeLoadCts.Token;
 
-        folderTreeLoadingCount = indexCount;
         isLoadingFolderTree = true;
-        MarkFolderTreeLoadStarted();
         treeNodes = [];
         await InvokeAsync(StateHasChanged);
 
@@ -124,8 +121,6 @@ public partial class Home
 
         treeNodes = built;
         isLoadingFolderTree = false;
-        folderTreeLoadingCount = 0;
-        MarkFolderTreeLoadEnded();
         _lastTreeSyncFilePath = null;
         _lastTreeSyncFolderPath = null;
         TrySelectInitialBrowseFolder(built);
@@ -135,7 +130,7 @@ public partial class Home
     /// <summary>対象フォルダ・拡張子に一致するインデックス件数をフッターへ反映する。</summary>
     private void SyncScopedIndexCount()
     {
-        var folders = SettingsService.Settings.TargetFolders;
+        var folders = GetActiveTargetFolders();
         if (folders.Count == 0 || string.IsNullOrWhiteSpace(SettingsService.Settings.IndexPath) || IndexService.LastInitializeFailed)
         {
             indexCount = 0;
@@ -165,8 +160,6 @@ public partial class Home
         _folderTreeLoadCts?.Dispose();
         _folderTreeLoadCts = null;
         isLoadingFolderTree = false;
-        folderTreeLoadingCount = 0;
-        MarkFolderTreeLoadEnded();
     }
 
     /// <summary>検索欄の双方向バインド用。</summary>
@@ -206,8 +199,6 @@ public partial class Home
         var token = _searchCts.Token;
         searchErrorMessage = null;
         isSearching = true;
-        searchProgressProcessed = 0;
-        searchProgressTotal = 0;
         totalFileCount = 0;
         treeNodes = [];
         selectedFile = null;
@@ -216,22 +207,17 @@ public partial class Home
         StateHasChanged();
         try
         {
-            var progress = new Progress<SearchProgress>(p =>
-            {
-                searchProgressProcessed = p.Processed;
-                searchProgressTotal = p.Total;
-                InvokeAsync(StateHasChanged);
-            });
             var result = await SearchService.SearchAsync(query, new SearchOptions
             {
                 MaxResults = ContentLimits.UnlimitedSearchResults,
                 SearchMode = searchMode,
-            }, progress, token);
+            }, null, token);
             if (token.IsCancellationRequested) return;
             var items = FilterByTargetExtensions(result.Items);
-            treeNodes = TreeBuilder.BuildTree(SettingsService.Settings.TargetFolders, items);
+            items = FilterByActiveTargetFolders(items);
+            treeNodes = TreeBuilder.BuildTree(GetActiveTargetFolders(), items);
             TreeBuilder.MarkFolderTreeLoaded(treeNodes);
-            totalFileCount = items.Count;
+            totalFileCount = TreeBuilder.CollectAllFileNodes(treeNodes).Count;
             _lastTreeSyncFilePath = null;
             _lastTreeSyncFolderPath = null;
         }
@@ -244,8 +230,6 @@ public partial class Home
         finally
         {
             isSearching = false;
-            searchProgressProcessed = 0;
-            searchProgressTotal = 0;
             StateHasChanged();
         }
     }
@@ -261,6 +245,21 @@ public partial class Home
         if (exts == null || exts.Count == 0) return items;
         var allowed = new HashSet<string>(exts, StringComparer.OrdinalIgnoreCase);
         return items.Where(i => allowed.Contains(Path.GetExtension(i.FilePath))).ToList();
+    }
+
+    /// <summary>
+    /// 検索結果を、有効な対象フォルダ（利用者の個人フィルタ）で絞り込む。
+    /// </summary>
+    private List<SearchResultItem> FilterByActiveTargetFolders(List<SearchResultItem> items)
+    {
+        var folders = GetActiveTargetFolders();
+        if (folders.Count == 0)
+            return [];
+
+        var normalized = folders.Select(IndexPaths.NormalizeFolderPath).ToList();
+        return items
+            .Where(i => IndexPaths.IsPathUnderAnyFolder(i.FilePath, normalized))
+            .ToList();
     }
 
     /// <summary>フォルダの展開/折りたたみ。展開時はフォルダビューに切り替え。</summary>
