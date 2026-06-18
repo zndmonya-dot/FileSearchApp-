@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- 文言は UserMessages.AppTitle / PreviewLoading(aria-label) / WebViewLoadError / WebViewReload と揃える -->
+    <!-- 文言は UserMessages（AppTitle / PreviewLoading / BootSplash* / WebView*）と揃える -->
     <title>Panoleon</title>
     <base href="/" />
     <link rel="icon" type="image/png" href="favicon.png" />
@@ -11,29 +11,32 @@
     <style>
         :root,
         html.boot-theme-dark {
-            --boot-bg-0: #010409;
-            --boot-bg-1: #0d1117;
-            --boot-bg-2: #161b22;
-            --boot-fg: #e6edf3;
+            --boot-bg: #0d1117;
+            --boot-surface: #161b22;
+            --boot-fg: #f0f6fc;
             --boot-muted: #8b949e;
+            --boot-border: #30363d;
             --boot-accent: #58a6ff;
-            --boot-accent-soft: #bc8cff;
-            --boot-glow: rgba(88, 166, 255, 0.35);
+            --boot-accent-emphasis: #1f6feb;
+            --boot-success: #3fb950;
+            --boot-track: rgba(110, 118, 129, 0.35);
         }
         html.boot-theme-light {
-            --boot-bg-0: #eff2f5;
-            --boot-bg-1: #ffffff;
-            --boot-bg-2: #f6f8fa;
+            --boot-bg: #ffffff;
+            --boot-surface: #f6f8fa;
             --boot-fg: #1f2328;
             --boot-muted: #656d76;
+            --boot-border: #d0d7de;
             --boot-accent: #0969da;
-            --boot-accent-soft: #8250df;
-            --boot-glow: rgba(9, 105, 218, 0.22);
+            --boot-accent-emphasis: #0969da;
+            --boot-success: #1a7f37;
+            --boot-track: rgba(175, 184, 193, 0.45);
         }
         html, body {
             margin: 0;
             height: 100%;
-            background: var(--boot-bg-1);
+            background: var(--boot-bg);
+            -webkit-font-smoothing: antialiased;
         }
         #blazor-error-ui {
             display: none;
@@ -55,130 +58,144 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            overflow: hidden;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", sans-serif;
-            background:
-                radial-gradient(ellipse 90% 70% at 50% 35%, var(--boot-bg-2) 0%, var(--boot-bg-1) 52%, var(--boot-bg-0) 100%);
-            transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.4s;
-        }
-        #boot-splash::before {
-            content: "";
-            position: absolute;
-            inset: -20%;
-            background:
-                radial-gradient(circle at 30% 25%, var(--boot-glow) 0%, transparent 42%),
-                radial-gradient(circle at 72% 68%, rgba(188, 140, 255, 0.12) 0%, transparent 38%);
-            animation: boot-ambient 8s ease-in-out infinite alternate;
-            pointer-events: none;
+            padding: 40px 24px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+            background: var(--boot-bg);
+            transition: opacity 0.28s ease, visibility 0.28s;
         }
         #boot-splash.boot-splash--hidden {
             opacity: 0;
             visibility: hidden;
             pointer-events: none;
         }
-        .boot-splash__stage {
-            position: relative;
-            z-index: 1;
+        .boot-splash__panel {
+            width: min(320px, calc(100vw - 48px));
+        }
+        .boot-splash__hero {
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 18px;
-            animation: boot-stage-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+            text-align: center;
+            margin-bottom: 32px;
         }
-        .boot-splash__logo-wrap {
-            position: relative;
-            width: 96px;
-            height: 96px;
+        .boot-splash__icon-wrap {
+            width: 72px;
+            height: 72px;
+            margin-bottom: 18px;
             display: flex;
             align-items: center;
             justify-content: center;
-        }
-        .boot-splash__ring {
-            position: absolute;
-            inset: 0;
-            border-radius: 50%;
-            border: 2px solid transparent;
-            border-top-color: var(--boot-accent);
-            border-right-color: color-mix(in srgb, var(--boot-accent) 35%, transparent);
-            animation: boot-ring-spin 1.15s cubic-bezier(0.5, 0, 0.5, 1) infinite;
-        }
-        .boot-splash__ring--outer {
-            inset: -10px;
-            border-width: 1.5px;
-            opacity: 0.45;
-            animation-duration: 1.8s;
-            animation-direction: reverse;
+            border-radius: 18px;
+            background: var(--boot-surface);
+            border: 1px solid var(--boot-border);
         }
         .boot-splash__logo {
-            width: 72px;
-            height: 72px;
+            width: 48px;
+            height: 48px;
             object-fit: contain;
-            filter: drop-shadow(0 10px 28px var(--boot-glow));
-            animation: boot-logo-float 2.8s ease-in-out infinite;
         }
         .boot-splash__title {
             margin: 0;
-            font-size: 15px;
+            font-size: 26px;
             font-weight: 600;
-            letter-spacing: 0.12em;
+            letter-spacing: -0.03em;
             color: var(--boot-fg);
+            line-height: 1.15;
         }
-        .boot-splash__bar {
-            width: min(168px, 52vw);
-            height: 3px;
+        .boot-splash__tagline-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .boot-splash__tagline {
+            margin: 0;
+            font-size: 13px;
+            color: var(--boot-muted);
+            line-height: 1.4;
+        }
+        .boot-splash__version {
+            display: inline-block;
+            padding: 2px 8px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            color: var(--boot-muted);
+            border: 1px solid var(--boot-border);
             border-radius: 999px;
-            background: color-mix(in srgb, var(--boot-muted) 22%, transparent);
+            background: var(--boot-surface);
+        }
+        .boot-splash__progress-block {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .boot-splash__progress-meta {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 12px;
+            min-height: 18px;
+        }
+        .boot-splash__status {
+            margin: 0;
+            flex: 1;
+            min-width: 0;
+            font-size: 12px;
+            line-height: 1.4;
+            color: var(--boot-muted);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            transition: opacity 0.15s ease, color 0.2s ease;
+        }
+        .boot-splash__status.is-changing {
+            opacity: 0.45;
+        }
+        #boot-splash.boot-splash--complete .boot-splash__status {
+            color: var(--boot-success);
+        }
+        .boot-splash__percent {
+            flex-shrink: 0;
+            font-size: 12px;
+            font-variant-numeric: tabular-nums;
+            font-weight: 600;
+            color: var(--boot-fg);
+            transition: color 0.2s ease;
+        }
+        #boot-splash.boot-splash--complete .boot-splash__percent {
+            color: var(--boot-success);
+        }
+        .boot-splash__progress-track {
+            height: 5px;
+            border-radius: 999px;
+            background: var(--boot-track);
             overflow: hidden;
         }
-        .boot-splash__bar-fill {
+        .boot-splash__progress-bar {
             height: 100%;
-            width: 42%;
+            width: 0%;
             border-radius: inherit;
-            background: linear-gradient(
-                90deg,
-                transparent 0%,
-                var(--boot-accent) 45%,
-                color-mix(in srgb, var(--boot-accent) 70%, var(--boot-accent-soft)) 55%,
-                transparent 100%
-            );
-            animation: boot-bar-slide 1.35s ease-in-out infinite;
+            background: linear-gradient(90deg, var(--boot-accent-emphasis), var(--boot-accent), #bc8cff);
+            transition: width 0.28s cubic-bezier(0.34, 1.12, 0.64, 1);
         }
-        @keyframes boot-stage-in {
-            from { opacity: 0; transform: translateY(10px) scale(0.97); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
+        #boot-splash.boot-splash--complete .boot-splash__progress-bar {
+            background: linear-gradient(90deg, var(--boot-accent-emphasis), var(--boot-success));
         }
-        @keyframes boot-logo-float {
-            0%, 100% { transform: translateY(0) scale(1); }
-            50% { transform: translateY(-5px) scale(1.03); }
+        html.boot-theme-dark .boot-splash__progress-bar {
+            box-shadow: 0 0 12px rgba(88, 166, 255, 0.28);
         }
-        @keyframes boot-ring-spin {
-            to { transform: rotate(360deg); }
+        html.boot-theme-light .boot-splash__progress-bar {
+            box-shadow: none;
         }
-        @keyframes boot-bar-slide {
-            0% { transform: translateX(-120%); }
-            100% { transform: translateX(320%); }
-        }
-        @keyframes boot-ambient {
-            from { transform: translate(0, 0) scale(1); }
-            to { transform: translate(2%, -1.5%) scale(1.04); }
+        #boot-splash.boot-splash--complete .boot-splash__progress-bar {
+            box-shadow: 0 0 10px rgba(63, 185, 80, 0.25);
         }
         @media (prefers-reduced-motion: reduce) {
-            #boot-splash::before,
-            .boot-splash__stage,
-            .boot-splash__logo,
-            .boot-splash__ring,
-            .boot-splash__bar-fill {
-                animation: none;
-            }
-            .boot-splash__ring {
-                border-top-color: color-mix(in srgb, var(--boot-accent) 55%, transparent);
-                border-right-color: transparent;
-            }
-            .boot-splash__bar-fill {
-                width: 55%;
-                margin: 0 auto;
-                opacity: 0.7;
-            }
+            .boot-splash__progress-bar { transition: width 0.15s linear; box-shadow: none !important; }
+            .boot-splash__status { transition: none; }
             #boot-splash { transition: none; }
         }
     </style>
@@ -207,16 +224,26 @@
     </script>
 </head>
 <body>
-    <div id="boot-splash" role="status" aria-label="読み込み中..."><!-- UserMessages.PreviewLoading -->
-        <div class="boot-splash__stage">
-            <div class="boot-splash__logo-wrap">
-                <div class="boot-splash__ring boot-splash__ring--outer" aria-hidden="true"></div>
-                <div class="boot-splash__ring" aria-hidden="true"></div>
-                <img class="boot-splash__logo" src="favicon.png" alt="" width="72" height="72" decoding="async" />
+    <div id="boot-splash" role="status" aria-label="読み込み中..." aria-live="polite"><!-- UserMessages.PreviewLoading -->
+        <div class="boot-splash__panel">
+            <div class="boot-splash__hero">
+                <div class="boot-splash__icon-wrap">
+                    <img class="boot-splash__logo" src="images/app-icon.png" alt="" width="48" height="48" decoding="async" />
+                </div>
+                <h1 class="boot-splash__title">Panoleon</h1><!-- UserMessages.AppTitle -->
+                <div class="boot-splash__tagline-row">
+                    <p class="boot-splash__tagline">全文検索</p><!-- UserMessages.BootSplashTagline -->
+                    <span class="boot-splash__version">v2.0</span><!-- UserMessages.BootSplashVersion -->
+                </div>
             </div>
-            <p class="boot-splash__title" aria-hidden="true">Panoleon</p><!-- UserMessages.AppTitle -->
-            <div class="boot-splash__bar" aria-hidden="true">
-                <div class="boot-splash__bar-fill"></div>
+            <div class="boot-splash__progress-block">
+                <div class="boot-splash__progress-meta">
+                    <p id="boot-splash-status" class="boot-splash__status">起動しています...</p><!-- UserMessages.BootSplashStarting -->
+                    <span id="boot-splash-percent" class="boot-splash__percent" aria-hidden="true">0%</span>
+                </div>
+                <div id="boot-splash-track" class="boot-splash__progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="読み込み進捗">
+                    <div id="boot-splash-bar" class="boot-splash__progress-bar"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -231,7 +258,75 @@
     <script src="_framework/blazor.webview.js"></script>
     <script>
         window._bootSplashStart = Date.now();
-        window._bootSplashMinMs = 3000;
+        window._bootSplashMinMs = 2600;
+        window._bootSplash = {
+            display: 0,
+            target: 6,
+            hiding: false,
+            tickId: null,
+            statusTimer: null
+        };
+
+        function bootSplashRender() {
+            var state = window._bootSplash;
+            var bar = document.getElementById('boot-splash-bar');
+            var pct = document.getElementById('boot-splash-percent');
+            var track = document.getElementById('boot-splash-track');
+            var shown = Math.round(state.display);
+            if (bar) bar.style.width = shown + '%';
+            if (pct) pct.textContent = shown + '%';
+            if (track) track.setAttribute('aria-valuenow', String(shown));
+        }
+
+        function bootSplashSetStatus(text) {
+            var status = document.getElementById('boot-splash-status');
+            if (!status || !text || status.textContent === text) return;
+            var state = window._bootSplash;
+            if (state.statusTimer) window.clearTimeout(state.statusTimer);
+            status.classList.add('is-changing');
+            state.statusTimer = window.setTimeout(function () {
+                status.textContent = text;
+                status.classList.remove('is-changing');
+                state.statusTimer = null;
+            }, 100);
+        }
+
+        function bootSplashTick() {
+            var state = window._bootSplash;
+            if (state.display < state.target) {
+                var gap = state.target - state.display;
+                var step = Math.max(0.25, gap * (state.hiding ? 0.18 : 0.1));
+                state.display = Math.min(state.target, state.display + step);
+                bootSplashRender();
+            }
+            if (state.hiding && state.display >= 99.5 && state.target >= 100) {
+                window.clearInterval(state.tickId);
+                state.tickId = null;
+                bootSplashFinishHide();
+                return;
+            }
+            if (state.display < state.target || (state.hiding && state.display < 100)) {
+                return;
+            }
+            if (!state.hiding && state.target < 86) {
+                state.target = Math.min(86, state.target + 0.06);
+            }
+        }
+
+        window.setBootSplashProgress = function (percent, statusText) {
+            var state = window._bootSplash;
+            var next = Math.max(0, Math.min(100, Number(percent) || 0));
+            state.target = Math.max(state.target, next);
+            if (statusText) bootSplashSetStatus(statusText);
+            if (next >= 95) {
+                var splash = document.getElementById('boot-splash');
+                if (splash) splash.classList.add('boot-splash--complete');
+            }
+            if (!state.tickId) {
+                state.tickId = window.setInterval(bootSplashTick, 32);
+            }
+            bootSplashTick();
+        };
 
         window.setBootSplashTheme = function (theme) {
             var resolved = theme === 'light' ? 'light' : 'dark';
@@ -241,20 +336,35 @@
             root.classList.add(resolved === 'light' ? 'boot-theme-light' : 'boot-theme-dark');
         };
 
+        function bootSplashFinishHide() {
+            var el = document.getElementById('boot-splash');
+            if (!el || el.classList.contains('boot-splash--hidden')) return;
+            el.classList.add('boot-splash--hidden');
+            window.setTimeout(function () {
+                if (el.parentNode) el.parentNode.removeChild(el);
+            }, 340);
+        }
+
         window.hideBootSplash = function () {
             var el = document.getElementById('boot-splash');
             if (!el || el.classList.contains('boot-splash--hidden')) return;
+            var state = window._bootSplash;
+            state.hiding = true;
+            state.target = 100;
+            window.setBootSplashProgress(100, '準備完了'); // UserMessages.BootSplashReady
             var elapsed = Date.now() - (window._bootSplashStart || Date.now());
-            var remaining = Math.max(0, (window._bootSplashMinMs || 3000) - elapsed);
-            var hide = function () {
-                el.classList.add('boot-splash--hidden');
-                window.setTimeout(function () {
-                    if (el.parentNode) el.parentNode.removeChild(el);
-                }, 420);
+            var remaining = Math.max(0, (window._bootSplashMinMs || 2800) - elapsed);
+            var tryHide = function () {
+                if (state.display >= 99.5) {
+                    bootSplashFinishHide();
+                } else {
+                    window.setTimeout(tryHide, 50);
+                }
             };
-            if (remaining > 0) window.setTimeout(hide, remaining);
-            else hide();
+            window.setTimeout(tryHide, remaining);
         };
+
+        window.setBootSplashProgress(8, '起動しています...'); // UserMessages.BootSplashStarting
 
         // プレビュー本文のみ拡大縮小（Ctrl + ホイール）。WebView2 既定の全体ズームは抑止。
         (function() {

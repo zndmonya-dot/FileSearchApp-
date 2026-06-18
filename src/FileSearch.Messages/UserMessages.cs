@@ -13,6 +13,20 @@ public static class UserMessages
 {
     /// <summary>アプリ名（Panoptic + Chameleon）。ウィンドウタイトル・パッケージ表示等。</summary>
     public const string AppTitle = "Panoleon";
+    /// <summary>起動スプラッシュ副題（<c>wwwroot/index.html</c> と手動同期）</summary>
+    public const string BootSplashTagline = "全文検索";
+    /// <summary>起動スプラッシュ版表示（<c>wwwroot/index.html</c> と手動同期）</summary>
+    public const string BootSplashVersion = "v2.0";
+    /// <summary>起動スプラッシュ：初期表示</summary>
+    public const string BootSplashStarting = "起動しています...";
+    /// <summary>起動スプラッシュ：設定読み込み</summary>
+    public const string BootSplashLoadingSettings = "設定を読み込んでいます...";
+    /// <summary>起動スプラッシュ：インデックスオープン</summary>
+    public const string BootSplashOpeningIndex = "インデックスを開いています...";
+    /// <summary>起動スプラッシュ：フォルダ一覧準備</summary>
+    public const string BootSplashPreparingFolders = "フォルダ一覧を準備しています...";
+    /// <summary>起動スプラッシュ：完了</summary>
+    public const string BootSplashReady = "準備完了";
 
     /// <summary>検索 API 失敗時（E-01）。</summary>
     public const string SearchFailed = "検索に失敗しました。";

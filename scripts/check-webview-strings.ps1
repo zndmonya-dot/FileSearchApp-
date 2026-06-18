@@ -19,6 +19,10 @@ $ok = $true
 $checks = @(
     @{ Name = "AppTitle";       Test = { $htmlText -match [regex]::Escape("<title>$(Get-UserMessage 'AppTitle')</title>") }; Label = "<title> matches AppTitle" },
     @{ Name = "PreviewLoading"; Test = { $htmlText -match ('aria-label="' + [regex]::Escape((Get-UserMessage 'PreviewLoading')) + '"') }; Label = "boot loader aria-label matches PreviewLoading" },
+    @{ Name = "BootSplashTagline"; Test = { $htmlText -match [regex]::Escape((Get-UserMessage 'BootSplashTagline')) }; Label = "contains BootSplashTagline" },
+    @{ Name = "BootSplashVersion"; Test = { $htmlText -match [regex]::Escape((Get-UserMessage 'BootSplashVersion')) }; Label = "contains BootSplashVersion" },
+    @{ Name = "BootSplashStarting"; Test = { $htmlText -match [regex]::Escape((Get-UserMessage 'BootSplashStarting')) }; Label = "contains BootSplashStarting" },
+    @{ Name = "BootSplashReady"; Test = { $htmlText -match [regex]::Escape((Get-UserMessage 'BootSplashReady')) }; Label = "contains BootSplashReady" },
     @{ Name = "WebViewLoadError"; Test = { $htmlText -match [regex]::Escape((Get-UserMessage 'WebViewLoadError')) }; Label = "contains WebViewLoadError text" },
     @{ Name = "WebViewReload";  Test = { $htmlText -match [regex]::Escape((Get-UserMessage 'WebViewReload')) }; Label = "contains WebViewReload text" }
 )

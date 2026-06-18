@@ -186,6 +186,7 @@ public partial class Home : IDisposable
     /// <summary>設定読み込み・インデックス初期化・フォルダツリー構築（初回レンダー後）。</summary>
     private async Task RunAppStartupAsync()
     {
+        await SetBootSplashProgressAsync(12, UserMessages.BootSplashLoadingSettings);
         await SettingsService.LoadAsync();
 
         AppMode.Initialize();
@@ -194,9 +195,18 @@ public partial class Home : IDisposable
         ApplyThemeFromSettings();
         await ApplyBootSplashThemeAsync();
 
+        await SetBootSplashProgressAsync(45, UserMessages.BootSplashOpeningIndex);
         await InitializeIndexIfConfiguredAsync();
+        await SetBootSplashProgressAsync(78, UserMessages.BootSplashPreparingFolders);
         await RefreshFolderSkeletonTreeAsync();
+        await SetBootSplashProgressAsync(95, UserMessages.BootSplashReady);
         _autoRebuildTimer = new Timer(OnAutoRebuildTick, null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
+    }
+
+    private async Task SetBootSplashProgressAsync(int percent, string status)
+    {
+        try { await JSRuntime.InvokeVoidAsync("setBootSplashProgress", percent, status); }
+        catch { /* WebView 未準備 */ }
     }
 
     /// <summary>
