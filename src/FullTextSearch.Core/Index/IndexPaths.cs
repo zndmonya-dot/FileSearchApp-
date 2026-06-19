@@ -49,8 +49,12 @@ public static class IndexPaths
         return false;
     }
 
+    /// <summary>任意のパスがフォルダルート配下（または同一）か。正規化して比較する。</summary>
+    public static bool IsPathUnderFolderRoot(string path, string folderRoot) =>
+        IsPathUnderFolder(NormalizeFilePath(path), NormalizeFolderPath(folderRoot));
+
     /// <summary>正規化済みファイルパスが、正規化済みフォルダルート配下か。</summary>
-    internal static bool IsPathUnderFolder(string normalizedFilePath, string normalizedFolderRoot)
+    public static bool IsPathUnderFolder(string normalizedFilePath, string normalizedFolderRoot)
     {
         if (string.IsNullOrWhiteSpace(normalizedFolderRoot))
             return false;

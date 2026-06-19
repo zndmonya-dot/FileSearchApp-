@@ -248,7 +248,7 @@ public class LuceneIndexService : IIndexService, IDisposable
                     {
                         try
                         {
-                            _writer!.UpdateDocument(new Term(FieldFilePath, result.Document.FilePath), CreateLuceneDocument(result.Document));
+                            _writer!.UpdateDocument(new Term(FieldFilePath, result.Document.FilePath), LuceneDocumentBuilder.Create(result.Document));
                         }
                         catch (OperationCanceledException) { throw; }
                         catch
@@ -811,28 +811,6 @@ public class LuceneIndexService : IIndexService, IDisposable
         dirName.Equals(".vs", StringComparison.OrdinalIgnoreCase) ||
         dirName.Equals("__pycache__", StringComparison.OrdinalIgnoreCase) ||
         dirName.Equals(".venv", StringComparison.OrdinalIgnoreCase);
-
-    /// <summary><see cref="IndexedDocument"/> を Lucene の <see cref="Document"/> に変換する。</summary>
-    private static Document CreateLuceneDocument(IndexedDocument doc)
-    {
-        var content = doc.Content;
-        var contentPreview = ContentPreviewHelper.ExtractFirstLine(content);
-
-        return new Document
-        {
-            new StringField(FieldFilePath, doc.FilePath, Field.Store.YES),
-            new TextField(FieldFileName, doc.FileName, Field.Store.YES),
-            new StringField(FieldFileNameLc, doc.FileName.ToLowerInvariant(), Field.Store.NO),
-            new StringField(FieldFolderPath, doc.FolderPath, Field.Store.YES),
-            new TextField(FieldContent, content, Field.Store.YES),
-            new StringField(FieldContentPreview, contentPreview, Field.Store.YES),
-            // 完全一致検索の候補絞り込み用バイグラム（事前生成したトークン列をそのまま索引、本文の Sudachi 解析とは独立）
-            new TextField(FieldContentNGram, new ListTokenStream(ContentNGram.BuildIndexTokens(content, doc.FileName))),
-            new Int64Field(FieldFileSize, doc.FileSize, Field.Store.YES),
-            new Int64Field(FieldLastModified, doc.LastModified.Ticks, Field.Store.YES),
-            new Int32Field(FieldIndexVersion, CurrentIndexVersion, Field.Store.YES)
-        };
-    }
 
     /// <summary>スキップ一覧をインデックスフォルダ直下のログファイルに書き出す。</summary>
     private void WriteSkippedLog()

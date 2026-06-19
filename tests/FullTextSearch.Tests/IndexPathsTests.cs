@@ -46,4 +46,12 @@ public class IndexPathsTests
         Assert.True(IndexPaths.IsPathUnderFolder(@"C:\data\a.txt", root));
         Assert.False(IndexPaths.IsPathUnderFolder(@"C:\datafile.txt", root));
     }
+
+    [Fact]
+    public void IsPathUnderFolderRoot_normalizes_before_compare()
+    {
+        var root = @"C:\data";
+        Assert.True(IndexPaths.IsPathUnderFolderRoot(@"C:\data\sub\file.txt", root));
+        Assert.False(IndexPaths.IsPathUnderFolderRoot(@"C:\other\file.txt", root));
+    }
 }

@@ -13,6 +13,15 @@ namespace FileSearch.Blazor.Components.Pages;
 
 public partial class Home
 {
+    /// <summary>プレビュー表示を解除し、進行中の読み込みをキャンセルする。</summary>
+    private void ClearPreviewSelection()
+    {
+        _previewCts?.Cancel();
+        selectedFile = null;
+        _previewResult = null;
+        isLoadingPreview = false;
+    }
+
     /// <summary>ファイル切替時にプレビュー読み込みを遅延実行（連続クリック対策）。</summary>
     private void SchedulePreviewLoad(string path)
     {
@@ -48,21 +57,11 @@ public partial class Home
         }
         catch (OperationCanceledException)
         {
-            _previewResult = new PreviewResult
-            {
-                Content = UserMessages.PreviewLoadCancelled,
-                LineStartOffsets = [0],
-                IsError = true
-            };
+            _previewResult = PreviewResult.Error(UserMessages.PreviewLoadCancelled);
         }
         catch (Exception ex)
         {
-            _previewResult = new PreviewResult
-            {
-                Content = UserMessages.PreviewErrorLine(ex.Message),
-                LineStartOffsets = [0],
-                IsError = true
-            };
+            _previewResult = PreviewResult.Error(UserMessages.PreviewErrorLine(ex.Message));
         }
 
         if (token.IsCancellationRequested)
@@ -200,8 +199,7 @@ public partial class Home
         folderNode.IsExpanded = true;
         TreeBuilder.ExpandPathToFolder(treeNodes, normalized);
 
-        selectedFile = null;
-        _previewCts?.Cancel();
+        ClearPreviewSelection();
         selectedFolder = folderNode;
 
         var list = GetSortedAndFilteredItems(GetFilesUnderSelectedFolder(folderNode)).ToList();

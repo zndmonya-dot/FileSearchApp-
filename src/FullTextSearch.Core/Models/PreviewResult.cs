@@ -24,5 +24,13 @@ public class PreviewResult
 
     /// <summary>ハイライト用検索語（NFC 正規化済み）。</summary>
     public string[] SearchTerms { get; init; } = [];
+
+    /// <summary>エラー・キャンセル等の単行メッセージ。</summary>
+    public static PreviewResult Error(string content) => new()
+    {
+        Content = content,
+        LineStartOffsets = [0],
+        IsError = true
+    };
 }
 

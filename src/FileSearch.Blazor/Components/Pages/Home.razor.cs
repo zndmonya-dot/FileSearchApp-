@@ -2,10 +2,14 @@
 //
 // 【partial の役割（このフォルダ内）】
 //   Home.razor.cs     … 状態フィールド・Dispose・テーマ・ライフサイクル（分割の起点）
-//   Home.Search.Tree  … 検索実行・ツリー・フォルダ一覧のソート/フィルター/選択
+//   Home.Search       … 検索実行・結果フィルタ・閲覧モード復帰
+//   Home.Browse       … 閲覧ツリー読み込み・フォルダ解決
+//   Home.Tree         … ツリー操作・ファイル選択
+//   Home.FolderList   … 右ペイン一覧のソート/フィルター/行選択
 //   Home.Preview      … プレビュー・ハイライト移動・ファイル/フォルダを開く
 //   Home.Index        … インデックス差分/再構築・進捗・スキップログ・更新ダイアログ
 //   Home.Settings     … 設定モーダル・フォルダ/拡張子・保存
+//   Home.LoadingEta   … インデックス構築の ETA 表示
 //
 // 【文言】画面の日本語は FileSearch.Messages.UserMessages。変更時は docs/メッセージ一覧.md の ID を更新。
 // 【設計メモ】docs/静的定義一覧.md・docs/外部設計.md
@@ -86,7 +90,6 @@ public partial class Home : IDisposable
     private string? _pendingPreviewPath;
     private Timer? _autoRebuildTimer;
     private const int PreviewDebounceMs = 200;
-    private const int ProgressReportInterval = 500;
     private const int ProgressReportThrottleMs = 250;
     private int _lastReportedProgressCount = -1;
     private DateTime _lastReportedProgressTime;
@@ -294,14 +297,8 @@ public partial class Home : IDisposable
     /// <summary>ThemeMode に応じて isDarkMode を設定。System のときは OnAfterRender で JS から上書きしうる。</summary>
     private void ApplyThemeFromSettings()
     {
-        var mode = SettingsService.Settings.ThemeMode ?? "System";
-        if (string.Equals(mode, "Dark", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(mode, "Chameleon", StringComparison.OrdinalIgnoreCase))
-            isDarkMode = true;
-        else if (string.Equals(mode, "Light", StringComparison.OrdinalIgnoreCase))
-            isDarkMode = false;
-        else
-            isDarkMode = true; // System: 初期値はダーク。OnAfterRenderAsync で JS から取得して更新
+        // System 初期値: JS 取得前はダーク（systemPrefersLight=false）
+        isDarkMode = BootThemeResolver.IsDarkTheme(SettingsService.Settings.ThemeMode, systemPrefersLight: false);
     }
 
     /// <summary>起動画面の配色をアプリ設定に合わせ、次回起動用に localStorage へ保存する。</summary>

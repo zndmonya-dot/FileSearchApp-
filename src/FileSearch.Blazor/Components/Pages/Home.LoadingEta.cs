@@ -56,8 +56,7 @@ public partial class Home
         _loadingEtaTimer = null;
     }
 
-    private bool IsAnyLoadingTracked() =>
-        isSearching || isLoadingPreview || isIndexing;
+    private bool IsAnyLoadingTracked() => isIndexing;
 
     private void OnLoadingEtaTick(object? _)
     {
