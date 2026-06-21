@@ -1,4 +1,4 @@
-// 読み込み・検索・構築中の残り時間／経過時間表示。
+// インデックス構築中の残り時間（予測）表示。
 using FileSearch.Messages;
 using FullTextSearch.Core.UI;
 
@@ -35,8 +35,7 @@ public partial class Home
         _indexEtaProcessed = processed;
         _indexEtaTotal = total;
         indexProgressEtaHint = UserMessages.FormatLoadingEtaHint(
-            LoadingEta.TryEstimateRemaining(_indexStartedUtc, processed, total),
-            DateTime.UtcNow - _indexStartedUtc);
+            LoadingEta.TryEstimateRemaining(_indexStartedUtc, processed, total));
     }
 
     private void EnsureLoadingEtaTimer()
@@ -85,8 +84,7 @@ public partial class Home
         if (isIndexing)
         {
             indexProgressEtaHint = UserMessages.FormatLoadingEtaHint(
-                LoadingEta.TryEstimateRemaining(_indexStartedUtc, _indexEtaProcessed, _indexEtaTotal),
-                DateTime.UtcNow - _indexStartedUtc);
+                LoadingEta.TryEstimateRemaining(_indexStartedUtc, _indexEtaProcessed, _indexEtaTotal));
         }
     }
 

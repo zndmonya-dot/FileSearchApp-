@@ -1,5 +1,10 @@
 // 起動スプラッシュ・初期テーマ（index.html 専用）
 (function () {
+    var ver = window.__PANOLEON_BOOT_VERSION;
+    if (ver) {
+        var verEl = document.querySelector('.boot-splash__version');
+        if (verEl) verEl.textContent = ver;
+    }
     var theme = 'dark';
     try {
         var injected = window.__PANOLEON_BOOT_THEME;

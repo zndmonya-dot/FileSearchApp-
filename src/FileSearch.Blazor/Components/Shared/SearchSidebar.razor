@@ -4,6 +4,7 @@
   親は Home。文言は UserMessages。
 *@
 @using FileSearch.Blazor.Components.Shared
+@using FullTextSearch.Core
 @using FullTextSearch.Core.Search
 @using Microsoft.AspNetCore.Components.Web
 @using Microsoft.AspNetCore.Components
@@ -195,17 +196,17 @@
     [Parameter] public bool IsIndexing { get; set; }
     /// <summary>インデックス進捗 0〜100。</summary>
     [Parameter] public int IndexProgressPercent { get; set; }
-    /// <summary>進捗の補足テキスト（処理済み/総数・スキップ件数）。</summary>
+    /// <summary>進捗の補足テキスト（処理済み/総数）。</summary>
     [Parameter] public string IndexProgressText { get; set; } = "";
     /// <summary>現在処理中ファイルのフルパス（ツールチップ用）。</summary>
     [Parameter] public string IndexProgressDetail { get; set; } = "";
-    /// <summary>インデックス構築の残り／経過時間ヒント。</summary>
+    /// <summary>インデックス構築の残り時間ヒント（例: （あと約5分））。</summary>
     [Parameter] public string IndexProgressEtaHint { get; set; } = "";
     /// <summary>登録ドキュメント件数。</summary>
     [Parameter] public int IndexCount { get; set; }
     /// <summary>インデックス系エラー（あればフッター赤字）。</summary>
     [Parameter] public string? IndexErrorMessage { get; set; }
-    /// <summary>スキップされたファイル件数。</summary>
+    /// <summary>スキップされたファイル件数（完了後フッター表示）。</summary>
     [Parameter] public int IndexSkipCount { get; set; }
     /// <summary>スキップログを開く。</summary>
     [Parameter] public EventCallback OnOpenSkippedLog { get; set; }

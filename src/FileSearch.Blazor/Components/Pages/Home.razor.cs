@@ -9,7 +9,7 @@
 //   Home.Preview      … プレビュー・ハイライト移動・ファイル/フォルダを開く
 //   Home.Index        … インデックス差分/再構築・進捗・スキップログ・更新ダイアログ
 //   Home.Settings     … 設定モーダル・フォルダ/拡張子・保存
-//   Home.LoadingEta   … インデックス構築の ETA 表示
+//   Home.LoadingEta   … インデックス構築の残り時間（予測）表示
 //
 // 【文言】画面の日本語は FileSearch.Messages.UserMessages。変更時は docs/メッセージ一覧.md の ID を更新。
 // 【設計メモ】docs/静的定義一覧.md・docs/外部設計.md

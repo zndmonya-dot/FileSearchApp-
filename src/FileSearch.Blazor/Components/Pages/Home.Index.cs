@@ -75,9 +75,8 @@ public partial class Home
             }
             else
             {
-                var baseText = UserMessages.FormatIndexProgressCounts(
-                    p.ProcessedFiles, p.TotalFiles, countUnit, p.ErrorCount);
-                indexProgressText = baseText;
+                indexProgressText = UserMessages.FormatIndexProgressCounts(
+                    p.ProcessedFiles, p.TotalFiles, countUnit);
                 indexProgressDetail = p.CurrentFile ?? "";
             }
             var shouldUpdate = p.NoChanges
@@ -93,7 +92,7 @@ public partial class Home
         });
     }
 
-    /// <summary>差分更新・再構築の共通ラッパー。キャンセル・完了時の件数・スキップ数の反映を含む。</summary>
+    /// <summary>差分更新・再構築の共通ラッパー。キャンセル・完了時の件数反映を含む。</summary>
     private async Task RunIndexUpdateAsync(
         string initialMessage,
         string countUnit,
@@ -134,10 +133,7 @@ public partial class Home
             await SettingsService.SaveAsync();
             indexErrorMessage = null;
             var skipped = IndexService.LastSkippedFiles;
-            if (skipped.Count > 0)
-                indexSkipCount = skipped.Count;
-            else
-                indexSkipCount = 0;
+            indexSkipCount = skipped.Count > 0 ? skipped.Count : 0;
 
             if (_lastExecutedSearchQuery == null)
                 await RefreshFolderSkeletonTreeAsync();
@@ -200,7 +196,6 @@ public partial class Home
     /// <summary>フッター「再構築」から。確認ダイアログを開く（実処理は ConfirmIndexUpdateAsync）。</summary>
     private void RequestRebuildIndex()
     {
-        // 非管理者は参照専用のため再構築不可（UI ボタンも非活性だが二重ガード）。
         if (!isAdmin) return;
         if (isIndexing) return;
         if (SettingsService.Settings.TargetFolders.Count == 0)

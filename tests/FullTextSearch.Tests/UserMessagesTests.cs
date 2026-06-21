@@ -26,15 +26,26 @@ public class UserMessagesTests
         Assert.Equal("[エラー] x", UserMessages.PreviewErrorLine("x"));
 
     [Fact]
-    public void FormatIndexProgressCounts_with_skips_includes_skip_word() =>
-        Assert.Contains("スキップ", UserMessages.FormatIndexProgressCounts(1, 10, UserMessages.FileUnit, 2));
-
-    [Fact]
-    public void FormatIndexProgressCounts_zero_skips_omits_skip_phrase()
+    public void FormatIndexProgressCounts_formats_processed_and_total()
     {
-        var s = UserMessages.FormatIndexProgressCounts(5, 5, UserMessages.PieceUnit, 0);
+        var s = UserMessages.FormatIndexProgressCounts(5, 10, UserMessages.FileUnit);
+        Assert.Contains("5", s);
+        Assert.Contains("10", s);
+        Assert.Contains(UserMessages.FileUnit, s);
         Assert.DoesNotContain("スキップ", s);
     }
+
+    [Fact]
+    public void FormatLoadingEtaHint_shows_remaining_only()
+    {
+        var hint = UserMessages.FormatLoadingEtaHint(TimeSpan.FromMinutes(5));
+        Assert.Contains("あと", hint);
+        Assert.DoesNotContain("経過", hint);
+    }
+
+    [Fact]
+    public void FormatLoadingEtaHint_null_remaining_is_empty() =>
+        Assert.Equal("", UserMessages.FormatLoadingEtaHint(null));
 
     [Fact]
     public void FormatMinutesAgo_includes_count_and_label() =>

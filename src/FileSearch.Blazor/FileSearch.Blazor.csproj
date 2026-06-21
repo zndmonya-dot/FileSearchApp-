@@ -11,7 +11,7 @@
         <Nullable>enable</Nullable>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
 
-        <!-- 表示名。文言は UserMessages.AppTitle と揃えること -->
+        <!-- 表示名・版（UserMessages.AppTitle / AppVersion / 起動スプラッシュ / ウィンドウタイトルの正） -->
         <ApplicationTitle>Panoleon</ApplicationTitle>
         <ApplicationId>com.fulltext.filesearch</ApplicationId>
         <ApplicationDisplayVersion>2.0</ApplicationDisplayVersion>

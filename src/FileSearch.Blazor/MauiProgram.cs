@@ -41,8 +41,9 @@ public static class MauiProgram
             webView.CoreWebView2Initialized += async (_, _) =>
             {
                 var theme = BootThemeSync.PendingBootTheme == "light" ? "light" : "dark";
+                var versionLabel = System.Text.Json.JsonSerializer.Serialize(AppVersion.Label);
                 await webView.CoreWebView2!.AddScriptToExecuteOnDocumentCreatedAsync(
-                    $"window.__PANOLEON_BOOT_THEME='{theme}';");
+                    $"window.__PANOLEON_BOOT_THEME='{theme}';window.__PANOLEON_BOOT_VERSION={versionLabel};");
             };
         });
 #endif

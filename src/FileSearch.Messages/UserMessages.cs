@@ -15,8 +15,6 @@ public static class UserMessages
     public const string AppTitle = "Panoleon";
     /// <summary>起動スプラッシュ副題（<c>wwwroot/index.html</c> と手動同期）</summary>
     public const string BootSplashTagline = "全文検索";
-    /// <summary>起動スプラッシュ版表示（<c>wwwroot/index.html</c> と手動同期）</summary>
-    public const string BootSplashVersion = "v2.0";
     /// <summary>起動スプラッシュ：初期表示</summary>
     public const string BootSplashStarting = "起動しています...";
     /// <summary>起動スプラッシュ：設定読み込み</summary>
@@ -128,11 +126,9 @@ public static class UserMessages
     /// <summary>「N日前」。</summary>
     public static string FormatDaysAgo(int days) => $"{days}日前";
 
-    /// <summary>インデックス進捗行（<c>ErrorCount</c> はスキップ件数として表示に使う）</summary>
-    public static string FormatIndexProgressCounts(int processed, int total, string countUnit, int skipCount) =>
-        skipCount > 0
-            ? $"{processed:N0} / {total:N0} {countUnit}（スキップ {skipCount:N0} 件）"
-            : $"{processed:N0} / {total:N0} {countUnit}";
+    /// <summary>インデックス進捗行（処理数 / 合計）</summary>
+    public static string FormatIndexProgressCounts(int processed, int total, string countUnit) =>
+        $"{processed:N0} / {total:N0} {countUnit}";
 
     /// <summary>メインエリア未選択時のヒント（対象フォルダ未設定）</summary>
     public const string EmptyMainNoFoldersHint = "設定から検索対象フォルダを追加してください";
@@ -153,11 +149,9 @@ public static class UserMessages
     /// <summary>「構築中 N%」。</summary>
     public static string FormatBuildingPercent(int percent) => $"構築中 {percent}%";
 
-    /// <summary>読み込み・検索中の残り時間または経過時間（括弧付きサフィックス）。</summary>
-    public static string FormatLoadingEtaHint(TimeSpan? remaining, TimeSpan elapsed) =>
-        !string.IsNullOrEmpty(FormatRemainingApprox(remaining))
-            ? FormatRemainingApprox(remaining)
-            : FormatElapsedHint(elapsed);
+    /// <summary>読み込み・検索中の残り時間（括弧付きサフィックス）。推定できない間は空。</summary>
+    public static string FormatLoadingEtaHint(TimeSpan? remaining) =>
+        FormatRemainingApprox(remaining);
 
     /// <summary>残り時間のおおよその表示。</summary>
     public static string FormatRemainingApprox(TimeSpan? remaining)

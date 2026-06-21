@@ -23,7 +23,7 @@ $checks = @(
     @{ Name = "AppTitle";       Test = { $htmlText -match [regex]::Escape("<title>$(Get-UserMessage 'AppTitle')</title>") }; Label = "<title> matches AppTitle" },
     @{ Name = "BootSplashStarting"; Test = { $htmlText -match ('aria-label="' + [regex]::Escape((Get-UserMessage 'BootSplashStarting')) + '"') }; Label = "boot splash aria-label matches BootSplashStarting" },
     @{ Name = "BootSplashTagline"; Test = { $webviewText -match [regex]::Escape((Get-UserMessage 'BootSplashTagline')) }; Label = "contains BootSplashTagline" },
-    @{ Name = "BootSplashVersion"; Test = { $webviewText -match [regex]::Escape((Get-UserMessage 'BootSplashVersion')) }; Label = "contains BootSplashVersion" },
+    @{ Name = "BootSplashVersion"; Test = { $htmlText -match 'class="boot-splash__version"' -and $htmlText -notmatch 'boot-splash__version">\s*v\d' }; Label = "boot-splash version element present (not hardcoded)" },
     @{ Name = "BootSplashStarting"; Test = { $webviewText -match [regex]::Escape((Get-UserMessage 'BootSplashStarting')) }; Label = "contains BootSplashStarting" },
     @{ Name = "BootSplashReady"; Test = { $webviewText -match [regex]::Escape((Get-UserMessage 'BootSplashReady')) }; Label = "contains BootSplashReady" },
     @{ Name = "WebViewLoadError"; Test = { $htmlText -match [regex]::Escape((Get-UserMessage 'WebViewLoadError')) }; Label = "contains WebViewLoadError text" },
