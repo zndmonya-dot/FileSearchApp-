@@ -32,6 +32,8 @@ public class DisplayFormattersTests
     [InlineData("D.PDF", "pdf")]
     [InlineData("a.cs", "code")]
     [InlineData("App.java", "code")]
+    [InlineData("App.ts", "code")]
+    [InlineData("appsettings.json", "code")]
     [InlineData("n.unknown", "text")]
     public void GetFileIconClass_maps(string name, string cls) =>
         Assert.Equal(cls, DisplayFormatters.GetFileIconClass(name));

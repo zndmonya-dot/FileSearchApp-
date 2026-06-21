@@ -34,9 +34,9 @@ internal static class SupportedExtensionSets
     internal static readonly HashSet<string> SourceCode = new(StringComparer.OrdinalIgnoreCase)
     {
         ".html", ".xml",
-        ".cs", ".java",
+        ".cs", ".java", ".ts",
         ".dfm", ".pas", ".dpr", ".dpk",
-        ".ini", ".env",
+        ".ini", ".env", ".json",
         ".py", ".css", ".sql",
     };
 
