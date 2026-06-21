@@ -8,21 +8,21 @@ Windows向けの高速全文検索アプリケーション **Panoleon**（Panopt
 - **高速全文検索**: Lucene.NET + 日本語形態素解析（Sudachi・モード C）による高速検索
 - **テキスト抽出プレビュー**: 全形式（Word/Excel/PDF/テキスト）をテキスト抽出した行表示でプレビュー。表形式・ネイティブプレビューは行わない
 - **ツリー操作**: 検索結果ツリーでフォルダをクリックして開閉。フォルダを開くと右側にフォルダ一覧が表示される
-- **キーボード・操作**: 検索欄で Enter で検索実行、Esc で検索語クリア。ファイルを開く・フォルダを開くはプレビュー上の「開く」「フォルダ」ボタン
+- **キーボード・操作**: 検索欄で Enter で検索実行、Esc で閲覧モードへ復帰（クエリ・結果・選択をクリア）。ファイルを開く・フォルダを開くはプレビュー上の「開く」「フォルダ」ボタン
 - **マッチ箇所表示**: 検索キーワードがヒットした箇所をハイライト付きで抜粋表示
 - **行単位ハイライトナビゲーション**: プレビュー画面で「次へ」「前へ」ボタンにより、ハイライト行単位で移動（WinMerge風）。同じ行内の複数のマッチをスキップして次の行に移動
 - **二重起動防止**: 同一ユーザーセッション内で 1 インスタンスのみ（2 回目は既存ウィンドウを前面表示）
 - **定期インデックス更新**: 設定で JST 0–23 時の実行時刻を指定すると、**差分更新**がタイマーで実行される（空リストで無効）。検索中・直近の検索操作から一定時間以内は見送る
 
-## 対応ファイル形式
+## 対応ファイル形式（計 31 種）
 
-- Word (.docx)
-- Excel (.xlsx)
-- PowerPoint (.pptx)
-- PDF (.pdf)
-- Outlook メール (.msg)
-- テキストファイル (.txt, .csv, .log, .md)
-- ソースコード (.cs, .js, .ts, .py, .java, .htmlなど)
+- **Office**: Word (.doc, .docx), Excel (.xls, .xlsx, .xlsm), PowerPoint (.pptx)
+- **PDF**: .pdf
+- **Outlook**: .msg
+- **テキスト・スクリプト**: .txt, .md, .log, .csv, .bat, .ps1, .sh
+- **ソース・設定**: .html, .xml, .cs, .java, .ts, .dfm, .pas, .dpr, .dpk, .ini, .env, .json, .py, .css, .sql
+
+正は `src/FullTextSearch.Infrastructure/Extractors/SupportedExtensions.cs`。詳細は [docs/静的定義一覧.md](docs/静的定義一覧.md) を参照。
 
 ## 動作要件
 
@@ -122,7 +122,8 @@ dotnet run --project src\FileSearch.Blazor
 
 - Lucene.NET 4.8 - 全文検索エンジン
 - Sudachi（sudachi.rs ネイティブ / モード C）- 日本語形態素解析（Python 不要）
-- DocumentFormat.OpenXml - Office文書テキスト抽出
+- DocumentFormat.OpenXml - Office 文書テキスト抽出（.docx / .xlsx / .pptx）
+- NPOI - レガシー Office（.doc / .xls）テキスト抽出
 - PdfPig - PDFテキスト抽出
 - UTF.Unknown (UtfUnknown) - テキストファイルのエンコーディング自動判定
 
