@@ -34,8 +34,10 @@ public partial class Home
     {
         _indexEtaProcessed = processed;
         _indexEtaTotal = total;
-        indexProgressEtaHint = UserMessages.FormatLoadingEtaHint(
+        var nextHint = UserMessages.FormatLoadingEtaHint(
             LoadingEta.TryEstimateRemaining(_indexStartedUtc, processed, total));
+        if (nextHint != indexProgressEtaHint)
+            indexProgressEtaHint = nextHint;
     }
 
     private void EnsureLoadingEtaTimer()
@@ -69,7 +71,12 @@ public partial class Home
                     return;
                 }
 
-                UpdateLoadingEtaHints();
+                var nextHint = UserMessages.FormatLoadingEtaHint(
+                    LoadingEta.TryEstimateRemaining(_indexStartedUtc, _indexEtaProcessed, _indexEtaTotal));
+                if (nextHint == indexProgressEtaHint)
+                    return;
+
+                indexProgressEtaHint = nextHint;
                 StateHasChanged();
             });
         }
@@ -81,11 +88,13 @@ public partial class Home
 
     private void UpdateLoadingEtaHints()
     {
-        if (isIndexing)
-        {
-            indexProgressEtaHint = UserMessages.FormatLoadingEtaHint(
-                LoadingEta.TryEstimateRemaining(_indexStartedUtc, _indexEtaProcessed, _indexEtaTotal));
-        }
+        if (!isIndexing)
+            return;
+
+        var nextHint = UserMessages.FormatLoadingEtaHint(
+            LoadingEta.TryEstimateRemaining(_indexStartedUtc, _indexEtaProcessed, _indexEtaTotal));
+        if (nextHint != indexProgressEtaHint)
+            indexProgressEtaHint = nextHint;
     }
 
     private void DisposeLoadingEtaTimer()

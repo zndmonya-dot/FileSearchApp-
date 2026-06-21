@@ -3,8 +3,8 @@ using Microsoft.Maui.ApplicationModel;
 namespace FileSearch.Blazor;
 
 /// <summary>
-/// アプリ版表示の一元取得。<see cref="FileSearch.Blazor.csproj"/> の
-/// <c>ApplicationDisplayVersion</c> → MAUI <see cref="AppInfo.Current.VersionString"/> を参照する。
+/// アプリ版表示の一元取得。<c>FileSearch.Blazor.csproj</c> の
+/// <c>ApplicationDisplayVersion</c> → MAUI <see cref="AppInfo"/> の版文字列を参照する。
 /// </summary>
 internal static class AppVersion
 {

@@ -513,10 +513,15 @@
     background: rgba(47, 129, 247, 0.15);
 }
 
+.footer-icon--spin {
+    transform-origin: center;
+    will-change: transform;
+    animation: footer-icon-spin 1s linear infinite;
+}
+
 .footer-icon--spin svg {
     color: var(--color-accent-fg);
-    transform-origin: center;
-    animation: footer-icon-spin 1s linear infinite;
+    display: block;
 }
 
 @keyframes footer-icon-spin {
@@ -691,7 +696,11 @@
     height: 100%;
     background: #2f81f7;
     border-radius: 2px;
-    transition: width 0.15s ease-out;
+    transition: width 0.4s linear;
+}
+
+.footer-status.building .footer-progress-bar {
+    transition: width 0.45s linear;
 }
 
 .footer-status.error {

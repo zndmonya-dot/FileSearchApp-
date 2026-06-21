@@ -96,7 +96,7 @@
 .footer-progress-bar {
     background: linear-gradient(90deg, var(--color-accent-emphasis), var(--color-accent-fg), #bc8cff);
     box-shadow: 0 0 10px rgba(88, 166, 255, 0.35);
-    transition: width 0.22s cubic-bezier(0.34, 1.15, 0.64, 1);
+    transition: width 0.45s linear;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -105,9 +105,13 @@
         transform: none;
     }
 
-    .footer-icon--spin svg {
+    .footer-icon--spin {
         animation: none;
         opacity: 0.85;
+    }
+
+    .footer-icon--spin svg {
+        opacity: inherit;
     }
 
     @keyframes cute-dot-pulse {
