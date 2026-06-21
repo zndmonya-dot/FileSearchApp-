@@ -1,0 +1,169 @@
+/* 起動スプラッシュ（index.html 専用。文言は UserMessages と手動同期） */
+:root,
+html.boot-theme-dark {
+    --boot-bg: #0d1117;
+    --boot-surface: #161b22;
+    --boot-fg: #f0f6fc;
+    --boot-muted: #8b949e;
+    --boot-border: #30363d;
+    --boot-accent: #58a6ff;
+    --boot-accent-emphasis: #1f6feb;
+    --boot-success: #3fb950;
+    --boot-track: rgba(110, 118, 129, 0.35);
+}
+html.boot-theme-light {
+    --boot-bg: #ffffff;
+    --boot-surface: #f6f8fa;
+    --boot-fg: #1f2328;
+    --boot-muted: #656d76;
+    --boot-border: #d0d7de;
+    --boot-accent: #0969da;
+    --boot-accent-emphasis: #0969da;
+    --boot-success: #1a7f37;
+    --boot-track: rgba(175, 184, 193, 0.45);
+}
+html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--boot-bg);
+    -webkit-font-smoothing: antialiased;
+}
+#blazor-error-ui {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 16px;
+    background: #ff5252;
+    color: white;
+    text-align: center;
+    z-index: 10001;
+}
+#blazor-error-ui.visible { display: block; }
+#boot-splash {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 24px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+    background: var(--boot-bg);
+    transition: opacity 0.28s ease, visibility 0.28s;
+}
+#boot-splash.boot-splash--hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+.boot-splash__panel {
+    width: min(320px, calc(100vw - 48px));
+}
+.boot-splash__hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    margin-bottom: 32px;
+}
+.boot-splash__icon-wrap {
+    width: 72px;
+    height: 72px;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 14px;
+    background: var(--boot-surface);
+    border: 1px solid var(--boot-border);
+}
+.boot-splash__logo {
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+}
+.boot-splash__title {
+    margin: 0;
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    color: var(--boot-fg);
+    line-height: 1.15;
+}
+.boot-splash__tagline-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+}
+.boot-splash__tagline {
+    margin: 0;
+    font-size: 13px;
+    color: var(--boot-muted);
+    line-height: 1.4;
+}
+.boot-splash__version {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--boot-muted);
+}
+.boot-splash__progress-block {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.boot-splash__progress-meta {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 18px;
+}
+.boot-splash__status {
+    margin: 0;
+    flex: 1;
+    min-width: 0;
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--boot-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition: opacity 0.15s ease, color 0.2s ease;
+}
+.boot-splash__status.is-changing { opacity: 0.45; }
+#boot-splash.boot-splash--complete .boot-splash__status { color: var(--boot-success); }
+.boot-splash__percent {
+    flex-shrink: 0;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    color: var(--boot-fg);
+    transition: color 0.2s ease;
+}
+#boot-splash.boot-splash--complete .boot-splash__percent { color: var(--boot-success); }
+.boot-splash__progress-track {
+    height: 5px;
+    border-radius: 3px;
+    background: var(--boot-track);
+    overflow: hidden;
+}
+.boot-splash__progress-bar {
+    height: 100%;
+    width: 0%;
+    border-radius: inherit;
+    background: var(--boot-accent);
+    transition: width 0.28s cubic-bezier(0.34, 1.12, 0.64, 1);
+}
+#boot-splash.boot-splash--complete .boot-splash__progress-bar {
+    background: var(--boot-success);
+}
+@media (prefers-reduced-motion: reduce) {
+    .boot-splash__progress-bar { transition: width 0.15s linear; }
+    .boot-splash__status { transition: none; }
+    #boot-splash { transition: none; }
+}

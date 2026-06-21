@@ -331,10 +331,21 @@
     vertical-align: middle;
 }
 
-.folder-row td.col-name,
-.folder-row td.col-preview {
+.folder-row td.col-name {
     overflow: hidden;
     max-width: 0;
+}
+
+.folder-row--selected,
+.folder-row--selected:hover {
+    background: var(--color-accent-subtle);
+}
+
+.filter-menu-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 99;
+    background: transparent;
 }
 
 .col-name-cell {
@@ -343,10 +354,6 @@
     gap: 10px;
     max-width: 100%;
     min-width: 0;
-}
-
-.folder-row td.col-preview {
-    color: var(--color-fg-muted);
 }
 
 .folder-row td.col-date {
@@ -388,16 +395,6 @@
     color: var(--color-accent-fg);
     font-weight: 500;
     flex-shrink: 0;
-}
-
-.item-content-preview {
-    display: block;
-    color: var(--color-fg-muted);
-    font-weight: 400;
-    font-size: 12px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
 
 .folder-row:hover .item-name {

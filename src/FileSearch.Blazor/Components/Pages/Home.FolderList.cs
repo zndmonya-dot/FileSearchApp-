@@ -29,7 +29,7 @@ public partial class Home
         if (folder == null || string.IsNullOrEmpty(filePath))
             return;
 
-        var list = GetSortedAndFilteredItems(GetFilesUnderSelectedFolder(folder)).ToList();
+        var list = GetFilteredFolderList(folder);
         var idx = list.FindIndex(n => string.Equals(n.FilePath, filePath, StringComparison.OrdinalIgnoreCase));
         selectedFolderRowIndex = idx >= 0 ? idx : -1;
         if (idx >= 0)
@@ -78,6 +78,13 @@ public partial class Home
         selectedFolderRowIndex = -1;
     }
 
+    /// <summary>拡張子フィルターのドロップダウンを閉じる。</summary>
+    private void CloseFilterMenu() => showFilterMenu = false;
+
+    /// <summary>選択フォルダの一覧（ソート・フィルタ適用済み）。</summary>
+    private List<TreeNode> GetFilteredFolderList(TreeNode? folder) =>
+        GetSortedAndFilteredItems(GetFilesUnderSelectedFolder(folder)).ToList();
+
     /// <summary>現在の filterType / sortColumn / ファイル名検索に応じてファイル一覧を並べ替え。</summary>
     private IEnumerable<TreeNode> GetSortedAndFilteredItems(List<TreeNode> items) =>
         FolderListQuery.Apply(
@@ -94,7 +101,7 @@ public partial class Home
     private void OnFolderRowClick(TreeNode item)
     {
         if (selectedFolder == null) return;
-        var list = GetSortedAndFilteredItems(GetFilesUnderSelectedFolder(selectedFolder)).ToList();
+        var list = GetFilteredFolderList(selectedFolder);
         selectedFolderRowIndex = list.IndexOf(item);
         if (selectedFolderRowIndex < 0) selectedFolderRowIndex = -1;
         OnFolderItemClick(item);

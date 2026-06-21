@@ -38,6 +38,11 @@ public partial class Home
     private async Task HandleKeyDown(KeyboardEventArgs e)
     {
         _lastSearchActivityUtc = DateTime.UtcNow;
+        if (e.Key == "Escape" && showFilterMenu)
+        {
+            CloseFilterMenu();
+            return;
+        }
         if (e.Key == "Enter" && !isIndexing)
             await ExecuteSearch();
         if (e.Key == "Escape" && !isIndexing)

@@ -26,7 +26,6 @@
                       SearchQueryChanged="OnSearchQueryChangedAsync"
                       SearchMode="searchMode"
                       SearchModeChanged="OnSearchModeChangedAsync"
-                      TotalFileCount="totalFileCount"
                       TreeNodes="treeNodes"
                       CurrentPreviewFilePath="@GetTreeHighlightFilePath()"
                       CurrentFolderPath="@(selectedFolder?.FullPath)"
@@ -81,12 +80,13 @@
             else if (selectedFolder != null)
             {
                 var folderFiles = GetFilesUnderSelectedFolder(selectedFolder);
-                var filteredFolderFiles = GetSortedAndFilteredItems(folderFiles).ToList();
+                var filteredFolderFiles = GetFilteredFolderList(selectedFolder);
                 <FolderListView SelectedFolder="selectedFolder"
                                SortedAndFilteredItems="filteredFolderFiles"
                                AllFileItems="folderFiles"
                                TotalFileCount="folderFiles.Count"
                                FilteredFileCount="filteredFolderFiles.Count"
+                               SelectedRowIndex="selectedFolderRowIndex"
                                @bind-FileSearchQuery="folderFileSearchQuery"
                                @bind-FileSearchQuery:after="OnFolderFileSearchQueryChanged"
                                SortColumn="sortColumn"
@@ -97,6 +97,7 @@
                                OnScrollToRowCompleted="OnFolderListScrollCompleted"
                                OnSort="SetSort"
                                OnToggleFilterMenu="ToggleFilterMenu"
+                               OnCloseFilterMenu="CloseFilterMenu"
                                OnFilter="SetFilter"
                                OnRowClick="OnFolderRowClick"
                                OnNavigateToFolder="NavigateToFolder"
@@ -104,11 +105,20 @@
             }
             else if (!HasActiveTargetFolders)
             {
-                @* M-10 対象フォルダ未設定時のみ案内（閲覧時はルート一覧、検索時は結果選択でプレビュー） *@
+                @* M-10 対象フォルダ未設定 *@
                 <div class="empty-state empty-state-blankslate">
                     <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M.513 1.513A1.75 1.75 0 0 1 1.75 1h3.5c.55 0 1.07.26 1.4.7l.9 1.2a.25.25 0 0 0 .2.1H13a1 1 0 0 1 1 1v.5H2.75a.75.75 0 0 0 0 1.5h11.978a1 1 0 0 1 .994 1.117L15 13.25A1.75 1.75 0 0 1 13.25 15H1.75A1.75 1.75 0 0 1 0 13.25V2.75c0-.464.184-.91.513-1.237Z"/></svg>
                     <h3>@(SettingsService.Settings.TargetFolders.Count > 0 ? UserMessages.NoActiveTargetFolders : UserMessages.NoTargetFolders)</h3>
                     <p>@UserMessages.EmptyMainNoFoldersHint</p>
+                </div>
+            }
+            else
+            {
+                @* M-10 ファイル未選択（検索後・閲覧時） *@
+                <div class="empty-state empty-state-blankslate">
+                    <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688l-.011-.013-2.914-2.914-.013-.011Z"/></svg>
+                    <h3>@UserMessages.EmptyMainSelectFileTitle</h3>
+                    <p>@UserMessages.EmptyMainSelectFileHint</p>
                 </div>
             }
         </main>

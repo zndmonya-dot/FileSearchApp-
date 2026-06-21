@@ -28,6 +28,20 @@ textarea:disabled {
     color: #8b949e !important;
 }
 
+/* キーボードフォーカス（マウスクリックでは outline 非表示） */
+button:focus-visible,
+a:focus-visible,
+.folder-breadcrumb-link:focus-visible,
+.filter-btn:focus-visible,
+.filter-option:focus-visible,
+.folder-row:focus-visible,
+.sidebar-settings-btn:focus-visible,
+.sidebar-search-btn:focus-visible,
+.toolbar-btn:focus-visible {
+    outline: 2px solid var(--color-accent-fg);
+    outline-offset: 2px;
+}
+
 /* ===== Scrollbars ===== */
 ::-webkit-scrollbar {
     width: 8px;

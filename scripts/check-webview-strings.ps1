@@ -6,6 +6,7 @@ $ErrorActionPreference = "Stop"
 $root = Get-RepoRoot
 $um = Join-Path $root "src\FileSearch.Messages\UserMessages.cs"
 $html = Join-Path $root "src\FileSearch.Blazor\wwwroot\index.html"
+$bootJs = Join-Path $root "src\FileSearch.Blazor\wwwroot\js\boot-splash.js"
 
 function Get-UserMessage([string]$name) {
     $line = Select-String -Path $um -Pattern "${name}\s*=\s*""([^""]+)""" | Select-Object -First 1
@@ -14,15 +15,17 @@ function Get-UserMessage([string]$name) {
 }
 
 $htmlText = Get-Content $html -Raw
+$bootJsText = Get-Content $bootJs -Raw
+$webviewText = $htmlText + $bootJsText
 $ok = $true
 
 $checks = @(
     @{ Name = "AppTitle";       Test = { $htmlText -match [regex]::Escape("<title>$(Get-UserMessage 'AppTitle')</title>") }; Label = "<title> matches AppTitle" },
-    @{ Name = "PreviewLoading"; Test = { $htmlText -match ('aria-label="' + [regex]::Escape((Get-UserMessage 'PreviewLoading')) + '"') }; Label = "boot loader aria-label matches PreviewLoading" },
-    @{ Name = "BootSplashTagline"; Test = { $htmlText -match [regex]::Escape((Get-UserMessage 'BootSplashTagline')) }; Label = "contains BootSplashTagline" },
-    @{ Name = "BootSplashVersion"; Test = { $htmlText -match [regex]::Escape((Get-UserMessage 'BootSplashVersion')) }; Label = "contains BootSplashVersion" },
-    @{ Name = "BootSplashStarting"; Test = { $htmlText -match [regex]::Escape((Get-UserMessage 'BootSplashStarting')) }; Label = "contains BootSplashStarting" },
-    @{ Name = "BootSplashReady"; Test = { $htmlText -match [regex]::Escape((Get-UserMessage 'BootSplashReady')) }; Label = "contains BootSplashReady" },
+    @{ Name = "BootSplashStarting"; Test = { $htmlText -match ('aria-label="' + [regex]::Escape((Get-UserMessage 'BootSplashStarting')) + '"') }; Label = "boot splash aria-label matches BootSplashStarting" },
+    @{ Name = "BootSplashTagline"; Test = { $webviewText -match [regex]::Escape((Get-UserMessage 'BootSplashTagline')) }; Label = "contains BootSplashTagline" },
+    @{ Name = "BootSplashVersion"; Test = { $webviewText -match [regex]::Escape((Get-UserMessage 'BootSplashVersion')) }; Label = "contains BootSplashVersion" },
+    @{ Name = "BootSplashStarting"; Test = { $webviewText -match [regex]::Escape((Get-UserMessage 'BootSplashStarting')) }; Label = "contains BootSplashStarting" },
+    @{ Name = "BootSplashReady"; Test = { $webviewText -match [regex]::Escape((Get-UserMessage 'BootSplashReady')) }; Label = "contains BootSplashReady" },
     @{ Name = "WebViewLoadError"; Test = { $htmlText -match [regex]::Escape((Get-UserMessage 'WebViewLoadError')) }; Label = "contains WebViewLoadError text" },
     @{ Name = "WebViewReload";  Test = { $htmlText -match [regex]::Escape((Get-UserMessage 'WebViewReload')) }; Label = "contains WebViewReload text" }
 )

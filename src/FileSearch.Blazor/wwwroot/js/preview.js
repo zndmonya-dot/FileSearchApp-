@@ -301,4 +301,38 @@
         row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         return true;
     };
+
+    // プレビュー本文のみ拡大縮小（Ctrl + ホイール）
+    (function () {
+        var SELECTOR = '.preview-zoom-wrap';
+        var CSS_VAR = '--zoom-preview';
+        var value = 1.0;
+        var MIN = 0.5, MAX = 3.0, STEP = 0.1;
+
+        function setZoom(v) {
+            value = v;
+            document.documentElement.style.setProperty(CSS_VAR, String(v));
+        }
+        function clamp(v) {
+            v = Math.round(v * 100) / 100;
+            return Math.max(MIN, Math.min(MAX, v));
+        }
+        function isInPreview(target) {
+            return target instanceof Element && target.closest(SELECTOR);
+        }
+
+        document.addEventListener('wheel', function (e) {
+            if (!e.ctrlKey) return;
+            e.preventDefault();
+            if (!isInPreview(e.target)) return;
+            setZoom(clamp(value + (e.deltaY < 0 ? STEP : -STEP)));
+        }, { passive: false, capture: true });
+
+        document.addEventListener('keydown', function (e) {
+            if (!(e.ctrlKey && (e.key === '0' || e.code === 'Digit0' || e.code === 'Numpad0'))) return;
+            if (!isInPreview(document.activeElement) && !isInPreview(e.target)) return;
+            e.preventDefault();
+            setZoom(1.0);
+        }, true);
+    })();
 })();

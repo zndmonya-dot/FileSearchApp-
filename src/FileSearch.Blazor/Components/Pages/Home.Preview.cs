@@ -51,7 +51,8 @@ public partial class Home
         if (token.IsCancellationRequested) return;
         try
         {
-            _previewResult = await PreviewService.GetPreviewAsync(path, searchQuery?.Trim(), token, searchMode);
+            _previewResult = await PreviewService.GetPreviewAsync(
+                path, _lastExecutedSearchQuery, token, searchMode);
             if (token.IsCancellationRequested) return;
             _hasTriedInitialHighlightScroll = false;
         }
@@ -81,7 +82,7 @@ public partial class Home
         {
             if (_previewResult != null
                 && selectedFile != null
-                && !string.IsNullOrWhiteSpace(searchQuery)
+                && !string.IsNullOrWhiteSpace(_lastExecutedSearchQuery)
                 && !_hasTriedInitialHighlightScroll)
             {
                 _hasTriedInitialHighlightScroll = true;
@@ -109,7 +110,7 @@ public partial class Home
     /// <summary>検索ヒットが複数ファイルあるときの前後ファイル移動を出すか。</summary>
     private bool ShowFileNav => selectedFile != null && _fileNavList != null && _fileNavList.Count > 1;
     /// <summary>検索語があり、本文ハイライト間移動を出すか。</summary>
-    private bool ShowHighlightNav => selectedFile != null && !string.IsNullOrWhiteSpace(searchQuery);
+    private bool ShowHighlightNav => selectedFile != null && !string.IsNullOrWhiteSpace(_lastExecutedSearchQuery);
 
     private bool ShowNavButtons => selectedFile != null && (ShowFileNav || ShowHighlightNav);
 
@@ -202,7 +203,7 @@ public partial class Home
         ClearPreviewSelection();
         selectedFolder = folderNode;
 
-        var list = GetSortedAndFilteredItems(GetFilesUnderSelectedFolder(folderNode)).ToList();
+        var list = GetFilteredFolderList(folderNode);
         if (currentFile != null
             && string.Equals(
                 normalized,

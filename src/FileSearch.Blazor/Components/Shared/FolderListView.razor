@@ -36,10 +36,18 @@
         <div class="folder-browser-toolbar">
             <span class="folder-browser-count">@UserMessages.FormatFilteredChildCount(FilteredFileCount, TotalFileCount)</span>
             <div class="filter-dropdown">
-                <button class="filter-btn @(string.IsNullOrEmpty(FilterType) ? "" : "active")"
+                @if (ShowFilterMenu)
+                {
+                    <div class="filter-menu-backdrop" @onclick="CloseFilterMenu"></div>
+                }
+                <button type="button"
+                        class="filter-btn @(string.IsNullOrEmpty(FilterType) ? "" : "active")"
                         @onclick="OnToggleFilterMenu"
                         @onclick:stopPropagation="true"
-                        title="@UserMessages.FilterTitle">
+                        aria-expanded="@ShowFilterMenu"
+                        aria-haspopup="true"
+                        title="@UserMessages.FilterTitle"
+                        aria-label="@UserMessages.FilterTitle">
                     <svg viewBox="0 0 16 16" fill="currentColor"><path d="M.75 3h14.5a.75.75 0 0 1 0 1.5H.75a.75.75 0 0 1 0-1.5ZM3 7.75A.75.75 0 0 1 3.75 7h8.5a.75.75 0 0 1 0 1.5h-8.5A.75.75 0 0 1 3 7.75Zm3 4a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1-.75-.75Z"/></svg>
                 </button>
                 @if (ShowFilterMenu)
@@ -119,7 +127,8 @@
                         var item = folderListItems[i];
                         var display = GetDisplayParts(item);
                         var iconClass = GetFileIconClass?.Invoke(item.Name) ?? "text";
-                        <tr class="folder-row"
+                        var isSelected = SelectedRowIndex >= 0 && SelectedRowIndex == i;
+                        <tr class="folder-row @(isSelected ? "folder-row--selected" : null)"
                             data-row-index="@i"
                             @onclick="async () => { await OnRowClick.InvokeAsync(item); }">
                             <td class="col-name">
@@ -150,6 +159,7 @@
     [Parameter] public IEnumerable<TreeNode> AllFileItems { get; set; } = Enumerable.Empty<TreeNode>();
     [Parameter] public int TotalFileCount { get; set; }
     [Parameter] public int FilteredFileCount { get; set; }
+    [Parameter] public int SelectedRowIndex { get; set; } = -1;
     [Parameter] public string FileSearchQuery { get; set; } = "";
     [Parameter] public EventCallback<string> FileSearchQueryChanged { get; set; }
     [Parameter] public string SortColumn { get; set; } = "name";
@@ -160,6 +170,7 @@
     [Parameter] public EventCallback OnScrollToRowCompleted { get; set; }
     [Parameter] public EventCallback<string> OnSort { get; set; }
     [Parameter] public EventCallback OnToggleFilterMenu { get; set; }
+    [Parameter] public EventCallback OnCloseFilterMenu { get; set; }
     [Parameter] public EventCallback<string> OnFilter { get; set; }
     [Parameter] public EventCallback<TreeNode> OnRowClick { get; set; }
     [Parameter] public EventCallback<TreeNode> OnNavigateToFolder { get; set; }
@@ -350,4 +361,6 @@
 
     private string? GetColumnResizeActiveClass() =>
         _isColumnResizing ? "folder-col-resize-handle--active" : null;
+
+    private Task CloseFilterMenu() => OnCloseFilterMenu.InvokeAsync();
 }
