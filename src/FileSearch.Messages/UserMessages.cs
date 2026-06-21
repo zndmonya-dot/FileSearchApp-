@@ -65,9 +65,11 @@ public static class UserMessages
     /// <summary>件数の単位「件」。</summary>
     public const string PieceUnit = "件";
 
+    /// <summary>サイドバー左上の見出し（アプリ名）</summary>
+    public const string SidebarTitle = "全文検索システム";
     /// <summary>サイドバー・ツリー（メッセージ一覧 I-01〜I-05 相当）</summary>
     public const string SidebarTitleSearchResults = "検索結果";
-    /// <summary>閲覧モード時のサイドバー見出し</summary>
+    /// <summary>閲覧モード時のサイドバー見出し（非推奨: <see cref="SidebarTitle"/> に統一）</summary>
     public const string SidebarTitleBrowseFolders = "フォルダ";
     /// <summary>検索ボックスのプレースホルダ。</summary>
     public const string SearchInputPlaceholder = "キーワードを入力…";

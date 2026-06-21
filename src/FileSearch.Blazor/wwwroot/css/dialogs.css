@@ -1,118 +1,192 @@
-/* ===== Index Update Dialog ===== */
+/* ===== Index Update Dialog（2 択確認専用。設定モーダルとは別デザイン） ===== */
 .index-update-dialog {
-    background: #161b22;
-    width: 420px;
-    max-width: 92%;
-    border-radius: 12px;
-    box-shadow: 0 8px 24px rgba(1, 4, 9, 0.5);
+    width: min(520px, 92vw);
+    background: var(--color-canvas-default);
     border: 1px solid var(--color-border-default);
+    border-radius: 12px;
+    box-shadow: 0 16px 48px rgba(1, 4, 9, 0.45);
     display: flex;
     flex-direction: column;
     overflow: hidden;
 }
+
 .app.light .index-update-dialog {
-    background: #ffffff;
-    box-shadow: 0 8px 24px rgba(31, 35, 40, 0.12);
+    box-shadow: 0 16px 40px rgba(31, 35, 40, 0.14);
 }
-.index-update-header {
-    padding: 16px 20px;
-    border-bottom: 1px solid var(--color-border-default);
+
+.index-update-head {
     display: flex;
     align-items: center;
     gap: 12px;
+    padding: 18px 20px 0;
 }
-.index-update-header svg:first-of-type {
-    width: 20px;
-    height: 20px;
-    color: #8b949e;
-    flex-shrink: 0;
-}
-.index-update-title {
+
+.index-update-head__title {
     flex: 1;
-    font-size: 16px;
-    font-weight: 600;
-    color: #e6edf3;
     margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--color-fg-default);
 }
-.app.light .index-update-title {
-    color: #1f2328;
-}
-.index-update-close {
+
+.index-update-dismiss {
     width: 32px;
     height: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
     border: none;
-    background: transparent;
-    color: #8b949e;
     border-radius: 6px;
+    background: transparent;
+    color: var(--color-fg-muted);
     cursor: pointer;
 }
-.index-update-close:hover {
-    background: #8b949e26;
-    color: #e6edf3;
+
+.index-update-dismiss svg {
+    width: 16px;
+    height: 16px;
 }
-.app.light .index-update-close:hover {
-    background: rgba(0, 0, 0, 0.06);
-    color: #1f2328;
+
+.index-update-dismiss:hover {
+    background: var(--color-btn-hover-bg);
+    color: var(--color-fg-default);
 }
+
 .index-update-body {
-    padding: 20px;
+    padding: 14px 20px 20px;
 }
-.index-update-desc {
-    margin: 0 0 16px;
-    font-size: 14px;
+
+.index-update-lead {
+    margin: 0 0 14px;
+    font-size: 13px;
+    line-height: 1.5;
     color: var(--color-fg-muted);
 }
-.index-update-options {
-    display: flex;
-    flex-direction: column;
+
+.index-update-modes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 10px;
 }
-.index-update-option {
+
+.index-update-mode {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 4px;
-    padding: 14px 16px;
+    gap: 8px;
+    min-height: 132px;
+    padding: 14px;
     border: 1px solid var(--color-border-default);
-    border-radius: 8px;
+    border-radius: 10px;
     background: var(--color-canvas-subtle);
-    color: var(--color-fg-default);
+    color: inherit;
     font: inherit;
     text-align: left;
     cursor: pointer;
-    transition: border-color 0.15s, box-shadow 0.15s;
+    transition: border-color 0.15s ease, background 0.15s ease;
 }
-.index-update-option:hover {
-    border-color: var(--color-accent-emphasis);
+
+.index-update-mode:hover {
+    border-color: color-mix(in srgb, var(--color-accent-emphasis) 45%, var(--color-border-default));
     background: var(--color-canvas-default);
 }
-.index-update-option.selected {
+
+.index-update-mode:focus-visible {
+    outline: 2px solid var(--color-accent-emphasis);
+    outline-offset: 2px;
+}
+
+.index-update-mode.is-selected {
     border-color: var(--color-accent-emphasis);
-    box-shadow: 0 0 0 1px var(--color-accent-emphasis);
-    background: rgba(49, 129, 247, 0.08);
+    background: color-mix(in srgb, var(--color-accent-subtle) 70%, var(--color-canvas-default));
 }
-.app.light .index-update-option.selected {
-    background: rgba(49, 129, 247, 0.06);
+
+.index-update-mode__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--color-fg-muted) 12%, transparent);
+    color: var(--color-fg-muted);
 }
-.index-update-option-title {
+
+.index-update-mode__icon svg {
+    width: 16px;
+    height: 16px;
+}
+
+.index-update-mode.is-selected .index-update-mode__icon {
+    background: color-mix(in srgb, var(--color-accent-emphasis) 18%, transparent);
+    color: var(--color-accent-fg);
+}
+
+.index-update-mode__title {
     font-size: 14px;
     font-weight: 600;
+    line-height: 1.35;
     color: var(--color-fg-default);
 }
-.index-update-option-desc {
+
+.index-update-mode__desc {
     font-size: 12px;
+    line-height: 1.55;
     color: var(--color-fg-muted);
-    line-height: 1.4;
 }
-.index-update-footer {
-    padding: 16px 20px;
-    border-top: 1px solid var(--color-border-default);
+
+.index-update-foot {
     display: flex;
-    gap: 12px;
     justify-content: flex-end;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 20px 18px;
+    border-top: 1px solid var(--color-border-muted);
+    background: var(--color-canvas-subtle);
+}
+
+.index-update-btn {
+    height: 32px;
+    padding: 0 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.index-update-btn--ghost {
+    border: none;
+    background: transparent;
+    color: var(--color-fg-muted);
+}
+
+.index-update-btn--ghost:hover {
+    color: var(--color-fg-default);
+    background: var(--color-btn-hover-bg);
+}
+
+.index-update-btn--primary {
+    border: 1px solid color-mix(in srgb, var(--color-accent-emphasis) 80%, #000);
+    background: var(--color-accent-emphasis);
+    color: #fff;
+}
+
+.index-update-btn--primary:hover {
+    background: var(--color-accent-fg);
+    border-color: var(--color-accent-fg);
+}
+
+@media (max-width: 480px) {
+    .index-update-modes {
+        grid-template-columns: 1fr;
+    }
+
+    .index-update-mode {
+        min-height: 0;
+    }
 }
 
 /* ===== Settings Dialog (GitHub Primer Style) ===== */
@@ -744,23 +818,24 @@
 }
 
 .settings-btn-primary {
-    background: #238636;
-    border-color: rgba(31, 35, 40, 0.15);
+    background: var(--color-accent-emphasis);
+    border-color: color-mix(in srgb, var(--color-accent-emphasis) 80%, #000);
     color: #ffffff;
 }
 
 .settings-btn-primary:hover:not(:disabled) {
-    background: #2ea043;
-    border-color: rgba(31, 35, 40, 0.15);
+    background: var(--color-accent-fg);
+    border-color: var(--color-accent-fg);
 }
 
 .app.light .settings-btn-primary {
-    background: #1f883d;
-    border-color: rgba(31, 35, 40, 0.15);
+    background: var(--color-accent-emphasis);
+    border-color: color-mix(in srgb, var(--color-accent-emphasis) 80%, #000);
 }
 
 .app.light .settings-btn-primary:hover:not(:disabled) {
-    background: #1a7f37;
+    background: var(--color-accent-fg);
+    border-color: var(--color-accent-fg);
 }
 
 .settings-footer {

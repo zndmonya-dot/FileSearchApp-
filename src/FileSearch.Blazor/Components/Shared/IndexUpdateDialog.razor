@@ -6,55 +6,68 @@
 {
     @* 背面クリックでは閉じない（外部設計書 SCR-3）。閉じるのは ×・「キャンセル」ボタンのみ。 *@
     <div class="modal-backdrop">
-        <div class="index-update-dialog">
-            <div class="index-update-header">
-                <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M1.705 8.005a.75.75 0 0 1 .834.656 5.5 5.5 0 0 0 9.592 2.97l-1.204-1.204a.25.25 0 0 1 .177-.427h3.646a.25.25 0 0 1 .25.25v3.646a.25.25 0 0 1-.427.177l-1.38-1.38A7.002 7.002 0 0 1 1.05 8.84a.75.75 0 0 1 .656-.834ZM8 2.5a5.487 5.487 0 0 0-4.131 1.869l1.204 1.204A.25.25 0 0 1 4.896 6H1.25A.25.25 0 0 1 1 5.75V2.104a.25.25 0 0 1 .427-.177l1.38 1.38A7.002 7.002 0 0 1 14.95 7.16a.75.75 0 0 1-1.49.178A5.5 5.5 0 0 0 8 2.5Z"/></svg>
+        <div class="index-update-dialog"
+             role="dialog"
+             aria-modal="true"
+             aria-labelledby="index-update-title"
+             @onclick:stopPropagation="true">
+            <div class="index-update-head">
                 @* I-01 ダイアログタイトル *@
-                <h2 class="index-update-title">@UserMessages.IndexUpdateDialogTitle</h2>
-                <button type="button" class="index-update-close" @onclick="OnCancel" aria-label="@UserMessages.CloseDialog">
-                    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l3.22 3.22a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-3.22 3.22a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/></svg>
+                <h2 id="index-update-title" class="index-update-head__title">@UserMessages.IndexUpdateDialogTitle</h2>
+                <button type="button" class="index-update-dismiss" @onclick="OnCancel" aria-label="@UserMessages.CloseDialog">
+                    <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l3.22 3.22a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-3.22 3.22a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/></svg>
                 </button>
             </div>
+
             <div class="index-update-body">
-                <p class="index-update-desc">@UserMessages.IndexUpdateDialogDescription</p>
-                <div class="index-update-options">
-                    @* I-02 差分更新（更新方式選択肢） *@
-                    <button type="button" class="index-update-option @(!FullRebuildSelected ? "selected" : "")" @onclick="() => SelectMode(false)">
-                        <span class="index-update-option-title">@UserMessages.IndexUpdateDiffTitle</span>
-                        <span class="index-update-option-desc">@UserMessages.IndexUpdateDiffDescription</span>
+                <p class="index-update-lead">@UserMessages.IndexUpdateDialogDescription</p>
+                <div class="index-update-modes"
+                     role="radiogroup"
+                     aria-label="@UserMessages.IndexUpdateDialogDescription">
+                    @* I-02 差分更新 *@
+                    <button type="button"
+                            role="radio"
+                            aria-checked="@(!FullRebuildSelected)"
+                            class="index-update-mode @(!FullRebuildSelected ? "is-selected" : null)"
+                            @onclick="() => SelectMode(false)">
+                        <span class="index-update-mode__icon" aria-hidden="true">
+                            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M1.705 8.005a.75.75 0 0 1 .834.656 5.5 5.5 0 0 0 9.592 2.97l-1.204-1.204a.25.25 0 0 1 .177-.427h3.646a.25.25 0 0 1 .25.25v3.646a.25.25 0 0 1-.427.177l-1.38-1.38A7.002 7.002 0 0 1 1.05 8.84a.75.75 0 0 1 .656-.834ZM8 2.5a5.487 5.487 0 0 0-4.131 1.869l1.204 1.204A.25.25 0 0 1 4.896 6H1.25A1.75 1.75 0 0 1 1 5.75V2.104a.25.25 0 0 1 .427-.177l1.38 1.38A7.002 7.002 0 0 1 14.95 7.16a.75.75 0 0 1-1.49.178A5.5 5.5 0 0 0 8 2.5Z"/></svg>
+                        </span>
+                        <span class="index-update-mode__title">@UserMessages.IndexUpdateDiffTitle</span>
+                        <span class="index-update-mode__desc">@UserMessages.IndexUpdateDiffDescription</span>
                     </button>
-                    @* I-03 全体を再構築（更新方式選択肢） *@
-                    <button type="button" class="index-update-option @(FullRebuildSelected ? "selected" : "")" @onclick="() => SelectMode(true)">
-                        <span class="index-update-option-title">@UserMessages.IndexUpdateFullRebuildTitle</span>
-                        <span class="index-update-option-desc">@UserMessages.IndexUpdateFullRebuildDescription</span>
+                    @* I-03 全体を再構築 *@
+                    <button type="button"
+                            role="radio"
+                            aria-checked="@FullRebuildSelected"
+                            class="index-update-mode @(FullRebuildSelected ? "is-selected" : null)"
+                            @onclick="() => SelectMode(true)">
+                        <span class="index-update-mode__icon" aria-hidden="true">
+                            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M1.75 1A1.75 1.75 0 0 0 0 2.75v10.5C0 14.216.784 15 1.75 15h12.5A1.75 1.75 0 0 0 16 13.25v-8.5A1.75 1.75 0 0 0 14.25 3H7.5a.25.25 0 0 1-.2-.1l-.9-1.2C6.07 1.26 5.55 1 5 1H1.75Z"/></svg>
+                        </span>
+                        <span class="index-update-mode__title">@UserMessages.IndexUpdateFullRebuildTitle</span>
+                        <span class="index-update-mode__desc">@UserMessages.IndexUpdateFullRebuildDescription</span>
                     </button>
                 </div>
             </div>
-            <div class="index-update-footer">
-                @* I-05 キャンセル（未実行時はダイアログを閉じる） *@
-                <button type="button" class="action-btn" @onclick="OnCancel">@UserMessages.Cancel</button>
-                @* I-04 実行（選択された更新方式でインデックス更新を開始） *@
-                <button type="button" class="action-btn" @onclick="OnConfirm">@UserMessages.Execute</button>
+
+            <div class="index-update-foot">
+                @* I-05 キャンセル *@
+                <button type="button" class="index-update-btn index-update-btn--ghost" @onclick="OnCancel">@UserMessages.Cancel</button>
+                @* I-04 実行 *@
+                <button type="button" class="index-update-btn index-update-btn--primary" @onclick="OnConfirm">@UserMessages.Execute</button>
             </div>
         </div>
     </div>
 }
 
 @code {
-    /// <summary>モーダル表示中か。</summary>
     [Parameter] public bool Visible { get; set; }
-    /// <summary>全体再構築が選択されているか（差分更新と排他）。</summary>
     [Parameter] public bool FullRebuildSelected { get; set; }
-    /// <summary>モード選択の双方向バインド用。</summary>
     [Parameter] public EventCallback<bool> FullRebuildSelectedChanged { get; set; }
-    /// <summary>実行（選択モードでインデックス処理開始）。</summary>
     [Parameter] public EventCallback OnConfirm { get; set; }
-    /// <summary>キャンセル（×・「キャンセル」ボタン）。背面クリックでは発火しない。</summary>
     [Parameter] public EventCallback OnCancel { get; set; }
 
-    /// <summary>差分 / 全体再構築のボタンから親に変更を通知する。</summary>
     private async Task SelectMode(bool fullRebuild)
-    {
-        await FullRebuildSelectedChanged.InvokeAsync(fullRebuild);
-    }
+        => await FullRebuildSelectedChanged.InvokeAsync(fullRebuild);
 }
