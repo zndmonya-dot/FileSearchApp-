@@ -1,0 +1,9 @@
+# SVN の svn:ignore（リポジトリルートに適用）
+# 例: svn propset svn:ignore -F svn-ignore.txt .
+
+bin
+obj
+[Bb]uild
+[Oo]ut
+.vs
+tools\sudachi\resources\system_core.dic

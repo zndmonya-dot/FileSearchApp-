@@ -56,5 +56,9 @@ native/sudachi-ffi/target/
 native/sudachi-ffi/target*/
 tools/sudachi/resources/system_core.dic
 
+# SVN 配布用エクスポート（リポジトリ直下のみ Git 管理対象外）
+/svn/
+svn.zip
+
 # ローカル Lucene インデックス（開発・再構築で生成。コミットしない）
 /index/

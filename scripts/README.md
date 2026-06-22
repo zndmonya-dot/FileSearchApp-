@@ -8,6 +8,7 @@
 | `build-dist.ps1` | スタンドアロン exe の publish と ZIP 作成 | `pwsh -File scripts/build-dist.ps1` |
 | `build-dist.bat` | 上記のラッパー（cmd 用） | `scripts\build-dist.bat` |
 | `check-webview-strings.ps1` | `index.html` と `UserMessages` の文言一致検査 | `pwsh -File scripts/check-webview-strings.ps1` |
+| `sync-svn-export.ps1` | SVN 配布用の最小ソースを `svn\` に生成（`FILE_LIST.md` を毎回更新） | `pwsh -File scripts/sync-svn-export.ps1` |
 | `create-cert-for-msix.ps1` | MSIX 署名用証明書の新規作成 | `.\scripts\create-cert-for-msix.ps1` |
 | `export-cert-pfx-cer.ps1` | 既存証明書の PFX / CER エクスポート | `.\scripts\export-cert-pfx-cer.ps1 -Thumbprint <拇印>` |
 
